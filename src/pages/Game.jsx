@@ -18,6 +18,8 @@ function Game() {
     const [showWitchModal, setShowWitchModal] = useState(false)
     const [witchAction, setWitchAction] = useState(null) // 'heal' ou 'poison'
     const [timeRemaining, setTimeRemaining] = useState(60) // Timer de phase
+    const [killedTonight, setKilledTonight] = useState(null) // Victime de la nuit (pour sorcière)
+    const [voteProgress, setVoteProgress] = useState({ voted: 0, total: 0 }) // Compteur de votes
 
     useEffect(() => {
         const newSocket = io(config.serverUrl)
@@ -53,6 +55,12 @@ function Game() {
             setPhase(data.phase)
             setNightNumber(data.nightNumber)
             setPlayers(data.players)
+            if (data.phaseTimeRemaining) {
+                setTimeRemaining(data.phaseTimeRemaining)
+            }
+            if (data.killedTonight) {
+                setKilledTonight(data.killedTonight)
+            }
         })
 
         // Phase de nuit
@@ -61,6 +69,9 @@ function Game() {
             setPhase('night')
             setNightNumber(data.nightNumber)
             setPlayers(data.players)
+            if (data.killedTonight) {
+                setKilledTonight(data.killedTonight)
+            }
         })
 
         // Phase de jour
@@ -77,6 +88,12 @@ function Game() {
         newSocket.on('votePhase', (data) => {
             setPhase('vote')
             setPlayers(data.players)
+            setVoteProgress({ voted: 0, total: data.players.filter(p => p.alive).length })
+        })
+
+        // Progression des votes
+        newSocket.on('voteProgress', (data) => {
+            setVoteProgress({ voted: data.voted, total: data.total })
         })
 
         // Fin de partie
@@ -275,8 +292,8 @@ function Game() {
                                 <div className="w-full bg-night-900 rounded-full h-3 overflow-hidden">
                                     <div
                                         className={`h-full transition-all duration-1000 ${timeRemaining > 30 ? 'bg-green-500' :
-                                                timeRemaining > 10 ? 'bg-yellow-500' :
-                                                    'bg-red-500'
+                                            timeRemaining > 10 ? 'bg-yellow-500' :
+                                                'bg-red-500'
                                             }`}
                                         style={{ width: `${(timeRemaining / 60) * 100}%` }}
                                     />
@@ -286,15 +303,25 @@ function Game() {
 
                         {/* Grille de joueurs */}
                         <div className="card">
-                            <h3 className="text-xl font-bold mb-4">
-                                👥 Joueurs {
-                                    phase === 'night' && ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon'].includes(myRole)
-                                        ? '(Cliquez pour agir)'
-                                        : phase === 'vote'
-                                            ? '(Cliquez pour voter)'
-                                            : ''
-                                }
-                            </h3>
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-xl font-bold">
+                                    👥 Joueurs {
+                                        phase === 'night' && ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon'].includes(myRole)
+                                            ? '(Cliquez pour agir)'
+                                            : phase === 'vote'
+                                                ? '(Cliquez pour voter)'
+                                                : ''
+                                    }
+                                </h3>
+                                {/* Compteur de votes */}
+                                {phase === 'vote' && voteProgress.total > 0 && (
+                                    <div className="bg-blood-900/30 border-2 border-blood-600 rounded-lg px-3 py-1">
+                                        <span className="text-blood-400 font-bold text-sm">
+                                            ⚖️ {voteProgress.voted}/{voteProgress.total} votes
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                 {players.map((player) => {
                                     // Déterminer si ce joueur peut être cliqué
@@ -373,7 +400,17 @@ function Game() {
 
                         {/* Chat */}
                         <div className="card h-96 flex flex-col">
-                            <h3 className="text-lg font-bold mb-3">💬 Chat</h3>
+                            <div className="flex justify-between items-center mb-3">
+                                <h3 className="text-lg font-bold">💬 Chat</h3>
+                                {/* Badge chat loups */}
+                                {phase === 'night' && myRole === 'loup' && (
+                                    <div className="bg-blood-900/30 border border-blood-600 rounded-lg px-2 py-1">
+                                        <span className="text-blood-400 text-xs font-bold">
+                                            🐺 Loups uniquement
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
 
                             {/* Message de restriction */}
                             {phase === 'night' && myRole !== 'loup' && (
@@ -427,6 +464,15 @@ function Game() {
                     <div className="bg-night-800 rounded-2xl p-6 max-w-md w-full border-2 border-blood-600 shadow-neon-red">
                         <h2 className="text-2xl font-bold text-blood mb-4">🧙‍♀️ Sorcière - Choisissez votre action</h2>
 
+                        {/* Info victime */}
+                        {killedTonight && (
+                            <div className="bg-red-900/30 border-2 border-red-600 rounded-lg p-3 mb-4">
+                                <p className="text-red-400 text-sm font-bold">
+                                    ⚠️ {players.find(p => p.id === killedTonight)?.name || 'Un joueur'} va mourir cette nuit
+                                </p>
+                            </div>
+                        )}
+
                         <div className="space-y-3 mb-6">
                             <button
                                 onClick={() => {
@@ -435,7 +481,7 @@ function Game() {
                                 }}
                                 className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-all"
                             >
-                                💊 Soigner (sauver la victime)
+                                💊 Soigner {killedTonight ? '(sauver la victime)' : '(aucune victime)'}
                             </button>
 
                             <button

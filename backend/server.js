@@ -358,7 +358,9 @@ io.on('connection', (socket) => {
             role: player.role,
             phase: room.phase,
             nightNumber: room.nightNumber,
-            players: room.getPlayersForClient(playerId)
+            players: room.getPlayersForClient(playerId),
+            phaseTimeRemaining: room.phaseTimeRemaining,
+            killedTonight: room.gameState.killedTonight
         });
 
         console.log(`${player.name} s'est reconnecté à la partie ${roomCode}`);
@@ -660,6 +662,7 @@ function processVotes(room) {
         setTimeout(() => {
             room.phase = 'night';
             room.nightNumber++;
+            room.gameState.killedTonight = null; // Reset pour la nouvelle nuit
 
             io.to(room.code).emit('nightPhase', {
                 nightNumber: room.nightNumber,
@@ -667,7 +670,8 @@ function processVotes(room) {
                     id: p.id,
                     name: p.name,
                     alive: p.alive
-                }))
+                })),
+                killedTonight: room.gameState.killedTonight
             });
 
             // Démarrer le timer de 60s pour la nuit
