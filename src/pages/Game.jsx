@@ -15,6 +15,9 @@ function Game() {
     const [selectedPlayer, setSelectedPlayer] = useState(null)
     const [messages, setMessages] = useState([])
     const [messageInput, setMessageInput] = useState('')
+    const [showWitchModal, setShowWitchModal] = useState(false)
+    const [witchAction, setWitchAction] = useState(null) // 'heal' ou 'poison'
+    const [timeRemaining, setTimeRemaining] = useState(60) // Timer de phase
 
     useEffect(() => {
         const newSocket = io(config.serverUrl)
@@ -82,6 +85,11 @@ function Game() {
             navigate('/')
         })
 
+        // Timer de phase
+        newSocket.on('phaseTimer', (data) => {
+            setTimeRemaining(data.timeRemaining)
+        })
+
         // Messages chat
         newSocket.on('chatMessage', (data) => {
             setMessages(prev => [...prev, data])
@@ -98,6 +106,12 @@ function Game() {
     const handleAction = () => {
         if (!selectedPlayer || !socket) return
 
+        // Si sorcière, ouvrir la modal de choix
+        if (myRole === 'sorciere') {
+            setShowWitchModal(true)
+            return
+        }
+
         // Déterminer l'action selon le rôle
         let action = 'unknown'
 
@@ -107,10 +121,6 @@ function Game() {
                 break
             case 'voyante':
                 action = 'see'
-                break
-            case 'sorciere':
-                // TODO: Demander au joueur s'il veut heal ou poison
-                action = 'heal' // Par défaut heal
                 break
             case 'livreur':
                 action = 'protect'
@@ -136,6 +146,26 @@ function Game() {
 
         setSelectedPlayer(null)
         alert(`Action ${action} enregistrée !`)
+    }
+
+    const handleWitchAction = () => {
+        if (!witchAction || !socket) return
+
+        // Si poison, on a besoin d'une cible
+        if (witchAction === 'poison' && !selectedPlayer) {
+            alert('Sélectionnez un joueur à empoisonner')
+            return
+        }
+
+        socket.emit('nightAction', {
+            action: witchAction,
+            targetId: witchAction === 'poison' ? selectedPlayer : null
+        })
+
+        setShowWitchModal(false)
+        setWitchAction(null)
+        setSelectedPlayer(null)
+        alert(`Action ${witchAction === 'heal' ? 'soigner' : 'empoisonner'} enregistrée !`)
     }
 
     const handleVote = () => {
@@ -228,11 +258,30 @@ function Game() {
                                     phase === 'day' ? '☀️ Phase de Jour' :
                                         '⚖️ Phase de Vote'}
                             </h3>
-                            <p className="text-gray-300">
+                            <p className="text-gray-300 mb-3">
                                 {phase === 'night' ? `Nuit ${nightNumber} - Les rôles spéciaux agissent...` :
                                     phase === 'day' ? 'Discutez et trouvez les loups-garous' :
                                         'Votez pour éliminer un joueur'}
                             </p>
+
+                            {/* Timer visuel */}
+                            <div className="mt-3">
+                                <div className="flex items-center justify-center gap-2 mb-2">
+                                    <span className="text-3xl">⏱️</span>
+                                    <span className={`text-4xl font-black ${timeRemaining <= 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
+                                        {timeRemaining}s
+                                    </span>
+                                </div>
+                                <div className="w-full bg-night-900 rounded-full h-3 overflow-hidden">
+                                    <div
+                                        className={`h-full transition-all duration-1000 ${timeRemaining > 30 ? 'bg-green-500' :
+                                                timeRemaining > 10 ? 'bg-yellow-500' :
+                                                    'bg-red-500'
+                                            }`}
+                                        style={{ width: `${(timeRemaining / 60) * 100}%` }}
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         {/* Grille de joueurs */}
@@ -260,12 +309,19 @@ function Game() {
                                                     setSelectedPlayer(player.id)
                                                 }
                                             }}
-                                            className={`p-4 rounded-xl text-center transition-all
+                                            className={`p-4 rounded-xl text-center transition-all relative
                                                 ${!player.alive ? 'bg-gray-900 opacity-50' : 'bg-night-800'}
                                                 ${canClick ? 'cursor-pointer hover:bg-blood-900/30' : 'cursor-default'}
                                                 ${selectedPlayer === player.id ? 'border-2 border-blood-600 shadow-neon-red' : 'border-2 border-transparent hover:border-blood-600'}
                                             `}
                                         >
+                                            {/* Badge "A agi" pour la nuit */}
+                                            {phase === 'night' && player.hasActed && (
+                                                <div className="absolute top-1 right-1 bg-green-600 text-white text-xs px-2 py-1 rounded-full font-bold">
+                                                    ✅ A agi
+                                                </div>
+                                            )}
+
                                             <div className="text-3xl mb-2">{player.alive ? '😊' : '💀'}</div>
                                             <p className="font-bold">{player.name}</p>
                                             <p className="text-sm text-gray-500">
@@ -318,6 +374,16 @@ function Game() {
                         {/* Chat */}
                         <div className="card h-96 flex flex-col">
                             <h3 className="text-lg font-bold mb-3">💬 Chat</h3>
+
+                            {/* Message de restriction */}
+                            {phase === 'night' && myRole !== 'loup' && (
+                                <div className="bg-yellow-900/30 border-2 border-yellow-600 rounded-lg p-3 mb-3">
+                                    <p className="text-yellow-400 text-sm">
+                                        🌙 Le chat est désactivé pendant la nuit (sauf pour les loups)
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="flex-1 bg-night-900 rounded-lg p-3 mb-3 overflow-y-auto">
                                 {messages.length === 0 ? (
                                     <p className="text-gray-500 text-sm italic">Aucun message</p>
@@ -333,15 +399,17 @@ function Game() {
                             <div className="flex gap-2">
                                 <input
                                     type="text"
-                                    placeholder="Écrivez un message..."
+                                    placeholder={phase === 'night' && myRole !== 'loup' ? 'Chat désactivé la nuit' : 'Écrivez un message...'}
                                     value={messageInput}
                                     onChange={(e) => setMessageInput(e.target.value)}
                                     onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                                    className="flex-1 bg-night-800 border-2 border-night-600 focus:border-blood-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 transition-all outline-none"
+                                    disabled={phase === 'night' && myRole !== 'loup'}
+                                    className="flex-1 bg-night-800 border-2 border-night-600 focus:border-blood-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
                                 <button
                                     onClick={sendMessage}
-                                    className="bg-blood-600 hover:bg-blood-700 px-4 rounded-lg transition-all"
+                                    disabled={phase === 'night' && myRole !== 'loup'}
+                                    className="bg-blood-600 hover:bg-blood-700 px-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     📤
                                 </button>
@@ -352,6 +420,58 @@ function Game() {
                 </div>
 
             </div>
+
+            {/* Modal Sorcière */}
+            {showWitchModal && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                    <div className="bg-night-800 rounded-2xl p-6 max-w-md w-full border-2 border-blood-600 shadow-neon-red">
+                        <h2 className="text-2xl font-bold text-blood mb-4">🧙‍♀️ Sorcière - Choisissez votre action</h2>
+
+                        <div className="space-y-3 mb-6">
+                            <button
+                                onClick={() => {
+                                    setWitchAction('heal')
+                                    handleWitchAction()
+                                }}
+                                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-all"
+                            >
+                                💊 Soigner (sauver la victime)
+                            </button>
+
+                            <button
+                                onClick={() => setWitchAction('poison')}
+                                disabled={!selectedPlayer}
+                                className={`w-full font-bold py-3 px-4 rounded-lg transition-all ${selectedPlayer
+                                    ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                                    : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                                    }`}
+                            >
+                                ☠️ Empoisonner {selectedPlayer ? '(joueur sélectionné)' : '(sélectionnez un joueur)'}
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    setShowWitchModal(false)
+                                    setWitchAction(null)
+                                    setSelectedPlayer(null)
+                                }}
+                                className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-all"
+                            >
+                                🚫 Ne rien faire
+                            </button>
+                        </div>
+
+                        {witchAction === 'poison' && selectedPlayer && (
+                            <button
+                                onClick={handleWitchAction}
+                                className="w-full bg-blood-600 hover:bg-blood-700 text-white font-bold py-3 px-4 rounded-lg transition-all"
+                            >
+                                ✅ Confirmer l'empoisonnement
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

@@ -50,6 +50,8 @@ class GameRoom {
         this.phase = 'lobby'; // lobby, night, day, vote
         this.nightNumber = 1;
         this.currentPlayerTurn = null;
+        this.phaseTimer = null; // Timer pour progression automatique
+        this.phaseTimeRemaining = 60; // Temps restant en secondes
         this.customRoles = []; // Rôles personnalisés choisis par l'hôte
         this.gameState = {
             deadPlayers: [],
@@ -176,13 +178,19 @@ class GameRoom {
     }
 
     getPlayersForClient(requesterId) {
+        // Vérifier qui a déjà agi cette nuit
+        const hasActed = this.gameState && this.gameState.nightActions
+            ? Object.keys(this.gameState.nightActions)
+            : [];
+
         return Array.from(this.players.values()).map(p => ({
             id: p.id,
             name: p.name,
             isHost: p.isHost,
             ready: p.ready,
             alive: p.alive,
-            role: p.id === requesterId ? p.role : null // Seulement son propre rôle
+            role: p.id === requesterId ? p.role : null, // Seulement son propre rôle
+            hasActed: hasActed.includes(p.id) // Indicateur d'action nocturne
         }));
     }
 }
@@ -317,6 +325,9 @@ io.on('connection', (socket) => {
             });
         }
 
+        // Démarrer le timer de la première nuit (60s)
+        startPhaseTimer(room, 60);
+
         console.log(`Partie démarrée dans la salle ${socket.roomCode}`);
     });
 
@@ -415,13 +426,40 @@ io.on('connection', (socket) => {
         const player = room.players.get(socket.playerId);
         if (!player) return;
 
-        // Broadcast le message à toute la salle
-        io.to(socket.roomCode).emit('chatMessage', {
-            playerId: player.id,
-            playerName: player.name,
-            message: data.message,
-            timestamp: Date.now()
-        });
+        // Vérifier si le chat est autorisé
+        if (room.phase === 'night' && player.role !== 'loup') {
+            socket.emit('error', {
+                message: 'Le chat est désactivé pendant la nuit (sauf pour les loups)'
+            });
+            return;
+        }
+
+        // Broadcast le message à toute la salle (ou seulement aux loups si nuit)
+        const targetRoom = room.phase === 'night' && player.role === 'loup'
+            ? Array.from(room.players.values())
+                .filter(p => p.role === 'loup')
+                .map(p => p.socketId)
+            : socket.roomCode;
+
+        if (Array.isArray(targetRoom)) {
+            // Envoyer aux loups uniquement
+            targetRoom.forEach(socketId => {
+                io.to(socketId).emit('chatMessage', {
+                    playerId: player.id,
+                    playerName: player.name,
+                    message: data.message,
+                    timestamp: Date.now()
+                });
+            });
+        } else {
+            // Broadcast à toute la salle
+            io.to(targetRoom).emit('chatMessage', {
+                playerId: player.id,
+                playerName: player.name,
+                message: data.message,
+                timestamp: Date.now()
+            });
+        }
     });
 
     // Déconnexion
@@ -447,6 +485,49 @@ io.on('connection', (socket) => {
         }
     });
 });
+
+// Démarrer le timer pour une phase
+function startPhaseTimer(room, phaseDuration = 60) {
+    // Nettoyer l'ancien timer s'il existe
+    if (room.phaseTimer) {
+        clearInterval(room.phaseTimer);
+    }
+
+    room.phaseTimeRemaining = phaseDuration;
+
+    // Broadcast le temps restant toutes les secondes
+    room.phaseTimer = setInterval(() => {
+        room.phaseTimeRemaining--;
+
+        // Envoyer le temps à tous les joueurs
+        io.to(room.code).emit('phaseTimer', {
+            timeRemaining: room.phaseTimeRemaining
+        });
+
+        // Quand le timer atteint 0, passer à la phase suivante
+        if (room.phaseTimeRemaining <= 0) {
+            clearInterval(room.phaseTimer);
+
+            if (room.phase === 'night') {
+                processNightActions(room);
+            } else if (room.phase === 'day') {
+                // Passer au vote
+                room.phase = 'vote';
+                room.phaseTimeRemaining = 30; // 30s pour voter
+                io.to(room.code).emit('votePhase', {
+                    players: Array.from(room.players.values()).map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        alive: p.alive
+                    }))
+                });
+                startPhaseTimer(room, 30);
+            } else if (room.phase === 'vote') {
+                processVotes(room);
+            }
+        }
+    }, 1000);
+}
 
 // Traiter les actions de nuit
 function processNightActions(room) {
@@ -521,6 +602,9 @@ function processNightActions(room) {
             alive: p.alive
         }))
     });
+
+    // Démarrer le timer du jour (60s)
+    startPhaseTimer(room, 60);
 }
 
 // Traiter les votes
@@ -585,6 +669,9 @@ function processVotes(room) {
                     alive: p.alive
                 }))
             });
+
+            // Démarrer le timer de 60s pour la nuit
+            startPhaseTimer(room, 60);
         }, 5000);
     }
 }
