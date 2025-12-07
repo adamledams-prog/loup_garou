@@ -135,6 +135,20 @@ function Game() {
         // Erreurs
         newSocket.on('error', (data) => {
             console.error('❌ Erreur:', data.message)
+
+            // Si partie introuvable ou joueur introuvable, rediriger vers lobby
+            if (data.message.includes('introuvable')) {
+                alert(`❌ ${data.message}\n\nVous allez être redirigé vers le lobby.`)
+                // Nettoyer le localStorage
+                localStorage.removeItem('playerId')
+                localStorage.removeItem('roomCode')
+                // Rediriger après 2s
+                setTimeout(() => {
+                    navigate('/lobby')
+                }, 2000)
+                return
+            }
+
             setError(data.message)
             setTimeout(() => setError(null), 5000) // Effacer après 5s
         })

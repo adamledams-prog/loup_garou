@@ -46,9 +46,77 @@ app.get('/', (req, res) => {
     });
 });
 
+// Route pour vérifier si une salle existe
+app.get('/api/room/:code', (req, res) => {
+    const { code } = req.params;
+    const room = rooms.get(code.toUpperCase());
+
+    if (!room) {
+        return res.status(404).json({
+            exists: false,
+            message: 'Salle introuvable'
+        });
+    }
+
+    res.json({
+        exists: true,
+        code: room.code,
+        playerCount: room.players.size,
+        gameStarted: room.gameStarted,
+        phase: room.phase
+    });
+});
+
+// Route pour lister toutes les salles actives (debug)
+app.get('/api/rooms', (req, res) => {
+    const roomsList = Array.from(rooms.values()).map(room => ({
+        code: room.code,
+        players: room.players.size,
+        gameStarted: room.gameStarted,
+        phase: room.phase
+    }));
+
+    res.json({
+        total: rooms.size,
+        rooms: roomsList
+    });
+});
+
 
 // Structure des salles de jeu
 const rooms = new Map();
+
+// Nettoyage automatique des salles inactives toutes les 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    let cleaned = 0;
+
+    for (const [code, room] of rooms.entries()) {
+        // Supprimer si tous déconnectés depuis plus de 10 min
+        const allDisconnected = Array.from(room.players.values()).every(p => p.socketId === null);
+
+        if (allDisconnected) {
+            // Vérifier depuis combien de temps
+            if (!room.lastActivity) {
+                room.lastActivity = now;
+            }
+
+            const inactiveTime = now - room.lastActivity;
+            if (inactiveTime > 10 * 60 * 1000) { // 10 minutes
+                rooms.delete(code);
+                cleaned++;
+                console.log(`🗑️ Salle ${code} supprimée (inactivité)`);
+            }
+        } else {
+            // Réinitialiser lastActivity si quelqu'un est connecté
+            room.lastActivity = now;
+        }
+    }
+
+    if (cleaned > 0) {
+        console.log(`🧹 Nettoyage: ${cleaned} salle(s) supprimée(s). Total: ${rooms.size}`);
+    }
+}, 5 * 60 * 1000); // Toutes les 5 minutes
 
 // Classe pour gérer une salle
 class GameRoom {
@@ -72,6 +140,7 @@ class GameRoom {
         this.phaseTimer = null; // Timer pour progression automatique
         this.phaseTimeRemaining = 60; // Temps restant en secondes
         this.customRoles = []; // Rôles personnalisés choisis par l'hôte
+        this.lastActivity = Date.now(); // Pour nettoyage automatique
         this.gameState = {
             deadPlayers: [],
             killedTonight: null,
@@ -628,19 +697,11 @@ io.on('connection', (socket) => {
                         console.log(`⚠️ ${player.name} déconnecté de ${socket.roomCode} (peut se reconnecter)`);
                     }
 
-                    // Si tous les joueurs sont déconnectés, supprimer la salle après 5 min
+                    // Mettre à jour lastActivity pour le nettoyage automatique
                     const allDisconnected = Array.from(room.players.values()).every(p => p.socketId === null);
                     if (allDisconnected) {
-                        setTimeout(() => {
-                            const currentRoom = rooms.get(socket.roomCode);
-                            if (currentRoom) {
-                                const stillAllDisconnected = Array.from(currentRoom.players.values()).every(p => p.socketId === null);
-                                if (stillAllDisconnected) {
-                                    rooms.delete(socket.roomCode);
-                                    console.log(`🗑️ Salle ${socket.roomCode} supprimée (inactivité)`);
-                                }
-                            }
-                        }, 5 * 60 * 1000); // 5 minutes
+                        room.lastActivity = Date.now();
+                        console.log(`⏰ Tous déconnectés de ${socket.roomCode}, timer inactivité démarré`);
                     }
                 }
             }
