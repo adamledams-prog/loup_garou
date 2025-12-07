@@ -2,7 +2,9 @@
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["npm install --omit=dev express socket.io uuid"]
+cmds = [
+  "npm install --no-package-lock --no-save express@5.2.1 socket.io@4.8.1 uuid@11.0.5"
+]
 
 [start]
 cmd = "node server.js"
