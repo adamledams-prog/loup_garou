@@ -6,7 +6,18 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIo(server, {
+    cors: {
+        origin: [
+            'http://localhost:5173',
+            'http://localhost:3000',
+            'https://loup-garou-38saxttvx-boulahias-projects-9f2abc0a.vercel.app',
+            /https:\/\/loup-garou-.*\.vercel\.app$/
+        ],
+        methods: ['GET', 'POST'],
+        credentials: true
+    }
+});
 
 // Servir les fichiers statiques
 app.use(express.static(__dirname));
