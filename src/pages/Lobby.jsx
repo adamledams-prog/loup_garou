@@ -17,6 +17,33 @@ function Lobby() {
         const newSocket = io(config.serverUrl)
         setSocket(newSocket)
 
+        // Écouter la création de salle
+        newSocket.on('roomCreated', (data) => {
+            console.log('Salle créée:', data)
+            setRoomCode(data.roomCode)
+            setPlayers(data.players)
+            setView('waiting')
+        })
+
+        // Écouter le join de salle
+        newSocket.on('roomJoined', (data) => {
+            console.log('Salle rejointe:', data)
+            setRoomCode(data.roomCode)
+            setPlayers(data.players)
+            setView('waiting')
+        })
+
+        // Écouter les nouveaux joueurs
+        newSocket.on('playerJoined', (data) => {
+            console.log('Nouveau joueur:', data)
+            setPlayers(data.players)
+        })
+
+        // Écouter les erreurs
+        newSocket.on('error', (data) => {
+            alert(data.message)
+        })
+
         return () => newSocket.close()
     }, [])
 
@@ -53,9 +80,8 @@ function Lobby() {
                             <button
                                 className="btn-primary w-full"
                                 onClick={() => {
-                                    if (playerName.trim()) {
-                                        // TODO: Créer la salle
-                                        setView('waiting')
+                                    if (playerName.trim() && socket) {
+                                        socket.emit('createRoom', { playerName })
                                     }
                                 }}
                             >
@@ -83,9 +109,8 @@ function Lobby() {
                             <button
                                 className="btn-secondary w-full"
                                 onClick={() => {
-                                    if (playerName.trim() && roomCode.trim()) {
-                                        // TODO: Rejoindre la salle
-                                        setView('waiting')
+                                    if (playerName.trim() && roomCode.trim() && socket) {
+                                        socket.emit('joinRoom', { roomCode, playerName })
                                     }
                                 }}
                             >
@@ -101,7 +126,7 @@ function Lobby() {
                         <div className="card-glow text-center">
                             <p className="text-gray-400 mb-2">Code de la salle</p>
                             <div className="text-5xl font-black tracking-widest text-blood mb-4">
-                                ABC123
+                                {roomCode || 'ABC123'}
                             </div>
                             <p className="text-sm text-gray-500">Partagez ce code avec vos amis</p>
                         </div>
@@ -111,24 +136,48 @@ function Lobby() {
                                 👥 Joueurs ({players.length}/10)
                             </h3>
                             <div className="space-y-2">
-                                {/* TODO: Liste des joueurs */}
-                                <div className="bg-night-800 p-3 rounded-lg flex justify-between items-center">
-                                    <span className="font-bold">Vous (Hôte)</span>
-                                    <span className="text-yellow-500">👑</span>
-                                </div>
+                                {players.map((player, index) => (
+                                    <div key={player.id} className="bg-night-800 p-3 rounded-lg flex justify-between items-center">
+                                        <span className="font-bold">
+                                            {player.name} {player.isHost && '(Hôte)'}
+                                        </span>
+                                        <span className={player.ready ? 'text-green-500' : 'text-gray-500'}>
+                                            {player.isHost ? '👑' : player.ready ? '✅' : '⏳'}
+                                        </span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
                         <div className="flex gap-4">
-                            <button className="btn-secondary flex-1">
+                            <button
+                                className="btn-secondary flex-1"
+                                onClick={() => {
+                                    if (socket) socket.close()
+                                    navigate('/')
+                                }}
+                            >
                                 ❌ Quitter
                             </button>
-                            <button className="btn-primary flex-1">
-                                ✅ Prêt !
+                            <button
+                                className="btn-primary flex-1"
+                                onClick={() => {
+                                    if (socket) {
+                                        socket.emit('toggleReady')
+                                        setIsReady(!isReady)
+                                    }
+                                }}
+                            >
+                                {isReady ? '✅ Prêt !' : '⏳ Pas prêt'}
                             </button>
                         </div>
 
-                        <button className="btn-primary w-full text-xl py-4">
+                        <button
+                            className="btn-primary w-full text-xl py-4"
+                            onClick={() => {
+                                if (socket) socket.emit('startGame')
+                            }}
+                        >
                             🎮 LANCER LA PARTIE
                         </button>
                     </div>
