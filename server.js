@@ -43,8 +43,8 @@ class GameRoom {
             killedTonight: null,
             witchHealUsed: false,
             witchPoisonUsed: false,
-            shieldUsed: false,
             voyanteSeen: false,
+            livreurProtection: null, // Qui est protégé par le livreur cette nuit
             votes: {},
             nightActions: {}
         };
@@ -120,8 +120,8 @@ class GameRoom {
         // Rôles spéciaux selon le nombre de joueurs
         if (playerCount >= 4) roles.push('voyante');
         if (playerCount >= 5) roles.push('sorciere');
-        if (playerCount >= 6) roles.push('bouclier');
-        if (playerCount >= 7) roles.push('renvoyeur');
+        if (playerCount >= 6) roles.push('riche');
+        if (playerCount >= 7) roles.push('livreur');
         if (playerCount >= 8) roles.push('loup'); // 2ème loup
         if (playerCount >= 9) roles.push('chasseur');
         if (playerCount >= 10) roles.push('cupidon');
@@ -381,19 +381,29 @@ function processNightActions(room) {
     const actions = room.gameState.nightActions;
     let killedPlayers = [];
 
+    // D'abord, traiter le livreur de pizza (protection)
+    for (const [playerId, action] of Object.entries(actions)) {
+        const player = room.players.get(playerId);
+        
+        if (player.role === 'livreur' && action.action === 'protect') {
+            room.gameState.livreurProtection = action.targetId;
+        }
+    }
+
     // Traiter les actions dans l'ordre: loup -> sorcière -> autres
     for (const [playerId, action] of Object.entries(actions)) {
         const player = room.players.get(playerId);
         
         if (player.role === 'loup' && action.action === 'kill') {
-            const target = room.players.get(action.targetId);
+            const targetId = action.targetId;
             
-            // Vérifier le bouclier
-            if (target.role === 'bouclier' && !room.gameState.shieldUsed) {
-                room.gameState.shieldUsed = true;
+            // Vérifier si protégé par le livreur
+            if (targetId === room.gameState.livreurProtection) {
+                // Protégé par la pizza ! Ne meurt pas
+                room.gameState.livreurProtection = null;
             } else {
-                killedPlayers.push(action.targetId);
-                room.gameState.killedTonight = action.targetId;
+                killedPlayers.push(targetId);
+                room.gameState.killedTonight = targetId;
             }
         }
     }
@@ -434,46 +444,42 @@ function processNightActions(room) {
             name: room.players.get(id).name
         })),
         players: Array.from(room.players.values()).map(p => ({
-            id: p.id,
-            name: p.name,
-            alive: p.alive
-        }))
-    });
-
-    // Vérifier les conditions de victoire
-    checkWinCondition(room);
-}
-
 // Traiter les votes
 function processVotes(room) {
     const votes = room.gameState.votes;
     const voteCounts = {};
 
-    // Compter les votes
-    for (const targetId of Object.values(votes)) {
-        voteCounts[targetId] = (voteCounts[targetId] || 0) + 1;
-    }
-
-    // Trouver le joueur le plus voté
-    let maxVotes = 0;
-    let eliminatedId = null;
-
-    for (const [playerId, count] of Object.entries(voteCounts)) {
-        if (count > maxVotes) {
-            maxVotes = count;
-            eliminatedId = playerId;
+    // Compter les votes (avec bonus pour le Riche)
+    for (const [voterId, targetId] of Object.entries(votes)) {
+        const voter = room.players.get(voterId);
+        
+        // Le Riche vote compte double
+        if (voter && voter.role === 'riche') {
+            voteCounts[targetId] = (voteCounts[targetId] || 0) + 2;
+        } else {
+            voteCounts[targetId] = (voteCounts[targetId] || 0) + 1;
         }
     }
 
+// Traiter les votes
+function processVotes(room) {
+    const votes = room.gameState.votes;
+    const voteCounts = {};
     if (eliminatedId) {
         const player = room.players.get(eliminatedId);
         
-        // Vérifier le bouclier
-        if (player.role === 'bouclier' && !room.gameState.shieldUsed) {
-            room.gameState.shieldUsed = true;
-            
-            io.to(room.code).emit('voteResult', {
-                eliminated: null,
+        player.alive = false;
+        room.gameState.deadPlayers.push(eliminatedId);
+
+        io.to(room.code).emit('voteResult', {
+            eliminated: {
+                id: eliminatedId,
+                name: player.name,
+                role: player.role
+            },
+            votes: voteCounts
+        });
+    }           eliminated: null,
                 shieldUsed: true,
                 playerName: player.name
             });

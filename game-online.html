@@ -326,8 +326,8 @@
                 'loup': { icon: '🐺', name: 'LOUP-GAROU', class: 'loup' },
                 'voyante': { icon: '🔮', name: 'VOYANTE', class: '' },
                 'sorciere': { icon: '🧙‍♀️', name: 'SORCIÈRE', class: '' },
-                'bouclier': { icon: '🛡️', name: 'BOUCLIER', class: '' },
-                'renvoyeur': { icon: '↩️', name: 'RENVOYEUR', class: '' },
+                'riche': { icon: '💰', name: 'LE RICHE', class: '' },
+                'livreur': { icon: '🍕', name: 'LIVREUR DE PIZZA', class: '' },
                 'villageois': { icon: '👨', name: 'VILLAGEOIS', class: '' },
                 'chasseur': { icon: '🎯', name: 'CHASSEUR', class: '' },
                 'cupidon': { icon: '💘', name: 'CUPIDON', class: '' }
@@ -590,13 +590,6 @@
                         </div>
                     </div>
                 `;
-            } else if (data.shieldUsed) {
-                content.innerHTML = `
-                    <div class="death-announcement" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
-                        <div style="font-size: 2em; margin-bottom: 10px;">🛡️</div>
-                        <div><strong>${data.playerName}</strong> a survécu grâce au BOUCLIER !</div>
-                    </div>
-                `;
             }
         });
 
@@ -641,8 +634,8 @@
                 'loup': '🐺 LOUP-GAROU',
                 'voyante': '🔮 VOYANTE',
                 'sorciere': '🧙‍♀️ SORCIÈRE',
-                'bouclier': '🛡️ BOUCLIER',
-                'renvoyeur': '↩️ RENVOYEUR',
+                'riche': '💰 LE RICHE',
+                'livreur': '🍕 LIVREUR DE PIZZA',
                 'villageois': '👨 VILLAGEOIS',
                 'chasseur': '🎯 CHASSEUR',
                 'cupidon': '💘 CUPIDON'
