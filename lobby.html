@@ -268,8 +268,49 @@
     <script>
         // Vérifier que nous sommes sur le serveur
         if (window.location.protocol === 'file:') {
-            alert('⚠️ Veuillez ouvrir ce fichier via le serveur !\n\nOuvrez: http://localhost:3000/lobby.html');
-            document.body.innerHTML = '<div style="text-align: center; padding: 50px; font-family: Arial;"><h1>⚠️ Erreur</h1><p style="font-size: 1.2em;">Veuillez démarrer le serveur et ouvrir :</p><p style="background: #f39c12; color: white; padding: 20px; border-radius: 10px; font-size: 1.5em; margin: 20px;">http://localhost:3000/lobby.html</p></div>';
+            document.body.innerHTML = `
+                <div style="
+                    text-align: center; 
+                    padding: 50px; 
+                    font-family: Arial, sans-serif;
+                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+                    min-height: 100vh;
+                    color: white;
+                ">
+                    <div style="
+                        background: white;
+                        color: #2c3e50;
+                        padding: 40px;
+                        border-radius: 20px;
+                        max-width: 600px;
+                        margin: 0 auto;
+                        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                    ">
+                        <h1 style="color: #e74c3c; font-size: 3em; margin-bottom: 20px;">⚠️</h1>
+                        <h2 style="color: #2c3e50; margin-bottom: 20px;">Erreur Socket.io</h2>
+                        <p style="font-size: 1.2em; margin-bottom: 30px; line-height: 1.6;">
+                            Vous avez ouvert le fichier directement !<br>
+                            Le mode multijoueur nécessite un serveur.
+                        </p>
+                        
+                        <div style="background: #f39c12; color: white; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                            <h3 style="margin-bottom: 15px;">✅ Solution :</h3>
+                            <ol style="text-align: left; padding-left: 40px; line-height: 2;">
+                                <li>Double-cliquez sur <strong>start.bat</strong></li>
+                                <li>Ou tapez <code style="background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 5px;">npm start</code> dans le terminal</li>
+                                <li>Puis ouvrez : <strong>http://localhost:3000</strong></li>
+                            </ol>
+                        </div>
+                        
+                        <div style="margin-top: 30px; padding: 20px; background: #ecf0f1; border-radius: 10px;">
+                            <p style="margin: 0; font-size: 0.95em; color: #7f8c8d;">
+                                📖 Consultez <strong>GUIDE.md</strong> pour plus d'informations
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            throw new Error('Fichier ouvert directement - serveur requis');
         }
         
         const socket = io();

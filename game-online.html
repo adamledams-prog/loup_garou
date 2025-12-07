@@ -267,8 +267,41 @@
     <script>
         // Vérifier que nous sommes sur le serveur
         if (window.location.protocol === 'file:') {
-            alert('⚠️ Veuillez ouvrir ce fichier via le serveur !\n\nOuvrez: http://localhost:3000/lobby.html');
-            window.location.href = 'http://localhost:3000/lobby.html';
+            document.body.innerHTML = `
+                <div style="
+                    text-align: center; 
+                    padding: 50px; 
+                    font-family: Arial, sans-serif;
+                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+                    min-height: 100vh;
+                    color: white;
+                ">
+                    <div style="
+                        background: white;
+                        color: #2c3e50;
+                        padding: 40px;
+                        border-radius: 20px;
+                        max-width: 600px;
+                        margin: 0 auto;
+                        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                    ">
+                        <h1 style="color: #e74c3c; font-size: 3em; margin-bottom: 20px;">⚠️</h1>
+                        <h2 style="color: #2c3e50; margin-bottom: 20px;">Serveur requis</h2>
+                        <p style="font-size: 1.2em; margin-bottom: 30px; line-height: 1.6;">
+                            Cette page doit être ouverte via le serveur.
+                        </p>
+                        
+                        <div style="background: #3498db; color: white; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                            <h3 style="margin-bottom: 15px;">🔄 Redirection...</h3>
+                            <p>Vous allez être redirigé vers le lobby.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            setTimeout(() => {
+                alert('Veuillez démarrer le serveur avec "npm start" puis ouvrir http://localhost:3000');
+            }, 100);
+            throw new Error('Fichier ouvert directement - serveur requis');
         }
         
         const socket = io();
