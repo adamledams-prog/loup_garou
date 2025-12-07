@@ -189,6 +189,43 @@
             font-weight: 600;
             text-align: center;
         }
+
+        .role-checkbox {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .role-checkbox:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .role-checkbox input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        .role-checkbox input[type="checkbox"]:checked + span {
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .role-checkbox.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .role-checkbox.disabled input {
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -250,6 +287,44 @@
 
             <div class="players-list" id="playersList"></div>
 
+            <!-- Sélection des rôles -->
+            <button id="rolesBtn" class="btn-start hidden" onclick="toggleRolesSelector()" style="background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%); margin-bottom: 10px;">
+                🎭 Choisir les rôles (Optionnel)
+            </button>
+
+            <div id="rolesSelector" class="hidden" style="background: #f8f9fa; padding: 20px; border-radius: 15px; margin-bottom: 15px;">
+                <h3 style="color: #2c3e50; margin-bottom: 15px;">Sélectionnez jusqu'à 3 rôles spéciaux :</h3>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                    <label class="role-checkbox">
+                        <input type="checkbox" value="voyante" onchange="updateRoleSelection(this)">
+                        <span>🔮 Voyante</span>
+                    </label>
+                    <label class="role-checkbox">
+                        <input type="checkbox" value="sorciere" onchange="updateRoleSelection(this)">
+                        <span>🧙‍♀️ Sorcière</span>
+                    </label>
+                    <label class="role-checkbox">
+                        <input type="checkbox" value="riche" onchange="updateRoleSelection(this)">
+                        <span>💰 Le Riche</span>
+                    </label>
+                    <label class="role-checkbox">
+                        <input type="checkbox" value="livreur" onchange="updateRoleSelection(this)">
+                        <span>🍕 Livreur</span>
+                    </label>
+                    <label class="role-checkbox">
+                        <input type="checkbox" value="chasseur" onchange="updateRoleSelection(this)">
+                        <span>🎯 Chasseur</span>
+                    </label>
+                    <label class="role-checkbox">
+                        <input type="checkbox" value="cupidon" onchange="updateRoleSelection(this)">
+                        <span>💘 Cupidon</span>
+                    </label>
+                </div>
+                <p style="margin-top: 10px; color: #7f8c8d; font-size: 0.9em;">
+                    <span id="roleCount">0</span>/3 rôles sélectionnés
+                </p>
+            </div>
+
             <button id="readyBtn" class="btn-start ready-btn not-ready" onclick="toggleReady()">
                 Je suis prêt !
             </button>
@@ -276,11 +351,12 @@
                     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
                     min-height: 100vh;
                     color: white;
-                ">
-                    <div style="
-                        background: white;
-                        color: #2c3e50;
-                        padding: 40px;
+        const socket = io();
+        let playerId = null;
+        let roomCode = null;
+        let isHost = false;
+        let isReady = false;
+        let selectedRoles = [];ing: 40px;
                         border-radius: 20px;
                         max-width: 600px;
                         margin: 0 auto;
@@ -395,7 +471,6 @@
             showRoomSection();
             updatePlayersList(data.players);
         });
-
         // Afficher la section de la salle
         function showRoomSection() {
             document.getElementById('createRoomSection').classList.add('hidden');
@@ -405,7 +480,45 @@
 
             if (isHost) {
                 document.getElementById('startBtn').classList.remove('hidden');
+                document.getElementById('rolesBtn').classList.remove('hidden');
             }
+        }
+
+        // Toggle le sélecteur de rôles
+        function toggleRolesSelector() {
+            const selector = document.getElementById('rolesSelector');
+            selector.classList.toggle('hidden');
+        }
+
+        // Mettre à jour la sélection des rôles
+        function updateRoleSelection(checkbox) {
+            if (checkbox.checked) {
+                if (selectedRoles.length >= 3) {
+                    checkbox.checked = false;
+                    alert('Maximum 3 rôles spéciaux !');
+                    return;
+                }
+                selectedRoles.push(checkbox.value);
+            } else {
+                selectedRoles = selectedRoles.filter(r => r !== checkbox.value);
+            }
+
+            // Mettre à jour le compteur
+            document.getElementById('roleCount').textContent = selectedRoles.length;
+
+            // Désactiver les autres checkboxes si 3 sont sélectionnés
+            const checkboxes = document.querySelectorAll('.role-checkbox input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                const label = cb.parentElement;
+                if (selectedRoles.length >= 3 && !cb.checked) {
+                    label.classList.add('disabled');
+                    cb.disabled = true;
+                } else {
+                    label.classList.remove('disabled');
+                    cb.disabled = false;
+                }
+            });
+        }   }
         }
 
         // Mise à jour des joueurs
@@ -429,10 +542,10 @@
             players.forEach(player => {
                 const div = document.createElement('div');
                 div.className = 'player-item';
-                
-                let badges = '';
-                if (player.isHost) {
-                    badges += '<span class="badge host">HÔTE</span>';
+        // Démarrer la partie
+        function startGame() {
+            socket.emit('startGame', { customRoles: selectedRoles });
+        }           badges += '<span class="badge host">HÔTE</span>';
                 }
                 if (player.ready || player.isHost) {
                     badges += '<span class="badge ready">PRÊT</span>';

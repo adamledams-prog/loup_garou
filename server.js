@@ -38,6 +38,7 @@ class GameRoom {
         this.phase = 'lobby'; // lobby, night, day, vote
         this.nightNumber = 1;
         this.currentPlayerTurn = null;
+        this.customRoles = []; // Rôles personnalisés choisis par l'hôte
         this.gameState = {
             deadPlayers: [],
             killedTonight: null,
@@ -117,14 +118,29 @@ class GameRoom {
         // 1 loup-garou obligatoire
         roles.push('loup');
 
-        // Rôles spéciaux selon le nombre de joueurs
-        if (playerCount >= 4) roles.push('voyante');
-        if (playerCount >= 5) roles.push('sorciere');
-        if (playerCount >= 6) roles.push('riche');
-        if (playerCount >= 7) roles.push('livreur');
-        if (playerCount >= 8) roles.push('loup'); // 2ème loup
-        if (playerCount >= 9) roles.push('chasseur');
-        if (playerCount >= 10) roles.push('cupidon');
+        // Si des rôles personnalisés sont définis, les utiliser
+        if (this.customRoles && this.customRoles.length > 0) {
+            // Ajouter les rôles personnalisés (max 3)
+            this.customRoles.slice(0, 3).forEach(role => {
+                if (roles.length < playerCount) {
+                    roles.push(role);
+                }
+            });
+
+            // Ajouter un 2ème loup si 8+ joueurs
+            if (playerCount >= 8 && roles.length < playerCount) {
+                roles.push('loup');
+            }
+        } else {
+            // Rôles par défaut selon le nombre de joueurs
+            if (playerCount >= 4) roles.push('voyante');
+            if (playerCount >= 5) roles.push('sorciere');
+            if (playerCount >= 6) roles.push('riche');
+            if (playerCount >= 7) roles.push('livreur');
+            if (playerCount >= 8) roles.push('loup'); // 2ème loup
+            if (playerCount >= 9) roles.push('chasseur');
+            if (playerCount >= 10) roles.push('cupidon');
+        }
 
         // Compléter avec des villageois
         while (roles.length < playerCount) {
@@ -232,26 +248,31 @@ io.on('connection', (socket) => {
         });
 
         console.log(`${playerName} a rejoint la salle ${roomCode}`);
-    });
-
-    // Joueur prêt
-    socket.on('playerReady', (data) => {
-        const { playerId, ready } = data;
-        const room = rooms.get(socket.roomCode);
-
-        if (room) {
-            room.setPlayerReady(playerId, ready);
-            io.to(socket.roomCode).emit('playersUpdate', {
-                players: room.getPlayersList()
-            });
-        }
-    });
-
     // Démarrer la partie
-    socket.on('startGame', () => {
+    socket.on('startGame', (data) => {
         const room = rooms.get(socket.roomCode);
 
         if (!room) return;
+
+        // Vérifier que c'est l'hôte
+        const player = room.players.get(socket.playerId);
+        if (!player || !player.isHost) {
+            socket.emit('error', { message: 'Seul l\'hôte peut démarrer' });
+            return;
+        }
+
+        const canStart = room.canStartGame();
+        if (!canStart.canStart) {
+            socket.emit('error', { message: canStart.error });
+            return;
+        }
+
+        // Enregistrer les rôles personnalisés si fournis
+        if (data && data.customRoles && data.customRoles.length > 0) {
+            room.customRoles = data.customRoles;
+        }
+
+        room.startGame();;
 
         // Vérifier que c'est l'hôte
         const player = room.players.get(socket.playerId);
