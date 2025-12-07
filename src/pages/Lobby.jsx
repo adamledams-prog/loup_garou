@@ -14,8 +14,17 @@ function Lobby() {
     const [isReady, setIsReady] = useState(false)
 
     useEffect(() => {
+        console.log('🔌 Connexion Socket.io vers:', config.serverUrl)
         const newSocket = io(config.serverUrl)
         setSocket(newSocket)
+
+        newSocket.on('connect', () => {
+            console.log('✅ Socket.io connecté !')
+        })
+
+        newSocket.on('connect_error', (error) => {
+            console.error('❌ Erreur connexion Socket.io:', error)
+        })
 
         // Écouter la création de salle
         newSocket.on('roomCreated', (data) => {
