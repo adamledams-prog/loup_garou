@@ -1,0 +1,10 @@
+node_modules
+.git
+old-version
+*.md
+!README.md
+start-server.sh
+start.sh
+start.bat
+start.ps1
+sync-server.sh
