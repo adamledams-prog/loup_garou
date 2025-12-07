@@ -62,8 +62,11 @@ function Lobby() {
 
         // Écouter le démarrage de la partie
         newSocket.on('gameStarted', (data) => {
-            console.log('🎮 Jeu démarré, redirection vers /game/' + roomCode)
-            navigate(`/game/${roomCode}`)
+            console.log('🎮 Jeu démarré, redirection vers /game/', data)
+            const code = data.roomCode || localStorage.getItem('roomCode')
+            if (code) {
+                navigate(`/game/${code}`)
+            }
         })
 
         // Écouter les erreurs
