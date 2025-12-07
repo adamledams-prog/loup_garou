@@ -44,11 +44,15 @@ function Game() {
             return
         }
 
-        // Reconnexion unifiée
-        console.log('🔄 Reconnexion à la partie...')
-        newSocket.emit('reconnectToGame', {
-            roomCode: storedRoomCode,
-            playerId: storedPlayerId
+        // Attendre que le socket soit connecté avant d'émettre
+        newSocket.on('connect', () => {
+            console.log('✅ Socket Game connecté')
+            // Reconnexion unifiée
+            console.log('🔄 Reconnexion à la partie...')
+            newSocket.emit('reconnectToGame', {
+                roomCode: storedRoomCode,
+                playerId: storedPlayerId
+            })
         })
 
         // Recevoir l'état du jeu (reconnexion OU démarrage)
@@ -136,7 +140,7 @@ function Game() {
         })
 
         return () => newSocket.close()
-    }, [navigate])
+    }, [navigate, roomCode])
 
     const handleAction = () => {
         if (!selectedPlayer || !socket) return
