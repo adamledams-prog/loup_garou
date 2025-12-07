@@ -331,6 +331,33 @@ io.on('connection', (socket) => {
         console.log(`Partie démarrée dans la salle ${socket.roomCode}`);
     });
 
+    // Rejoindre une room (après gameStarted, pas besoin de renvoyer gameState)
+    socket.on('rejoinRoom', (data) => {
+        const { roomCode, playerId } = data;
+        const room = rooms.get(roomCode);
+
+        if (!room) {
+            console.error(`❌ Room ${roomCode} introuvable pour rejoinRoom`);
+            socket.emit('error', { message: 'Partie introuvable' });
+            return;
+        }
+
+        const player = room.players.get(playerId);
+        if (!player) {
+            console.error(`❌ Player ${playerId} introuvable dans ${roomCode}`);
+            socket.emit('error', { message: 'Joueur introuvable dans cette partie' });
+            return;
+        }
+
+        // Mettre à jour le socketId du joueur
+        player.socketId = socket.id;
+        socket.join(roomCode);
+        socket.playerId = playerId;
+        socket.roomCode = roomCode;
+
+        console.log(`✅ ${player.name} a rejoint la room ${roomCode} (pas de reconnexion)`);
+    });
+
     // Reconnexion à une partie en cours
     socket.on('reconnectToGame', (data) => {
         const { roomCode, playerId } = data;

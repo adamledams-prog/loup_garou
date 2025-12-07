@@ -28,6 +28,7 @@ function Game() {
         // Récupérer les infos du localStorage pour rejoindre la room
         const storedPlayerId = localStorage.getItem('playerId')
         const storedRoomCode = localStorage.getItem('roomCode')
+        const storedGameData = localStorage.getItem('gameData')
 
         // Vérifier cohérence URL et localStorage
         if (!storedPlayerId || !storedRoomCode) {
@@ -42,11 +43,39 @@ function Game() {
             return
         }
 
-        // Rejoindre la partie en cours
-        newSocket.emit('reconnectToGame', {
-            roomCode: storedRoomCode,
-            playerId: storedPlayerId
-        })
+        // Si on a des données de jeu sauvegardées (vient de gameStarted), les utiliser
+        if (storedGameData) {
+            try {
+                const gameData = JSON.parse(storedGameData)
+                console.log('✅ Chargement des données du jeu depuis localStorage:', gameData)
+                setMyRole(gameData.role)
+                setPhase(gameData.phase)
+                setNightNumber(gameData.nightNumber)
+                setPlayers(gameData.players)
+                // Supprimer les données pour éviter de les réutiliser lors d'un vrai refresh
+                localStorage.removeItem('gameData')
+
+                // Rejoindre la room (sans redemander gameState)
+                newSocket.emit('rejoinRoom', {
+                    roomCode: storedRoomCode,
+                    playerId: storedPlayerId
+                })
+            } catch (e) {
+                console.error('Erreur parsing gameData:', e)
+                // Fallback sur reconnectToGame
+                newSocket.emit('reconnectToGame', {
+                    roomCode: storedRoomCode,
+                    playerId: storedPlayerId
+                })
+            }
+        } else {
+            // Pas de données sauvegardées = vraie reconnexion (refresh page)
+            console.log('🔄 Reconnexion après refresh...')
+            newSocket.emit('reconnectToGame', {
+                roomCode: storedRoomCode,
+                playerId: storedPlayerId
+            })
+        }
 
         // Recevoir l'état du jeu lors de la reconnexion
         newSocket.on('gameState', (data) => {

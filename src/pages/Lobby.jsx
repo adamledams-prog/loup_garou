@@ -63,11 +63,20 @@ function Lobby() {
         // Écouter le démarrage de la partie
         newSocket.on('gameStarted', (data) => {
             console.log('🎮 Jeu démarré, data reçue:', data)
+            // Sauvegarder les données du jeu dans localStorage
+            localStorage.setItem('gameData', JSON.stringify({
+                role: data.role,
+                players: data.players,
+                phase: data.phase,
+                nightNumber: data.nightNumber
+            }))
             // Toujours utiliser localStorage car il est à jour
             const code = localStorage.getItem('roomCode')
             console.log('📍 RoomCode depuis localStorage:', code)
             if (code) {
                 console.log('✅ Navigation vers /game/' + code)
+                // Fermer le socket Lobby avant de naviguer
+                newSocket.close()
                 navigate(`/game/${code}`)
             } else {
                 console.error('❌ Aucun roomCode dans localStorage !')
