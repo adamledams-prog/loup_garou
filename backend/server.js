@@ -4,16 +4,34 @@ const socketIo = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 
+// Charger les variables d'environnement (optionnel en production)
+try {
+    require('dotenv').config();
+} catch (e) {
+    console.log('⚠️ dotenv non disponible, utilisation des variables d\'environnement système');
+}
+
 const app = express();
 const server = http.createServer(app);
+
+// Configurer CORS depuis les variables d'environnement
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',')
+    : [
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'https://loup-garou-38saxttvx-boulahias-projects-9f2abc0a.vercel.app'
+    ];
+
+// Ajouter le regex pour tous les sous-domaines Vercel
+const corsOrigins = [
+    ...allowedOrigins,
+    /https:\/\/loup-garou-.*\.vercel\.app$/
+];
+
 const io = socketIo(server, {
     cors: {
-        origin: [
-            'http://localhost:5173',
-            'http://localhost:3000',
-            'https://loup-garou-38saxttvx-boulahias-projects-9f2abc0a.vercel.app',
-            /https:\/\/loup-garou-.*\.vercel\.app$/
-        ],
+        origin: corsOrigins,
         methods: ['GET', 'POST'],
         credentials: true
     }
@@ -24,9 +42,11 @@ app.get('/', (req, res) => {
     res.json({
         status: 'ok',
         message: '🎮 Serveur Loup-Garou en ligne',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
     });
 });
+
 
 // Structure des salles de jeu
 const rooms = new Map();
@@ -331,13 +351,13 @@ io.on('connection', (socket) => {
         console.log(`Partie démarrée dans la salle ${socket.roomCode}`);
     });
 
-    // Rejoindre une room (après gameStarted, pas besoin de renvoyer gameState)
-    socket.on('rejoinRoom', (data) => {
+    // Reconnexion unifiée à une partie (lobby ou game)
+    socket.on('reconnectToGame', (data) => {
         const { roomCode, playerId } = data;
         const room = rooms.get(roomCode);
 
         if (!room) {
-            console.error(`❌ Room ${roomCode} introuvable pour rejoinRoom`);
+            console.error(`❌ Room ${roomCode} introuvable`);
             socket.emit('error', { message: 'Partie introuvable' });
             return;
         }
@@ -355,53 +375,79 @@ io.on('connection', (socket) => {
         socket.playerId = playerId;
         socket.roomCode = roomCode;
 
-        console.log(`✅ ${player.name} a rejoint la room ${roomCode} (pas de reconnexion)`);
+        // Si le jeu a démarré, renvoyer l'état complet
+        if (room.gameStarted) {
+            socket.emit('gameState', {
+                role: player.role,
+                phase: room.phase,
+                nightNumber: room.nightNumber,
+                players: room.getPlayersForClient(playerId),
+                phaseTimeRemaining: room.phaseTimeRemaining,
+                killedTonight: room.gameState.killedTonight
+            });
+            console.log(`✅ ${player.name} reconnecté à la partie ${roomCode}`);
+        } else {
+            // Sinon, renvoyer l'état du lobby
+            socket.emit('roomJoined', {
+                roomCode: roomCode,
+                playerId: playerId,
+                players: room.getPlayersList()
+            });
+            console.log(`✅ ${player.name} reconnecté au lobby ${roomCode}`);
+        }
     });
 
-    // Reconnexion à une partie en cours
-    socket.on('reconnectToGame', (data) => {
-        const { roomCode, playerId } = data;
-        const room = rooms.get(roomCode);
 
+    // Action de nuit
+    socket.on('nightAction', (data) => {
+        const room = rooms.get(socket.roomCode);
         if (!room) {
             socket.emit('error', { message: 'Partie introuvable' });
             return;
         }
 
-        const player = room.players.get(playerId);
-        if (!player) {
-            socket.emit('error', { message: 'Joueur introuvable dans cette partie' });
-            return;
-        }
-
-        // Mettre à jour le socketId du joueur
-        player.socketId = socket.id;
-        socket.join(roomCode);
-        socket.playerId = playerId;
-        socket.roomCode = roomCode;
-
-        // Renvoyer l'état actuel du jeu
-        socket.emit('gameState', {
-            role: player.role,
-            phase: room.phase,
-            nightNumber: room.nightNumber,
-            players: room.getPlayersForClient(playerId),
-            phaseTimeRemaining: room.phaseTimeRemaining,
-            killedTonight: room.gameState.killedTonight
-        });
-
-        console.log(`${player.name} s'est reconnecté à la partie ${roomCode}`);
-    });
-
-    // Action de nuit
-    socket.on('nightAction', (data) => {
-        const room = rooms.get(socket.roomCode);
-        if (!room) return;
-
         const { action, targetId } = data;
         const player = room.players.get(socket.playerId);
 
-        if (!player || !player.alive) return;
+        // Validation basique
+        if (!player || !player.alive) {
+            socket.emit('error', { message: 'Vous ne pouvez pas agir' });
+            return;
+        }
+
+        if (room.phase !== 'night') {
+            socket.emit('error', { message: 'Ce n\'est pas la nuit' });
+            return;
+        }
+
+        // Vérifier que l'action correspond au rôle
+        const validActions = {
+            'loup': ['kill'],
+            'voyante': ['see'],
+            'sorciere': ['heal', 'poison'],
+            'livreur': ['protect'],
+            'cupidon': ['couple'],
+            'chasseur': ['shoot']
+        };
+
+        if (!validActions[player.role] || !validActions[player.role].includes(action)) {
+            socket.emit('error', { message: 'Action invalide pour votre rôle' });
+            return;
+        }
+
+        // Vérifier que la cible existe et est valide
+        if (targetId) {
+            const target = room.players.get(targetId);
+            if (!target) {
+                socket.emit('error', { message: 'Cible invalide' });
+                return;
+            }
+            // Ne peut pas cibler un joueur mort (sauf pour sorcière heal)
+            if (!target.alive && action !== 'heal') {
+                socket.emit('error', { message: 'Ne peut pas cibler un joueur mort' });
+                return;
+            }
+        }
 
         // Enregistrer l'action
         room.gameState.nightActions[socket.playerId] = { action, targetId };
@@ -422,13 +468,30 @@ io.on('connection', (socket) => {
     // Vote du jour
     socket.on('vote', (data) => {
         const room = rooms.get(socket.roomCode);
-        if (!room) return;
+        if (!room) {
+            socket.emit('error', { message: 'Partie introuvable' });
+            return;
+        }
 
         const { targetId } = data;
         const player = room.players.get(socket.playerId);
 
-        if (!player || !player.alive) return;
+        if (!player || !player.alive) {
+            socket.emit('error', { message: 'Vous ne pouvez pas voter' });
+            return;
+        }
 
+        if (room.phase !== 'vote') {
+            socket.emit('error', { message: 'Ce n\'est pas l\'heure de voter' });
+            return;
+        }
+
+        // Vérifier que la cible existe et est vivante
+        const target = room.players.get(targetId);
+        if (!target || !target.alive) {
+            socket.emit('error', { message: 'Cible invalide' });
+            return;
+        }
         room.gameState.votes[socket.playerId] = targetId;
         socket.emit('voteConfirmed');
 

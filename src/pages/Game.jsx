@@ -20,6 +20,8 @@ function Game() {
     const [timeRemaining, setTimeRemaining] = useState(60) // Timer de phase
     const [killedTonight, setKilledTonight] = useState(null) // Victime de la nuit (pour sorcière)
     const [voteProgress, setVoteProgress] = useState({ voted: 0, total: 0 }) // Compteur de votes
+    const [error, setError] = useState(null)
+    const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
         const newSocket = io(config.serverUrl)
@@ -28,7 +30,6 @@ function Game() {
         // Récupérer les infos du localStorage pour rejoindre la room
         const storedPlayerId = localStorage.getItem('playerId')
         const storedRoomCode = localStorage.getItem('roomCode')
-        const storedGameData = localStorage.getItem('gameData')
 
         // Vérifier cohérence URL et localStorage
         if (!storedPlayerId || !storedRoomCode) {
@@ -43,39 +44,12 @@ function Game() {
             return
         }
 
-        // Si on a des données de jeu sauvegardées (vient de gameStarted), les utiliser
-        if (storedGameData) {
-            try {
-                const gameData = JSON.parse(storedGameData)
-                console.log('✅ Chargement des données du jeu depuis localStorage:', gameData)
-                setMyRole(gameData.role)
-                setPhase(gameData.phase)
-                setNightNumber(gameData.nightNumber)
-                setPlayers(gameData.players)
-                // Supprimer les données pour éviter de les réutiliser lors d'un vrai refresh
-                localStorage.removeItem('gameData')
-
-                // Rejoindre la room (sans redemander gameState)
-                newSocket.emit('rejoinRoom', {
-                    roomCode: storedRoomCode,
-                    playerId: storedPlayerId
-                })
-            } catch (e) {
-                console.error('Erreur parsing gameData:', e)
-                // Fallback sur reconnectToGame
-                newSocket.emit('reconnectToGame', {
-                    roomCode: storedRoomCode,
-                    playerId: storedPlayerId
-                })
-            }
-        } else {
-            // Pas de données sauvegardées = vraie reconnexion (refresh page)
-            console.log('🔄 Reconnexion après refresh...')
-            newSocket.emit('reconnectToGame', {
-                roomCode: storedRoomCode,
-                playerId: storedPlayerId
-            })
-        }
+        // Reconnexion unifiée
+        console.log('🔄 Reconnexion à la partie...')
+        newSocket.emit('reconnectToGame', {
+            roomCode: storedRoomCode,
+            playerId: storedPlayerId
+        })
 
         // Recevoir l'état du jeu lors de la reconnexion
         newSocket.on('gameState', (data) => {
@@ -90,6 +64,8 @@ function Game() {
             if (data.killedTonight) {
                 setKilledTonight(data.killedTonight)
             }
+            setIsLoading(false)
+            setError(null)
         })
 
         // Phase de nuit
@@ -143,7 +119,9 @@ function Game() {
 
         // Erreurs
         newSocket.on('error', (data) => {
-            alert(data.message)
+            console.error('❌ Erreur:', data.message)
+            setError(data.message)
+            setTimeout(() => setError(null), 5000) // Effacer après 5s
         })
 
         return () => newSocket.close()
@@ -191,7 +169,6 @@ function Game() {
         })
 
         setSelectedPlayer(null)
-        alert(`Action ${action} enregistrée !`)
     }
 
     const handleWitchAction = () => {
@@ -199,7 +176,7 @@ function Game() {
 
         // Si poison, on a besoin d'une cible
         if (witchAction === 'poison' && !selectedPlayer) {
-            alert('Sélectionnez un joueur à empoisonner')
+            setError('Sélectionnez un joueur à empoisonner')
             return
         }
 
@@ -211,7 +188,6 @@ function Game() {
         setShowWitchModal(false)
         setWitchAction(null)
         setSelectedPlayer(null)
-        alert(`Action ${witchAction === 'heal' ? 'soigner' : 'empoisonner'} enregistrée !`)
     }
 
     const handleVote = () => {
@@ -219,7 +195,6 @@ function Game() {
 
         socket.emit('vote', { targetId: selectedPlayer })
         setSelectedPlayer(null)
-        alert('Vote enregistré !')
     }
 
     const sendMessage = () => {
@@ -277,213 +252,231 @@ function Game() {
                     </button>
                 </div>
 
-                {/* Zone de jeu principale */}
-                <div className="grid lg:grid-cols-3 gap-6">
+                {/* Message d'erreur */}
+                {error && (
+                    <div className="mb-4 bg-red-900/30 border-2 border-red-600 rounded-lg p-4 animate-slideUp">
+                        <p className="text-red-400 font-bold">❌ {error}</p>
+                    </div>
+                )}
 
-                    {/* Jeu principal */}
-                    <div className="lg:col-span-2 space-y-6">
+                {/* Loading state */}
+                {isLoading ? (
+                    <div className="card-glow text-center py-12">
+                        <div className="text-6xl mb-4 animate-pulse">🐺</div>
+                        <h2 className="text-2xl font-bold text-blood mb-2">Connexion en cours...</h2>
+                        <p className="text-gray-400">Récupération de l'état de la partie</p>
+                    </div>
+                ) : (
+                    <>
+                        {/* Zone de jeu principale */}
+                        <div className="grid lg:grid-cols-3 gap-6">
 
-                        {/* Rôle du joueur */}
-                        <div className="card-glow text-center">
-                            <div className="text-6xl mb-3">{getRoleEmoji(myRole)}</div>
-                            <h2 className="text-3xl font-black text-blood mb-2">
-                                {myRole ? myRole.charAt(0).toUpperCase() + myRole.slice(1) : 'Chargement...'}
-                            </h2>
-                            <p className="text-gray-400">
-                                {myRole ? getRoleDescription(myRole) : 'En attente...'}
-                            </p>
-                        </div>
+                            {/* Jeu principal */}
+                            <div className="lg:col-span-2 space-y-6">
 
-                        {/* Phase actuelle */}
-                        <div className={`card text-center ${phase === 'night' ? 'bg-gradient-to-r from-night-800 to-blood-900/50' :
-                            phase === 'day' ? 'bg-gradient-to-r from-yellow-900/50 to-orange-900/50' :
-                                'bg-gradient-to-r from-blood-800 to-blood-900/50'
-                            }`}>
-                            <h3 className="text-2xl font-bold mb-2">
-                                {phase === 'night' ? '🌙 Phase de Nuit' :
-                                    phase === 'day' ? '☀️ Phase de Jour' :
-                                        '⚖️ Phase de Vote'}
-                            </h3>
-                            <p className="text-gray-300 mb-3">
-                                {phase === 'night' ? `Nuit ${nightNumber} - Les rôles spéciaux agissent...` :
-                                    phase === 'day' ? 'Discutez et trouvez les loups-garous' :
-                                        'Votez pour éliminer un joueur'}
-                            </p>
-
-                            {/* Timer visuel */}
-                            <div className="mt-3">
-                                <div className="flex items-center justify-center gap-2 mb-2">
-                                    <span className="text-3xl">⏱️</span>
-                                    <span className={`text-4xl font-black ${timeRemaining <= 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
-                                        {timeRemaining}s
-                                    </span>
+                                {/* Rôle du joueur */}
+                                <div className="card-glow text-center">
+                                    <div className="text-6xl mb-3">{getRoleEmoji(myRole)}</div>
+                                    <h2 className="text-3xl font-black text-blood mb-2">
+                                        {myRole ? myRole.charAt(0).toUpperCase() + myRole.slice(1) : 'Chargement...'}
+                                    </h2>
+                                    <p className="text-gray-400">
+                                        {myRole ? getRoleDescription(myRole) : 'En attente...'}
+                                    </p>
                                 </div>
-                                <div className="w-full bg-night-900 rounded-full h-3 overflow-hidden">
-                                    <div
-                                        className={`h-full transition-all duration-1000 ${timeRemaining > 30 ? 'bg-green-500' :
-                                            timeRemaining > 10 ? 'bg-yellow-500' :
-                                                'bg-red-500'
-                                            }`}
-                                        style={{ width: `${(timeRemaining / 60) * 100}%` }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
 
-                        {/* Grille de joueurs */}
-                        <div className="card">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-xl font-bold">
-                                    👥 Joueurs {
-                                        phase === 'night' && ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon'].includes(myRole)
-                                            ? '(Cliquez pour agir)'
-                                            : phase === 'vote'
-                                                ? '(Cliquez pour voter)'
-                                                : ''
-                                    }
-                                </h3>
-                                {/* Compteur de votes */}
-                                {phase === 'vote' && voteProgress.total > 0 && (
-                                    <div className="bg-blood-900/30 border-2 border-blood-600 rounded-lg px-3 py-1">
-                                        <span className="text-blood-400 font-bold text-sm">
-                                            ⚖️ {voteProgress.voted}/{voteProgress.total} votes
-                                        </span>
+                                {/* Phase actuelle */}
+                                <div className={`card text-center ${phase === 'night' ? 'bg-gradient-to-r from-night-800 to-blood-900/50' :
+                                    phase === 'day' ? 'bg-gradient-to-r from-yellow-900/50 to-orange-900/50' :
+                                        'bg-gradient-to-r from-blood-800 to-blood-900/50'
+                                    }`}>
+                                    <h3 className="text-2xl font-bold mb-2">
+                                        {phase === 'night' ? '🌙 Phase de Nuit' :
+                                            phase === 'day' ? '☀️ Phase de Jour' :
+                                                '⚖️ Phase de Vote'}
+                                    </h3>
+                                    <p className="text-gray-300 mb-3">
+                                        {phase === 'night' ? `Nuit ${nightNumber} - Les rôles spéciaux agissent...` :
+                                            phase === 'day' ? 'Discutez et trouvez les loups-garous' :
+                                                'Votez pour éliminer un joueur'}
+                                    </p>
+
+                                    {/* Timer visuel */}
+                                    <div className="mt-3">
+                                        <div className="flex items-center justify-center gap-2 mb-2">
+                                            <span className="text-3xl">⏱️</span>
+                                            <span className={`text-4xl font-black ${timeRemaining <= 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
+                                                {timeRemaining}s
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-night-900 rounded-full h-3 overflow-hidden">
+                                            <div
+                                                className={`h-full transition-all duration-1000 ${timeRemaining > 30 ? 'bg-green-500' :
+                                                    timeRemaining > 10 ? 'bg-yellow-500' :
+                                                        'bg-red-500'
+                                                    }`}
+                                                style={{ width: `${(timeRemaining / 60) * 100}%` }}
+                                            />
+                                        </div>
                                     </div>
-                                )}
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                {players.map((player) => {
-                                    // Déterminer si ce joueur peut être cliqué
-                                    const isNightActive = phase === 'night' && ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon'].includes(myRole)
-                                    const canClick = player.alive && (isNightActive || phase === 'vote')
+                                </div>
 
-                                    return (
-                                        <div
-                                            key={player.id}
-                                            onClick={() => {
-                                                if (canClick) {
-                                                    setSelectedPlayer(player.id)
-                                                }
-                                            }}
-                                            className={`p-4 rounded-xl text-center transition-all relative
+                                {/* Grille de joueurs */}
+                                <div className="card">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="text-xl font-bold">
+                                            👥 Joueurs {
+                                                phase === 'night' && ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon'].includes(myRole)
+                                                    ? '(Cliquez pour agir)'
+                                                    : phase === 'vote'
+                                                        ? '(Cliquez pour voter)'
+                                                        : ''
+                                            }
+                                        </h3>
+                                        {/* Compteur de votes */}
+                                        {phase === 'vote' && voteProgress.total > 0 && (
+                                            <div className="bg-blood-900/30 border-2 border-blood-600 rounded-lg px-3 py-1">
+                                                <span className="text-blood-400 font-bold text-sm">
+                                                    ⚖️ {voteProgress.voted}/{voteProgress.total} votes
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                        {players.map((player) => {
+                                            // Déterminer si ce joueur peut être cliqué
+                                            const isNightActive = phase === 'night' && ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon'].includes(myRole)
+                                            const canClick = player.alive && (isNightActive || phase === 'vote')
+
+                                            return (
+                                                <div
+                                                    key={player.id}
+                                                    onClick={() => {
+                                                        if (canClick) {
+                                                            setSelectedPlayer(player.id)
+                                                        }
+                                                    }}
+                                                    className={`p-4 rounded-xl text-center transition-all relative
                                                 ${!player.alive ? 'bg-gray-900 opacity-50' : 'bg-night-800'}
                                                 ${canClick ? 'cursor-pointer hover:bg-blood-900/30' : 'cursor-default'}
                                                 ${selectedPlayer === player.id ? 'border-2 border-blood-600 shadow-neon-red' : 'border-2 border-transparent hover:border-blood-600'}
                                             `}
-                                        >
-                                            {/* Badge "A agi" pour la nuit */}
-                                            {phase === 'night' && player.hasActed && (
-                                                <div className="absolute top-1 right-1 bg-green-600 text-white text-xs px-2 py-1 rounded-full font-bold">
-                                                    ✅ A agi
-                                                </div>
-                                            )}
+                                                >
+                                                    {/* Badge "A agi" pour la nuit */}
+                                                    {phase === 'night' && player.hasActed && (
+                                                        <div className="absolute top-1 right-1 bg-green-600 text-white text-xs px-2 py-1 rounded-full font-bold">
+                                                            ✅ A agi
+                                                        </div>
+                                                    )}
 
-                                            <div className="text-3xl mb-2">{player.alive ? '😊' : '💀'}</div>
-                                            <p className="font-bold">{player.name}</p>
-                                            <p className="text-sm text-gray-500">
-                                                {player.alive ? 'En vie' : 'Mort'}
+                                                    <div className="text-3xl mb-2">{player.alive ? '😊' : '💀'}</div>
+                                                    <p className="font-bold">{player.name}</p>
+                                                    <p className="text-sm text-gray-500">
+                                                        {player.alive ? 'En vie' : 'Mort'}
+                                                    </p>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+
+                                    {/* Bouton d'action */}
+                                    {selectedPlayer && (
+                                        <button
+                                            onClick={phase === 'vote' ? handleVote : handleAction}
+                                            className="btn-primary w-full mt-4"
+                                        >
+                                            {phase === 'vote' ? '⚖️ Voter' : '✅ Confirmer l\'action'}
+                                        </button>
+                                    )}
+                                </div>
+
+                            </div>
+
+                            {/* Panneau latéral (Chat + Info) */}
+                            <div className="space-y-6">
+
+                                {/* Info de la partie */}
+                                <div className="card">
+                                    <h3 className="text-lg font-bold mb-3 text-blood">📊 Statistiques</h3>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">Nuit :</span>
+                                            <span className="font-bold">{nightNumber}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">Vivants :</span>
+                                            <span className="font-bold">
+                                                {players.filter(p => p.alive).length}/{players.length}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">Phase :</span>
+                                            <span className="font-bold">
+                                                {phase === 'night' ? '🌙' : phase === 'day' ? '☀️' : '⚖️'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Chat */}
+                                <div className="card h-96 flex flex-col">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <h3 className="text-lg font-bold">💬 Chat</h3>
+                                        {/* Badge chat loups */}
+                                        {phase === 'night' && myRole === 'loup' && (
+                                            <div className="bg-blood-900/30 border border-blood-600 rounded-lg px-2 py-1">
+                                                <span className="text-blood-400 text-xs font-bold">
+                                                    🐺 Loups uniquement
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Message de restriction */}
+                                    {phase === 'night' && myRole !== 'loup' && (
+                                        <div className="bg-yellow-900/30 border-2 border-yellow-600 rounded-lg p-3 mb-3">
+                                            <p className="text-yellow-400 text-sm">
+                                                🌙 Le chat est désactivé pendant la nuit (sauf pour les loups)
                                             </p>
                                         </div>
-                                    )
-                                })}
-                            </div>
+                                    )}
 
-                            {/* Bouton d'action */}
-                            {selectedPlayer && (
-                                <button
-                                    onClick={phase === 'vote' ? handleVote : handleAction}
-                                    className="btn-primary w-full mt-4"
-                                >
-                                    {phase === 'vote' ? '⚖️ Voter' : '✅ Confirmer l\'action'}
-                                </button>
-                            )}
-                        </div>
-
-                    </div>
-
-                    {/* Panneau latéral (Chat + Info) */}
-                    <div className="space-y-6">
-
-                        {/* Info de la partie */}
-                        <div className="card">
-                            <h3 className="text-lg font-bold mb-3 text-blood">📊 Statistiques</h3>
-                            <div className="space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                    <span className="text-gray-400">Nuit :</span>
-                                    <span className="font-bold">{nightNumber}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-400">Vivants :</span>
-                                    <span className="font-bold">
-                                        {players.filter(p => p.alive).length}/{players.length}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-400">Phase :</span>
-                                    <span className="font-bold">
-                                        {phase === 'night' ? '🌙' : phase === 'day' ? '☀️' : '⚖️'}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Chat */}
-                        <div className="card h-96 flex flex-col">
-                            <div className="flex justify-between items-center mb-3">
-                                <h3 className="text-lg font-bold">💬 Chat</h3>
-                                {/* Badge chat loups */}
-                                {phase === 'night' && myRole === 'loup' && (
-                                    <div className="bg-blood-900/30 border border-blood-600 rounded-lg px-2 py-1">
-                                        <span className="text-blood-400 text-xs font-bold">
-                                            🐺 Loups uniquement
-                                        </span>
+                                    <div className="flex-1 bg-night-900 rounded-lg p-3 mb-3 overflow-y-auto">
+                                        {messages.length === 0 ? (
+                                            <p className="text-gray-500 text-sm italic">Aucun message</p>
+                                        ) : (
+                                            messages.map((msg, index) => (
+                                                <div key={index} className="mb-2">
+                                                    <span className="font-bold text-blood-500">{msg.playerName}: </span>
+                                                    <span className="text-gray-300">{msg.message}</span>
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
-                                )}
-                            </div>
-
-                            {/* Message de restriction */}
-                            {phase === 'night' && myRole !== 'loup' && (
-                                <div className="bg-yellow-900/30 border-2 border-yellow-600 rounded-lg p-3 mb-3">
-                                    <p className="text-yellow-400 text-sm">
-                                        🌙 Le chat est désactivé pendant la nuit (sauf pour les loups)
-                                    </p>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder={phase === 'night' && myRole !== 'loup' ? 'Chat désactivé la nuit' : 'Écrivez un message...'}
+                                            value={messageInput}
+                                            onChange={(e) => setMessageInput(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                                            disabled={phase === 'night' && myRole !== 'loup'}
+                                            className="flex-1 bg-night-800 border-2 border-night-600 focus:border-blood-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                        />
+                                        <button
+                                            onClick={sendMessage}
+                                            disabled={phase === 'night' && myRole !== 'loup'}
+                                            className="bg-blood-600 hover:bg-blood-700 px-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            📤
+                                        </button>
+                                    </div>
                                 </div>
-                            )}
 
-                            <div className="flex-1 bg-night-900 rounded-lg p-3 mb-3 overflow-y-auto">
-                                {messages.length === 0 ? (
-                                    <p className="text-gray-500 text-sm italic">Aucun message</p>
-                                ) : (
-                                    messages.map((msg, index) => (
-                                        <div key={index} className="mb-2">
-                                            <span className="font-bold text-blood-500">{msg.playerName}: </span>
-                                            <span className="text-gray-300">{msg.message}</span>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    placeholder={phase === 'night' && myRole !== 'loup' ? 'Chat désactivé la nuit' : 'Écrivez un message...'}
-                                    value={messageInput}
-                                    onChange={(e) => setMessageInput(e.target.value)}
-                                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                                    disabled={phase === 'night' && myRole !== 'loup'}
-                                    className="flex-1 bg-night-800 border-2 border-night-600 focus:border-blood-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                                />
-                                <button
-                                    onClick={sendMessage}
-                                    disabled={phase === 'night' && myRole !== 'loup'}
-                                    className="bg-blood-600 hover:bg-blood-700 px-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    📤
-                                </button>
                             </div>
                         </div>
-
-                    </div>
-                </div>
+                    </>
+                )}
 
             </div>
 

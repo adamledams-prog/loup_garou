@@ -12,6 +12,8 @@ function Lobby() {
     const [room, setRoom] = useState(null)
     const [players, setPlayers] = useState([])
     const [isReady, setIsReady] = useState(false)
+    const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState(null)
 
     useEffect(() => {
         console.log('🔌 Connexion Socket.io vers:', config.serverUrl)
@@ -32,6 +34,8 @@ function Lobby() {
             setRoomCode(data.roomCode)
             setPlayers(data.players)
             setView('waiting')
+            setIsLoading(false)
+            setError(null)
             // Sauvegarder pour reconnexion
             localStorage.setItem('playerId', data.playerId)
             localStorage.setItem('roomCode', data.roomCode)
@@ -43,6 +47,8 @@ function Lobby() {
             setRoomCode(data.roomCode)
             setPlayers(data.players)
             setView('waiting')
+            setIsLoading(false)
+            setError(null)
             // Sauvegarder pour reconnexion
             localStorage.setItem('playerId', data.playerId)
             localStorage.setItem('roomCode', data.roomCode)
@@ -62,21 +68,10 @@ function Lobby() {
 
         // Écouter le démarrage de la partie
         newSocket.on('gameStarted', (data) => {
-            console.log('🎮 Jeu démarré, data reçue:', data)
-            // Sauvegarder les données du jeu dans localStorage
-            localStorage.setItem('gameData', JSON.stringify({
-                role: data.role,
-                players: data.players,
-                phase: data.phase,
-                nightNumber: data.nightNumber
-            }))
-            // Toujours utiliser localStorage car il est à jour
+            console.log('🎮 Jeu démarré !')
             const code = localStorage.getItem('roomCode')
-            console.log('📍 RoomCode depuis localStorage:', code)
             if (code) {
                 console.log('✅ Navigation vers /game/' + code)
-                // Fermer le socket Lobby avant de naviguer
-                newSocket.close()
                 navigate(`/game/${code}`)
             } else {
                 console.error('❌ Aucun roomCode dans localStorage !')
@@ -85,11 +80,47 @@ function Lobby() {
 
         // Écouter les erreurs
         newSocket.on('error', (data) => {
-            alert(data.message)
+            console.error('❌ Erreur serveur:', data.message)
+            setError(data.message)
+            setIsLoading(false)
         })
 
         return () => newSocket.close()
-    }, [])
+    }, [navigate])
+
+    // Fonction pour créer une salle
+    const handleCreateRoom = () => {
+        if (!playerName.trim()) {
+            setError('Veuillez entrer un nom')
+            return
+        }
+        if (!socket) {
+            setError('Connexion au serveur en cours...')
+            return
+        }
+        setIsLoading(true)
+        setError(null)
+        socket.emit('createRoom', { playerName })
+    }
+
+    // Fonction pour rejoindre une salle
+    const handleJoinRoom = () => {
+        if (!playerName.trim()) {
+            setError('Veuillez entrer un nom')
+            return
+        }
+        if (!roomCode.trim()) {
+            setError('Veuillez entrer un code de salle')
+            return
+        }
+        if (!socket) {
+            setError('Connexion au serveur en cours...')
+            return
+        }
+        setIsLoading(true)
+        setError(null)
+        socket.emit('joinRoom', { roomCode, playerName })
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4">
@@ -109,6 +140,13 @@ function Lobby() {
                     <p className="text-gray-400">Rejoignez ou créez une partie</p>
                 </div>
 
+                {/* Message d'erreur */}
+                {error && (
+                    <div className="mb-4 bg-red-900/30 border-2 border-red-600 rounded-lg p-4 animate-slideUp">
+                        <p className="text-red-400 font-bold">❌ {error}</p>
+                    </div>
+                )}
+
                 {/* Menu principal */}
                 {view === 'menu' && (
                     <div className="space-y-4 animate-slideUp">
@@ -123,13 +161,10 @@ function Lobby() {
                             />
                             <button
                                 className="btn-primary w-full"
-                                onClick={() => {
-                                    if (playerName.trim() && socket) {
-                                        socket.emit('createRoom', { playerName })
-                                    }
-                                }}
+                                onClick={handleCreateRoom}
+                                disabled={isLoading}
                             >
-                                🎮 Créer une salle
+                                {isLoading ? '⏳ Création...' : '🎮 Créer une salle'}
                             </button>
                         </div>
 
@@ -152,13 +187,10 @@ function Lobby() {
                             />
                             <button
                                 className="btn-secondary w-full"
-                                onClick={() => {
-                                    if (playerName.trim() && roomCode.trim() && socket) {
-                                        socket.emit('joinRoom', { roomCode, playerName })
-                                    }
-                                }}
+                                onClick={handleJoinRoom}
+                                disabled={isLoading}
                             >
-                                🚪 Rejoindre
+                                {isLoading ? '⏳ Connexion...' : '🚪 Rejoindre'}
                             </button>
                         </div>
                     </div>
