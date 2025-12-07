@@ -103,6 +103,11 @@ setInterval(() => {
 
             const inactiveTime = now - room.lastActivity;
             if (inactiveTime > 10 * 60 * 1000) { // 10 minutes
+                // IMPORTANT: Nettoyer le timer avant de supprimer
+                if (room.phaseTimer) {
+                    clearInterval(room.phaseTimer);
+                    room.phaseTimer = null;
+                }
                 rooms.delete(code);
                 cleaned++;
                 console.log(`🗑️ Salle ${code} supprimée (inactivité)`);
@@ -146,7 +151,6 @@ class GameRoom {
             killedTonight: null,
             witchHealUsed: false,
             witchPoisonUsed: false,
-            voyanteSeen: false,
             livreurProtection: null, // Qui est protégé par le livreur cette nuit
             couple: [], // Les deux amoureux [id1, id2]
             votes: {},
@@ -680,6 +684,11 @@ io.on('connection', (socket) => {
                     room.removePlayer(socket.playerId);
 
                     if (room.players.size === 0) {
+                        // Nettoyer le timer avant suppression
+                        if (room.phaseTimer) {
+                            clearInterval(room.phaseTimer);
+                            room.phaseTimer = null;
+                        }
                         // Supprimer la salle si vide
                         rooms.delete(socket.roomCode);
                         console.log(`Salle ${socket.roomCode} supprimée (vide)`);
@@ -817,11 +826,21 @@ function processNightActions(room) {
 
         // Cupidon - Créer un couple (seulement première nuit)
         if (player.role === 'cupidon' && action.action === 'couple' && room.nightNumber === 1) {
-            // action.targetId devrait contenir un tableau [id1, id2] ou être géré différemment
-            // Pour l'instant, on accepte une seule cible et le cupidon devra envoyer 2 actions
-            if (!room.gameState.couple.includes(action.targetId)) {
-                room.gameState.couple.push(action.targetId);
-                console.log(`💘 Cupidon a choisi ${action.targetId} pour le couple`);
+            // Vérifier que le couple n'est pas déjà complet
+            if (room.gameState.couple.length < 2) {
+                // Vérifier que cette personne n'est pas déjà dans le couple
+                if (!room.gameState.couple.includes(action.targetId)) {
+                    room.gameState.couple.push(action.targetId);
+                    console.log(`💘 Cupidon a choisi ${action.targetId} pour le couple (${room.gameState.couple.length}/2)`);
+                } else {
+                    console.log(`⚠️ Cupidon a essayé de choisir ${action.targetId} deux fois !`);
+                    // Envoyer erreur au cupidon
+                    if (player.socketId) {
+                        io.to(player.socketId).emit('error', {
+                            message: 'Vous ne pouvez pas choisir la même personne deux fois !'
+                        });
+                    }
+                }
             }
 
             // Si le couple est complet (2 personnes), notifier

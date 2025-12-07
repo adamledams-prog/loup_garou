@@ -338,6 +338,15 @@ function Game() {
                     </div>
                 ) : (
                     <>
+                        {/* Banner pour joueur mort (mode spectateur) */}
+                        {players.find(p => p.id === localStorage.getItem('playerId'))?.alive === false && (
+                            <div className="mb-4 bg-gray-900/80 border-2 border-gray-600 rounded-lg p-4">
+                                <p className="text-gray-300 text-center font-bold">
+                                    💀 Vous êtes mort ! Vous pouvez continuer à regarder la partie en mode spectateur.
+                                </p>
+                            </div>
+                        )}
+
                         {/* Zone de jeu principale */}
                         <div className="grid lg:grid-cols-3 gap-6">
 
@@ -416,10 +425,14 @@ function Game() {
                                     </div>
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                         {players.map((player) => {
+                                            // Vérifier si le joueur actuel est vivant
+                                            const currentPlayer = players.find(p => p.id === localStorage.getItem('playerId'))
+                                            const amAlive = currentPlayer?.alive !== false
+
                                             // Déterminer si ce joueur peut être cliqué
-                                            const isNightActive = phase === 'night' && ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon'].includes(myRole)
+                                            const isNightActive = phase === 'night' && ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon'].includes(myRole) && amAlive
                                             const isHunterActive = phase === 'hunter' && myRole === 'chasseur'
-                                            const canClick = player.alive && (isNightActive || isHunterActive || phase === 'vote')
+                                            const canClick = player.alive && (isNightActive || isHunterActive || (phase === 'vote' && amAlive))
 
                                             return (
                                                 <div
