@@ -40,7 +40,7 @@ function Lobby() {
 
                 {/* Menu principal */}
                 {view === 'menu' && (
-                    <div className="space-y-4">
+                    <div className="space-y-4 animate-slideUp">
                         <div className="card-glow">
                             <h2 className="text-2xl font-bold mb-4 text-blood">Créer une partie</h2>
                             <input
@@ -48,7 +48,7 @@ function Lobby() {
                                 placeholder="Votre nom"
                                 value={playerName}
                                 onChange={(e) => setPlayerName(e.target.value)}
-                                className="w-full bg-night-800 border-2 border-blood-900/50 focus:border-blood-600 rounded-xl px-4 py-3 mb-4 text-white placeholder-gray-500 transition-all"
+                                className="input-primary mb-4"
                             />
                             <button
                                 className="btn-primary w-full"
@@ -70,14 +70,14 @@ function Lobby() {
                                 placeholder="Votre nom"
                                 value={playerName}
                                 onChange={(e) => setPlayerName(e.target.value)}
-                                className="w-full bg-night-800 border-2 border-night-600 focus:border-blood-600 rounded-xl px-4 py-3 mb-3 text-white placeholder-gray-500 transition-all"
+                                className="input-primary mb-3"
                             />
                             <input
                                 type="text"
-                                placeholder="Code de la salle"
+                                placeholder="ABC123"
                                 value={roomCode}
                                 onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                                className="w-full bg-night-800 border-2 border-night-600 focus:border-blood-600 rounded-xl px-4 py-3 mb-4 text-white placeholder-gray-500 uppercase text-center text-2xl font-bold tracking-widest transition-all"
+                                className="input-code mb-4"
                                 maxLength={6}
                             />
                             <button

@@ -1,0 +1,29 @@
+{
+    "name": "Loup-Garou Online",
+    "short_name": "Loup-Garou",
+    "description": "Le village a besoin de vous... Jouez au Loup-Garou en ligne avec vos amis !",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#000000",
+    "theme_color": "#dc2626",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": [
+        "games",
+        "social"
+    ],
+    "screenshots": []
+}
