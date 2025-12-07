@@ -3,74 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Loup-Garou - 5 Joueurs</title>
+    <title>Loup-Garou - Menu Principal</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .mode-selection {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .mode-card {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 3px solid transparent;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .mode-card:hover {
+            transform: translateY(-10px);
+            border-color: #667eea;
+            box-shadow: 0 15px 50px rgba(102, 126, 234, 0.3);
+        }
+
+        .mode-icon {
+            font-size: 5em;
+            margin-bottom: 20px;
+        }
+
+        .mode-title {
+            font-size: 1.8em;
+            font-weight: 800;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .mode-description {
+            color: #7f8c8d;
+            font-size: 1.05em;
+            line-height: 1.6;
+        }
+
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 700;
+            margin-top: 10px;
+        }
+
+        .badge.classic {
+            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+        }
+
+        @media (max-width: 768px) {
+            .mode-selection {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <div class="moon">🌙</div>
-        <h1>Loup-Garou</h1>
-        
-        <button class="btn-start" onclick="resetGame()" style="margin-bottom: 20px; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);">
-            🔄 Réinitialiser / Nouvelle partie
-        </button>
-        
-        <form id="playerForm">
-            <div class="player-input">
-                <label for="player1">Joueur 1</label>
-                <input type="text" id="player1" name="player1" placeholder="Entrez le prénom" required>
+        <h1>🐺 Loup-Garou</h1>
+        <p style="text-align: center; font-size: 1.2em; color: #7f8c8d; margin-bottom: 20px;">
+            Choisissez votre mode de jeu
+        </p>
+
+        <div class="mode-selection">
+            <div class="mode-card" onclick="window.location.href='lobby.html'">
+                <div class="mode-icon">🌐</div>
+                <div class="mode-title">Mode Multijoueur</div>
+                <div class="mode-description">
+                    Jouez en ligne avec vos amis !<br>
+                    • Salles privées avec codes<br>
+                    • 4 à 10 joueurs<br>
+                    • Chat en temps réel<br>
+                    • Actions simultanées
+                </div>
+                <span class="badge">NOUVEAU</span>
             </div>
 
-            <div class="player-input">
-                <label for="player2">Joueur 2</label>
-                <input type="text" id="player2" name="player2" placeholder="Entrez le prénom" required>
+            <div class="mode-card" onclick="window.location.href='game-local.html'">
+                <div class="mode-icon">📱</div>
+                <div class="mode-title">Mode Local</div>
+                <div class="mode-description">
+                    Jouez sur un seul appareil<br>
+                    • 5 joueurs fixes<br>
+                    • Tour par tour<br>
+                    • Mode classique<br>
+                    • Pas de connexion requise
+                </div>
+                <span class="badge classic">CLASSIQUE</span>
             </div>
+        </div>
 
-            <div class="player-input">
-                <label for="player3">Joueur 3</label>
-                <input type="text" id="player3" name="player3" placeholder="Entrez le prénom" required>
-            </div>
-
-            <div class="player-input">
-                <label for="player4">Joueur 4</label>
-                <input type="text" id="player4" name="player4" placeholder="Entrez le prénom" required>
-            </div>
-
-            <div class="player-input">
-                <label for="player5">Joueur 5</label>
-                <input type="text" id="player5" name="player5" placeholder="Entrez le prénom" required>
-            </div>
-
-            <button type="submit" class="btn-start">Commencer la partie</button>
-        </form>
+        <div style="text-align: center; margin-top: 40px; padding: 20px; background: rgba(255,255,255,0.8); border-radius: 15px;">
+            <p style="color: #7f8c8d; margin-bottom: 10px;">
+                <strong>💡 Astuce :</strong> Pour le mode multijoueur, assurez-vous que le serveur est démarré !
+            </p>
+            <code style="background: #2c3e50; color: white; padding: 10px 20px; border-radius: 8px; display: inline-block;">
+                npm start
+            </code>
+        </div>
     </div>
 
     <script>
-        function resetGame() {
-            localStorage.clear();
-            location.reload();
-        }
-        
-        // Nettoyer le localStorage pour une nouvelle partie
+        // Nettoyer le localStorage
         localStorage.clear();
-        
-        document.getElementById('playerForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const players = [];
-            for (let i = 1; i <= 5; i++) {
-                const name = document.getElementById(`player${i}`).value.trim();
-                if (name) {
-                    players.push(name);
-                }
-            }
-            
-            // Sauvegarder les joueurs dans le localStorage
-            localStorage.setItem('players', JSON.stringify(players));
-            
-            // Rediriger vers la page de jeu
-            window.location.href = 'game.html';
-        });
     </script>
 </body>
 </html>

@@ -266,6 +266,12 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
+        // Vérifier que nous sommes sur le serveur
+        if (window.location.protocol === 'file:') {
+            alert('⚠️ Veuillez ouvrir ce fichier via le serveur !\n\nOuvrez: http://localhost:3000/lobby.html');
+            document.body.innerHTML = '<div style="text-align: center; padding: 50px; font-family: Arial;"><h1>⚠️ Erreur</h1><p style="font-size: 1.2em;">Veuillez démarrer le serveur et ouvrir :</p><p style="background: #f39c12; color: white; padding: 20px; border-radius: 10px; font-size: 1.5em; margin: 20px;">http://localhost:3000/lobby.html</p></div>';
+        }
+        
         const socket = io();
         let playerId = null;
         let roomCode = null;

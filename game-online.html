@@ -265,6 +265,12 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
+        // Vérifier que nous sommes sur le serveur
+        if (window.location.protocol === 'file:') {
+            alert('⚠️ Veuillez ouvrir ce fichier via le serveur !\n\nOuvrez: http://localhost:3000/lobby.html');
+            window.location.href = 'http://localhost:3000/lobby.html';
+        }
+        
         const socket = io();
         const playerId = localStorage.getItem('playerId');
         const roomCode = localStorage.getItem('roomCode');

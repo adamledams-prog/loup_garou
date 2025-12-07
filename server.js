@@ -11,6 +11,11 @@ const io = socketIo(server);
 // Servir les fichiers statiques
 app.use(express.static(__dirname));
 
+// Route par défaut - rediriger vers index.html
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/index.html');
+});
+
 // Structure des salles de jeu
 const rooms = new Map();
 
