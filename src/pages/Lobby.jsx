@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import io from 'socket.io-client'
+import config from '../config'
 
 function Lobby() {
     const navigate = useNavigate()
@@ -13,7 +14,7 @@ function Lobby() {
     const [isReady, setIsReady] = useState(false)
 
     useEffect(() => {
-        const newSocket = io('http://localhost:3000')
+        const newSocket = io(config.serverUrl)
         setSocket(newSocket)
 
         return () => newSocket.close()
