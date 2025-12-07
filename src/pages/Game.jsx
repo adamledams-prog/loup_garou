@@ -139,17 +139,39 @@ function Game() {
             setTimeout(() => setError(null), 5000) // Effacer après 5s
         })
 
+        // Voyante : rôle révélé
+        newSocket.on('roleRevealed', (data) => {
+            alert(`🔮 ${data.targetName} est ${data.targetRole}`)
+        })
+
+        // Cupidon : vous êtes amoureux
+        newSocket.on('inLove', (data) => {
+            alert(`💘 Vous êtes amoureux avec ${data.partnerName} !`)
+        })
+
+        // Chasseur : vengeance
+        newSocket.on('hunterRevenge', (data) => {
+            alert(`🏹 ${data.message}`)
+            setPhase('hunter') // Passer en mode chasseur
+        })
+
+        // Chasseur a tiré
+        newSocket.on('hunterShot', (data) => {
+            alert(`🏹 ${data.hunterName} a tiré sur ${data.targetName} !`)
+        })
+
         return () => newSocket.close()
     }, [navigate, roomCode])
 
     const handleAction = () => {
-        if (!selectedPlayer || !socket) return
-
-        // Si sorcière, ouvrir la modal de choix
+        // Si sorcière, ouvrir la modal de choix (pas besoin de sélection pour soigner)
         if (myRole === 'sorciere') {
             setShowWitchModal(true)
             return
         }
+
+        // Pour les autres rôles, vérifier qu'un joueur est sélectionné
+        if (!selectedPlayer || !socket) return
 
         // Déterminer l'action selon le rôle
         let action = 'unknown'
@@ -189,6 +211,18 @@ function Game() {
     const handleWitchAction = () => {
         if (!witchAction || !socket) return
 
+        // Si soigner, on soigne automatiquement la victime (pas besoin de cible)
+        if (witchAction === 'heal') {
+            socket.emit('nightAction', {
+                action: 'heal',
+                targetId: killedTonight // Soigner la victime
+            })
+            setShowWitchModal(false)
+            setWitchAction(null)
+            setSelectedPlayer(null)
+            return
+        }
+
         // Si poison, on a besoin d'une cible
         if (witchAction === 'poison' && !selectedPlayer) {
             setError('Sélectionnez un joueur à empoisonner')
@@ -197,7 +231,7 @@ function Game() {
 
         socket.emit('nightAction', {
             action: witchAction,
-            targetId: witchAction === 'poison' ? selectedPlayer : null
+            targetId: selectedPlayer
         })
 
         setShowWitchModal(false)
@@ -209,6 +243,13 @@ function Game() {
         if (!selectedPlayer || !socket) return
 
         socket.emit('vote', { targetId: selectedPlayer })
+        setSelectedPlayer(null)
+    }
+
+    const handleHunterShoot = () => {
+        if (!selectedPlayer || !socket) return
+
+        socket.emit('hunterShoot', { targetId: selectedPlayer })
         setSelectedPlayer(null)
     }
 
@@ -308,12 +349,14 @@ function Game() {
                                     <h3 className="text-2xl font-bold mb-2">
                                         {phase === 'night' ? '🌙 Phase de Nuit' :
                                             phase === 'day' ? '☀️ Phase de Jour' :
-                                                '⚖️ Phase de Vote'}
+                                                phase === 'hunter' ? '🏹 Vengeance du Chasseur' :
+                                                    '⚖️ Phase de Vote'}
                                     </h3>
                                     <p className="text-gray-300 mb-3">
                                         {phase === 'night' ? `Nuit ${nightNumber} - Les rôles spéciaux agissent...` :
                                             phase === 'day' ? 'Discutez et trouvez les loups-garous' :
-                                                'Votez pour éliminer un joueur'}
+                                                phase === 'hunter' ? 'Le chasseur choisit sa cible...' :
+                                                    'Votez pour éliminer un joueur'}
                                     </p>
 
                                     {/* Timer visuel */}
@@ -361,7 +404,8 @@ function Game() {
                                         {players.map((player) => {
                                             // Déterminer si ce joueur peut être cliqué
                                             const isNightActive = phase === 'night' && ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon'].includes(myRole)
-                                            const canClick = player.alive && (isNightActive || phase === 'vote')
+                                            const isHunterActive = phase === 'hunter' && myRole === 'chasseur'
+                                            const canClick = player.alive && (isNightActive || isHunterActive || phase === 'vote')
 
                                             return (
                                                 <div
@@ -395,7 +439,28 @@ function Game() {
                                     </div>
 
                                     {/* Bouton d'action */}
-                                    {selectedPlayer && (
+                                    {/* Sorcière : toujours afficher le bouton */}
+                                    {myRole === 'sorciere' && phase === 'night' && (
+                                        <button
+                                            onClick={handleAction}
+                                            className="btn-primary w-full mt-4"
+                                        >
+                                            🧙‍♀️ Ouvrir les potions
+                                        </button>
+                                    )}
+
+                                    {/* Chasseur : tirer en vengeance */}
+                                    {myRole === 'chasseur' && phase === 'hunter' && selectedPlayer && (
+                                        <button
+                                            onClick={handleHunterShoot}
+                                            className="btn-primary w-full mt-4"
+                                        >
+                                            🏹 Tirer sur {players.find(p => p.id === selectedPlayer)?.name}
+                                        </button>
+                                    )}
+
+                                    {/* Autres rôles : afficher si sélection */}
+                                    {myRole !== 'sorciere' && myRole !== 'chasseur' && selectedPlayer && (
                                         <button
                                             onClick={phase === 'vote' ? handleVote : handleAction}
                                             className="btn-primary w-full mt-4"

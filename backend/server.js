@@ -79,6 +79,7 @@ class GameRoom {
             witchPoisonUsed: false,
             voyanteSeen: false,
             livreurProtection: null, // Qui est protégé par le livreur cette nuit
+            couple: [], // Les deux amoureux [id1, id2]
             votes: {},
             nightActions: {}
         };
@@ -454,12 +455,19 @@ io.on('connection', (socket) => {
         // Notifier le joueur que son action est enregistrée
         socket.emit('actionConfirmed');
 
-        // Vérifier si tous les joueurs vivants ont agi
-        const alivePlayers = Array.from(room.players.values()).filter(p => p.alive);
+        // Vérifier si tous les joueurs avec des actions nocturnes ont agi
+        const rolesWithNightActions = ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon', 'chasseur'];
+        const playersWithActions = Array.from(room.players.values()).filter(p =>
+            p.alive && rolesWithNightActions.includes(p.role)
+        );
         const actedPlayers = Object.keys(room.gameState.nightActions).length;
 
-        if (actedPlayers >= alivePlayers.length) {
-            // Tous les joueurs ont agi, passer au jour
+        console.log(`🌙 Actions: ${actedPlayers}/${playersWithActions.length} joueurs ont agi`);
+
+        if (actedPlayers >= playersWithActions.length) {
+            // Tous les joueurs avec actions ont agi, passer au jour
+            console.log('✅ Tous les rôles actifs ont agi, passage au jour');
+            clearInterval(room.phaseTimer); // Arrêter le timer
             processNightActions(room);
         }
     });
@@ -507,6 +515,44 @@ io.on('connection', (socket) => {
         if (voteCount >= aliveCount) {
             processVotes(room);
         }
+    });
+
+    // Tir du chasseur
+    socket.on('hunterShoot', (data) => {
+        const room = rooms.get(socket.roomCode);
+        if (!room) return;
+
+        const { targetId } = data;
+        const player = room.players.get(socket.playerId);
+
+        // Vérifier que c'est bien le chasseur et qu'on est en phase hunter
+        if (!player || player.role !== 'chasseur' || room.phase !== 'hunter') {
+            socket.emit('error', { message: 'Action non autorisée' });
+            return;
+        }
+
+        // Vérifier la cible
+        const target = room.players.get(targetId);
+        if (!target || !target.alive) {
+            socket.emit('error', { message: 'Cible invalide' });
+            return;
+        }
+
+        // Tuer la cible
+        target.alive = false;
+        room.gameState.deadPlayers.push(targetId);
+
+        io.to(room.code).emit('hunterShot', {
+            hunterId: player.id,
+            hunterName: player.name,
+            targetId: target.id,
+            targetName: target.name
+        });
+
+        // Continuer le jeu
+        setTimeout(() => {
+            continueAfterVote(room);
+        }, 3000);
     });
 
     // Chat
@@ -560,17 +606,42 @@ io.on('connection', (socket) => {
         if (socket.roomCode) {
             const room = rooms.get(socket.roomCode);
             if (room) {
-                room.removePlayer(socket.playerId);
+                // Si la partie n'a pas commencé, on retire le joueur
+                if (!room.gameStarted) {
+                    room.removePlayer(socket.playerId);
 
-                if (room.players.size === 0) {
-                    // Supprimer la salle si vide
-                    rooms.delete(socket.roomCode);
-                    console.log(`Salle ${socket.roomCode} supprimée (vide)`);
+                    if (room.players.size === 0) {
+                        // Supprimer la salle si vide
+                        rooms.delete(socket.roomCode);
+                        console.log(`Salle ${socket.roomCode} supprimée (vide)`);
+                    } else {
+                        // Notifier les autres joueurs
+                        io.to(socket.roomCode).emit('playerLeft', {
+                            players: room.getPlayersList()
+                        });
+                    }
                 } else {
-                    // Notifier les autres joueurs
-                    io.to(socket.roomCode).emit('playerLeft', {
-                        players: room.getPlayersList()
-                    });
+                    // Partie en cours : garder le joueur mais marquer socketId comme null
+                    const player = room.players.get(socket.playerId);
+                    if (player) {
+                        player.socketId = null; // Déconnecté mais toujours dans la partie
+                        console.log(`⚠️ ${player.name} déconnecté de ${socket.roomCode} (peut se reconnecter)`);
+                    }
+
+                    // Si tous les joueurs sont déconnectés, supprimer la salle après 5 min
+                    const allDisconnected = Array.from(room.players.values()).every(p => p.socketId === null);
+                    if (allDisconnected) {
+                        setTimeout(() => {
+                            const currentRoom = rooms.get(socket.roomCode);
+                            if (currentRoom) {
+                                const stillAllDisconnected = Array.from(currentRoom.players.values()).every(p => p.socketId === null);
+                                if (stillAllDisconnected) {
+                                    rooms.delete(socket.roomCode);
+                                    console.log(`🗑️ Salle ${socket.roomCode} supprimée (inactivité)`);
+                                }
+                            }
+                        }, 5 * 60 * 1000); // 5 minutes
+                    }
                 }
             }
         }
@@ -602,9 +673,9 @@ function startPhaseTimer(room, phaseDuration = 60) {
             if (room.phase === 'night') {
                 processNightActions(room);
             } else if (room.phase === 'day') {
-                // Passer au vote
+                // Passer au vote après discussion
                 room.phase = 'vote';
-                room.phaseTimeRemaining = 30; // 30s pour voter
+                room.phaseTimeRemaining = 45; // 45s pour voter
                 io.to(room.code).emit('votePhase', {
                     players: Array.from(room.players.values()).map(p => ({
                         id: p.id,
@@ -612,7 +683,7 @@ function startPhaseTimer(room, phaseDuration = 60) {
                         alive: p.alive
                     }))
                 });
-                startPhaseTimer(room, 30);
+                startPhaseTimer(room, 45);
             } else if (room.phase === 'vote') {
                 processVotes(room);
             }
@@ -634,20 +705,83 @@ function processNightActions(room) {
         }
     }
 
-    // Traiter les actions dans l'ordre: loup -> sorcière -> autres
+    // Traiter les votes des loups (système de majorité)
+    const wolfVotes = {};
     for (const [playerId, action] of Object.entries(actions)) {
         const player = room.players.get(playerId);
 
         if (player.role === 'loup' && action.action === 'kill') {
             const targetId = action.targetId;
+            wolfVotes[targetId] = (wolfVotes[targetId] || 0) + 1;
+        }
+    }
 
-            // Vérifier si protégé par le livreur
-            if (targetId === room.gameState.livreurProtection) {
-                // Protégé par la pizza ! Ne meurt pas
-                room.gameState.livreurProtection = null;
-            } else {
-                killedPlayers.push(targetId);
-                room.gameState.killedTonight = targetId;
+    // Trouver la cible avec le plus de votes loups
+    let maxWolfVotes = 0;
+    let wolfTarget = null;
+    for (const [targetId, votes] of Object.entries(wolfVotes)) {
+        if (votes > maxWolfVotes) {
+            maxWolfVotes = votes;
+            wolfTarget = targetId;
+        }
+    }
+
+    // Si un joueur a été choisi par les loups
+    if (wolfTarget) {
+        // Vérifier si protégé par le livreur
+        if (wolfTarget === room.gameState.livreurProtection) {
+            // Protégé par la pizza ! Ne meurt pas
+            room.gameState.livreurProtection = null;
+        } else {
+            killedPlayers.push(wolfTarget);
+            room.gameState.killedTonight = wolfTarget;
+        }
+    }
+
+    // Voyante - Révéler le rôle de la cible
+    for (const [playerId, action] of Object.entries(actions)) {
+        const player = room.players.get(playerId);
+
+        if (player.role === 'voyante' && action.action === 'see') {
+            const target = room.players.get(action.targetId);
+            if (target && player.socketId) {
+                // Envoyer le rôle de la cible UNIQUEMENT à la voyante
+                io.to(player.socketId).emit('roleRevealed', {
+                    targetId: target.id,
+                    targetName: target.name,
+                    targetRole: target.role
+                });
+            }
+        }
+
+        // Cupidon - Créer un couple (seulement première nuit)
+        if (player.role === 'cupidon' && action.action === 'couple' && room.nightNumber === 1) {
+            // action.targetId devrait contenir un tableau [id1, id2] ou être géré différemment
+            // Pour l'instant, on accepte une seule cible et le cupidon devra envoyer 2 actions
+            if (!room.gameState.couple.includes(action.targetId)) {
+                room.gameState.couple.push(action.targetId);
+                console.log(`💘 Cupidon a choisi ${action.targetId} pour le couple`);
+            }
+
+            // Si le couple est complet (2 personnes), notifier
+            if (room.gameState.couple.length === 2) {
+                const lover1 = room.players.get(room.gameState.couple[0]);
+                const lover2 = room.players.get(room.gameState.couple[1]);
+
+                // Informer les amoureux
+                if (lover1 && lover1.socketId) {
+                    io.to(lover1.socketId).emit('inLove', {
+                        partnerId: lover2.id,
+                        partnerName: lover2.name
+                    });
+                }
+                if (lover2 && lover2.socketId) {
+                    io.to(lover2.socketId).emit('inLove', {
+                        partnerId: lover1.id,
+                        partnerName: lover1.name
+                    });
+                }
+                console.log(`💘 Couple formé: ${lover1.name} ❤️ ${lover2.name}`);
             }
         }
     }
@@ -673,6 +807,29 @@ function processNightActions(room) {
         if (player) player.alive = false;
     });
 
+    // Vérifier si un amoureux est mort → tuer l'autre aussi
+    if (room.gameState.couple.length === 2) {
+        const [lover1Id, lover2Id] = room.gameState.couple;
+
+        if (killedPlayers.includes(lover1Id) && !killedPlayers.includes(lover2Id)) {
+            // Amoureux 1 est mort → tuer amoureux 2
+            const lover2 = room.players.get(lover2Id);
+            if (lover2 && lover2.alive) {
+                lover2.alive = false;
+                killedPlayers.push(lover2Id);
+                console.log(`💔 ${lover2.name} meurt de chagrin`);
+            }
+        } else if (killedPlayers.includes(lover2Id) && !killedPlayers.includes(lover1Id)) {
+            // Amoureux 2 est mort → tuer amoureux 1
+            const lover1 = room.players.get(lover1Id);
+            if (lover1 && lover1.alive) {
+                lover1.alive = false;
+                killedPlayers.push(lover1Id);
+                console.log(`💔 ${lover1.name} meurt de chagrin`);
+            }
+        }
+    }
+
     room.gameState.deadPlayers.push(...killedPlayers);
 
     // Réinitialiser les actions
@@ -694,8 +851,8 @@ function processNightActions(room) {
         }))
     });
 
-    // Démarrer le timer du jour (60s)
-    startPhaseTimer(room, 60);
+    // Démarrer le timer du jour (30s de discussion avant le vote)
+    startPhaseTimer(room, 30);
 }
 
 // Traiter les votes
@@ -718,12 +875,30 @@ function processVotes(room) {
     // Trouver le joueur avec le plus de votes
     let maxVotes = 0;
     let eliminatedId = null;
+    let tiedPlayers = []; // Pour gérer l'égalité
 
     for (const [playerId, count] of Object.entries(voteCounts)) {
         if (count > maxVotes) {
             maxVotes = count;
             eliminatedId = playerId;
+            tiedPlayers = [playerId];
+        } else if (count === maxVotes && count > 0) {
+            tiedPlayers.push(playerId);
         }
+    }
+
+    // Si égalité, personne n'est éliminé
+    if (tiedPlayers.length > 1) {
+        io.to(room.code).emit('voteResult', {
+            tie: true,
+            tiedPlayers: tiedPlayers.map(id => ({
+                id,
+                name: room.players.get(id).name
+            })),
+            votes: voteCounts,
+            message: 'Égalité ! Personne n\'est éliminé.'
+        });
+        eliminatedId = null;
     }
 
     if (eliminatedId) {
@@ -740,12 +915,37 @@ function processVotes(room) {
             },
             votes: voteCounts
         });
+
+        // Si le chasseur meurt, il peut tirer
+        if (player.role === 'chasseur') {
+            room.phase = 'hunter';
+            io.to(player.socketId).emit('hunterRevenge', {
+                message: 'Vous êtes mort ! Choisissez quelqu\'un à éliminer avec vous.',
+                players: Array.from(room.players.values())
+                    .filter(p => p.alive)
+                    .map(p => ({ id: p.id, name: p.name }))
+            });
+
+            // Attendre 30s pour le tir du chasseur
+            setTimeout(() => {
+                // Si le chasseur n'a pas tiré, continuer
+                if (room.phase === 'hunter') {
+                    continueAfterVote(room);
+                }
+            }, 30000);
+            return; // Ne pas continuer immédiatement
+        }
     }
 
     // Réinitialiser les votes
     room.gameState.votes = {};
 
     // Vérifier les conditions de victoire
+    continueAfterVote(room);
+}
+
+// Continuer après le vote (ou après le tir du chasseur)
+function continueAfterVote(room) {
     if (!checkWinCondition(room)) {
         // Passer à la nuit suivante
         setTimeout(() => {
