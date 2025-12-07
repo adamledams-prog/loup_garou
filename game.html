@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loup-Garou - Partie en cours</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            overflow-y: auto;
+        }
+
+        .container {
+            max-width: 650px;
+            margin: 30px auto;
+            min-height: auto;
+        }
+
+        .role-container {
+            text-align: center;
+            animation: fadeIn 0.7s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .player-name {
+            font-size: 3em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 35px;
+            font-weight: 900;
+            animation: slideInDown 0.6s ease-out;
+            text-shadow: 0 3px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        @keyframes slideInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .warning {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffe8a1 100%);
+            border: 3px solid #ffc107;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 35px;
+            color: #856404;
+            font-weight: 700;
+            font-size: 1.15em;
+            box-shadow: 0 8px 25px rgba(255, 193, 7, 0.3);
+            animation: warningPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes warningPulse {
+            0%, 100% {
+                box-shadow: 0 8px 25px rgba(255, 193, 7, 0.3);
+            }
+            50% {
+                box-shadow: 0 12px 35px rgba(255, 193, 7, 0.5);
+            }
+        }
+
+        .role-reveal {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 50px;
+            border-radius: 25px;
+            margin: 35px 0;
+            font-size: 2em;
+            font-weight: bold;
+            display: none;
+            box-shadow: 0 15px 50px rgba(102, 126, 234, 0.5);
+            animation: scaleIn 0.6s ease-out;
+        }
+
+        .role-reveal.show {
+            display: block;
+        }
+
+        .role-reveal.loup {
+            background: linear-gradient(135deg, #ff4757 0%, #8b0000 100%);
+            box-shadow: 0 15px 50px rgba(255, 71, 87, 0.5);
+        }
+
+        .role-reveal.villageois {
+            background: linear-gradient(135deg, #5fb563 0%, #2d6b2f 100%);
+            box-shadow: 0 15px 50px rgba(95, 181, 99, 0.5);
+        }
+
+        @keyframes scaleIn {
+            from { 
+                transform: scale(0.7) rotateY(-10deg);
+                opacity: 0;
+            }
+            to { 
+                transform: scale(1) rotateY(0deg);
+                opacity: 1;
+            }
+        }
+
+        .btn-reveal {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 22px 50px;
+            font-size: 1.4em;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-reveal::after {
+            content: '👁️';
+            position: absolute;
+            right: 20px;
+            font-size: 1.2em;
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .btn-reveal:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #6a4a8e 100%);
+            box-shadow: 0 15px 45px rgba(102, 126, 234, 0.6);
+            transform: translateY(-4px);
+        }
+
+        .btn-next {
+            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+            box-shadow: 0 10px 30px rgba(40, 167, 69, 0.4);
+        }
+
+        .btn-next:hover {
+            background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+            box-shadow: 0 15px 45px rgba(40, 167, 69, 0.6);
+            transform: translateY(-4px);
+        }
+
+        .icon {
+            font-size: 5em;
+            margin-bottom: 25px;
+            animation: iconFloat 3s ease-in-out infinite;
+            filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.3));
+        }
+
+        @keyframes iconFloat {
+            0%, 100% {
+                transform: translateY(0) rotate(0deg);
+            }
+            50% {
+                transform: translateY(-15px) rotate(5deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="moon">🌙</div>
+        <h1>Distribution des rôles</h1>
+        
+        <div id="roleContainer" class="role-container">
+            <div class="player-name" id="playerName"></div>
+            
+            <div class="warning">
+                ⚠️ Personne d'autre ne doit regarder l'écran !
+            </div>
+
+            <button class="btn-start btn-reveal" id="btnReveal" onclick="revealRole()">
+                Voir mon rôle
+            </button>
+
+            <div class="role-reveal" id="roleReveal">
+                <div class="icon" id="roleIcon"></div>
+                <div id="roleText"></div>
+            </div>
+
+            <button class="btn-start btn-next" id="btnNext" style="display: none;" onclick="nextPlayer()">
+                Joueur suivant
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let players = [];
+        let roles = [];
+        let currentPlayerIndex = 0;
+
+        function initGame() {
+            // Récupérer les joueurs
+            players = JSON.parse(localStorage.getItem('players') || '[]');
+            
+            if (players.length !== 5) {
+                alert('Erreur : il faut exactement 5 joueurs !');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Créer les rôles : 1 loup-garou, voyante, sorcière, bouclier, renvoyeur
+            roles = ['loup', 'voyante', 'sorciere', 'bouclier', 'renvoyeur'];
+            
+            // Mélanger les rôles
+            roles = roles.sort(() => Math.random() - 0.5);
+            
+            // Sauvegarder les rôles
+            localStorage.setItem('roles', JSON.stringify(roles));
+            
+            // Afficher le premier joueur
+            showPlayer();
+        }
+
+        function showPlayer() {
+            if (currentPlayerIndex >= players.length) {
+                // Tous les joueurs ont vu leur rôle
+                alert('Tous les joueurs connaissent leur rôle. La partie peut commencer !');
+                window.location.href = 'night.html';
+                return;
+            }
+
+            const playerName = players[currentPlayerIndex];
+            document.getElementById('playerName').textContent = playerName;
+            document.getElementById('roleReveal').classList.remove('show');
+            document.getElementById('btnReveal').style.display = 'block';
+            document.getElementById('btnNext').style.display = 'none';
+        }
+
+        function revealRole() {
+            const role = roles[currentPlayerIndex];
+            const roleReveal = document.getElementById('roleReveal');
+            const roleText = document.getElementById('roleText');
+            const roleIcon = document.getElementById('roleIcon');
+            
+            // Réinitialiser les classes
+            roleReveal.classList.remove('loup', 'villageois');
+            
+            if (role === 'loup') {
+                roleReveal.classList.add('loup');
+                roleIcon.textContent = '🐺';
+                roleText.textContent = 'Tu es un LOUP-GAROU';
+            } else if (role === 'voyante') {
+                roleReveal.classList.add('villageois');
+                roleIcon.textContent = '🔮';
+                roleText.textContent = 'Tu es la VOYANTE';
+            } else if (role === 'sorciere') {
+                roleReveal.classList.add('villageois');
+                roleIcon.textContent = '🧙‍♀️';
+                roleText.textContent = 'Tu es la SORCIÈRE';
+            } else if (role === 'bouclier') {
+                roleReveal.classList.add('villageois');
+                roleIcon.textContent = '🛡️';
+                roleText.textContent = 'Tu es le BOUCLIER';
+            } else if (role === 'renvoyeur') {
+                roleReveal.classList.add('villageois');
+                roleIcon.textContent = '↩️';
+                roleText.textContent = 'Tu es le RENVOYEUR';
+            } else {
+                roleReveal.classList.add('villageois');
+                roleIcon.textContent = '👨';
+                roleText.textContent = 'Tu es un VILLAGEOIS';
+            }
+            
+            roleReveal.classList.add('show');
+            document.getElementById('btnReveal').style.display = 'none';
+            
+            // Changer le texte du bouton pour le dernier joueur
+            const btnNext = document.getElementById('btnNext');
+            if (currentPlayerIndex === players.length - 1) {
+                btnNext.textContent = 'Commencer la partie';
+            } else {
+                btnNext.textContent = 'Joueur suivant';
+            }
+            btnNext.style.display = 'block';
+        }
+
+        function nextPlayer() {
+            currentPlayerIndex++;
+            showPlayer();
+        }
+
+        // Initialiser le jeu au chargement
+        initGame();
+    </script>
+</body>
+</html>
