@@ -14,16 +14,15 @@ try {
 const app = express();
 const server = http.createServer(app);
 
-// Configurer CORS depuis les variables d'environnement
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',')
+// Configurer CORS depuis les variables d'environnement (FR ou EN)
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.ORIGINES_AUTORIS)
+    ? (process.env.ALLOWED_ORIGINS || process.env.ORIGINES_AUTORIS).split(',')
     : [
         'http://localhost:5173',
         'http://localhost:3000',
-        'https://loup-garou-38saxttvx-boulahias-projects-9f2abc0a.vercel.app'
-    ];
-
-// Ajouter le regex pour tous les sous-domaines Vercel
+        'https://loup-garou-38saxttvx-boulahias-projects-9f2abc0a.vercel.app',
+        'https://loup-garou-xi.vercel.app'
+    ];// Ajouter le regex pour tous les sous-domaines Vercel
 const corsOrigins = [
     ...allowedOrigins,
     /https:\/\/loup-garou-.*\.vercel\.app$/
