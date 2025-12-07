@@ -72,6 +72,7 @@ function Lobby() {
             const code = localStorage.getItem('roomCode')
             if (code) {
                 console.log('✅ Navigation vers /game/' + code)
+                // NE PAS fermer le socket ici, il sera réutilisé dans Game
                 navigate(`/game/${code}`)
             } else {
                 console.error('❌ Aucun roomCode dans localStorage !')

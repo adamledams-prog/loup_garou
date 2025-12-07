@@ -51,7 +51,7 @@ function Game() {
             playerId: storedPlayerId
         })
 
-        // Recevoir l'état du jeu lors de la reconnexion
+        // Recevoir l'état du jeu (reconnexion OU démarrage)
         newSocket.on('gameState', (data) => {
             console.log('État du jeu reçu:', data)
             setMyRole(data.role)
@@ -64,6 +64,17 @@ function Game() {
             if (data.killedTonight) {
                 setKilledTonight(data.killedTonight)
             }
+            setIsLoading(false)
+            setError(null)
+        })
+
+        // Recevoir le démarrage initial du jeu
+        newSocket.on('gameStarted', (data) => {
+            console.log('🎮 Jeu démarré, données initiales:', data)
+            setMyRole(data.role)
+            setPhase(data.phase)
+            setNightNumber(data.nightNumber)
+            setPlayers(data.players)
             setIsLoading(false)
             setError(null)
         })
