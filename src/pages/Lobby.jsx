@@ -23,6 +23,9 @@ function Lobby() {
             setRoomCode(data.roomCode)
             setPlayers(data.players)
             setView('waiting')
+            // Sauvegarder pour reconnexion
+            localStorage.setItem('playerId', data.playerId)
+            localStorage.setItem('roomCode', data.roomCode)
         })
 
         // Écouter le join de salle
@@ -31,12 +34,27 @@ function Lobby() {
             setRoomCode(data.roomCode)
             setPlayers(data.players)
             setView('waiting')
+            // Sauvegarder pour reconnexion
+            localStorage.setItem('playerId', data.playerId)
+            localStorage.setItem('roomCode', data.roomCode)
         })
 
         // Écouter les nouveaux joueurs
         newSocket.on('playerJoined', (data) => {
             console.log('Nouveau joueur:', data)
             setPlayers(data.players)
+        })
+
+        // Écouter les changements de statut prêt
+        newSocket.on('playerReady', (data) => {
+            console.log('Statut prêt mis à jour:', data)
+            setPlayers(data.players)
+        })
+
+        // Écouter le démarrage de la partie
+        newSocket.on('gameStarted', (data) => {
+            console.log('🎮 Jeu démarré, redirection vers /game/' + roomCode)
+            navigate(`/game/${roomCode}`)
         })
 
         // Écouter les erreurs

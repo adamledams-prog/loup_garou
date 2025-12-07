@@ -55,7 +55,7 @@ class GameRoom {
         if (this.players.size >= 10) {
             return { success: false, error: 'La salle est pleine' };
         }
-        
+
         if (this.gameStarted) {
             return { success: false, error: 'La partie a déjà commencé' };
         }
@@ -75,7 +75,7 @@ class GameRoom {
 
     removePlayer(playerId) {
         this.players.delete(playerId);
-        
+
         // Si c'était l'hôte, transférer à quelqu'un d'autre
         if (playerId === this.hostId && this.players.size > 0) {
             const newHost = Array.from(this.players.values())[0];
@@ -190,11 +190,11 @@ io.on('connection', (socket) => {
         const { playerName } = data;
         const playerId = uuidv4();
         const roomCode = generateRoomCode();
-        
+
         const room = new GameRoom(roomCode, playerId, playerName);
         room.players.get(playerId).socketId = socket.id;
         rooms.set(roomCode, room);
-        
+
         socket.join(roomCode);
         socket.playerId = playerId;
         socket.roomCode = roomCode;
@@ -244,6 +244,27 @@ io.on('connection', (socket) => {
         console.log(`${playerName} a rejoint la salle ${roomCode}`);
     });
 
+    // Toggle ready status
+    socket.on('toggleReady', () => {
+        const room = rooms.get(socket.roomCode);
+        if (!room) return;
+
+        const player = room.players.get(socket.playerId);
+        if (!player) return;
+
+        // Toggle le statut prêt
+        player.ready = !player.ready;
+
+        // Notifier tous les joueurs de la salle
+        io.to(socket.roomCode).emit('playerReady', {
+            playerId: player.id,
+            ready: player.ready,
+            players: room.getPlayersList()
+        });
+
+        console.log(`${player.name} est ${player.ready ? '✅ prêt' : '⏳ pas prêt'}`);
+    });
+
     // Démarrer la partie
     socket.on('startGame', (data) => {
         const room = rooms.get(socket.roomCode);
@@ -284,6 +305,39 @@ io.on('connection', (socket) => {
         }
 
         console.log(`Partie démarrée dans la salle ${socket.roomCode}`);
+    });
+
+    // Reconnexion à une partie en cours
+    socket.on('reconnectToGame', (data) => {
+        const { roomCode, playerId } = data;
+        const room = rooms.get(roomCode);
+
+        if (!room) {
+            socket.emit('error', { message: 'Partie introuvable' });
+            return;
+        }
+
+        const player = room.players.get(playerId);
+        if (!player) {
+            socket.emit('error', { message: 'Joueur introuvable dans cette partie' });
+            return;
+        }
+
+        // Mettre à jour le socketId du joueur
+        player.socketId = socket.id;
+        socket.join(roomCode);
+        socket.playerId = playerId;
+        socket.roomCode = roomCode;
+
+        // Renvoyer l'état actuel du jeu
+        socket.emit('gameState', {
+            role: player.role,
+            phase: room.phase,
+            nightNumber: room.nightNumber,
+            players: room.getPlayersForClient(playerId)
+        });
+
+        console.log(`${player.name} s'est reconnecté à la partie ${roomCode}`);
     });
 
     // Action de nuit
@@ -389,7 +443,7 @@ function processNightActions(room) {
     // D'abord, traiter le livreur de pizza (protection)
     for (const [playerId, action] of Object.entries(actions)) {
         const player = room.players.get(playerId);
-        
+
         if (player.role === 'livreur' && action.action === 'protect') {
             room.gameState.livreurProtection = action.targetId;
         }
@@ -398,10 +452,10 @@ function processNightActions(room) {
     // Traiter les actions dans l'ordre: loup -> sorcière -> autres
     for (const [playerId, action] of Object.entries(actions)) {
         const player = room.players.get(playerId);
-        
+
         if (player.role === 'loup' && action.action === 'kill') {
             const targetId = action.targetId;
-            
+
             // Vérifier si protégé par le livreur
             if (targetId === room.gameState.livreurProtection) {
                 // Protégé par la pizza ! Ne meurt pas
@@ -416,7 +470,7 @@ function processNightActions(room) {
     // Sorcière
     for (const [playerId, action] of Object.entries(actions)) {
         const player = room.players.get(playerId);
-        
+
         if (player.role === 'sorciere') {
             if (action.action === 'heal' && !room.gameState.witchHealUsed) {
                 killedPlayers = killedPlayers.filter(id => id !== room.gameState.killedTonight);
@@ -464,7 +518,7 @@ function processVotes(room) {
     // Compter les votes (avec bonus pour le Riche)
     for (const [voterId, targetId] of Object.entries(votes)) {
         const voter = room.players.get(voterId);
-        
+
         // Le Riche vote compte double
         if (voter && voter.role === 'riche') {
             voteCounts[targetId] = (voteCounts[targetId] || 0) + 2;
@@ -486,7 +540,7 @@ function processVotes(room) {
 
     if (eliminatedId) {
         const player = room.players.get(eliminatedId);
-        
+
         player.alive = false;
         room.gameState.deadPlayers.push(eliminatedId);
 
@@ -509,7 +563,7 @@ function processVotes(room) {
         setTimeout(() => {
             room.phase = 'night';
             room.nightNumber++;
-            
+
             io.to(room.code).emit('nightPhase', {
                 nightNumber: room.nightNumber,
                 players: Array.from(room.players.values()).map(p => ({
