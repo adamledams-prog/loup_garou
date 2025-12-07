@@ -1,13 +1,124 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>loup-garou-v2</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loup-Garou - Menu Principal</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .mode-selection {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .mode-card {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 3px solid transparent;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .mode-card:hover {
+            transform: translateY(-10px);
+            border-color: #667eea;
+            box-shadow: 0 15px 50px rgba(102, 126, 234, 0.3);
+        }
+
+        .mode-icon {
+            font-size: 5em;
+            margin-bottom: 20px;
+        }
+
+        .mode-title {
+            font-size: 1.8em;
+            font-weight: 800;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .mode-description {
+            color: #7f8c8d;
+            font-size: 1.05em;
+            line-height: 1.6;
+        }
+
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 700;
+            margin-top: 10px;
+        }
+
+        .badge.classic {
+            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+        }
+
+        @media (max-width: 768px) {
+            .mode-selection {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="moon">🌙</div>
+        <h1>🐺 Loup-Garou</h1>
+        <p style="text-align: center; font-size: 1.2em; color: #7f8c8d; margin-bottom: 20px;">
+            Choisissez votre mode de jeu
+        </p>
+
+        <div class="mode-selection">
+            <div class="mode-card" onclick="window.location.href='lobby.html'">
+                <div class="mode-icon">🌐</div>
+                <div class="mode-title">Mode Multijoueur</div>
+                <div class="mode-description">
+                    Jouez en ligne avec vos amis !<br>
+                    • Salles privées avec codes<br>
+                    • 4 à 10 joueurs<br>
+                    • Chat en temps réel<br>
+                    • Actions simultanées
+                </div>
+                <span class="badge">NOUVEAU</span>
+            </div>
+
+            <div class="mode-card" onclick="window.location.href='game-local.html'">
+                <div class="mode-icon">📱</div>
+                <div class="mode-title">Mode Local</div>
+                <div class="mode-description">
+                    Jouez sur un seul appareil<br>
+                    • 5 joueurs fixes<br>
+                    • Tour par tour<br>
+                    • Mode classique<br>
+                    • Pas de connexion requise
+                </div>
+                <span class="badge classic">CLASSIQUE</span>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px; padding: 20px; background: rgba(255,255,255,0.8); border-radius: 15px;">
+            <p style="color: #7f8c8d; margin-bottom: 10px;">
+                <strong>💡 Astuce :</strong> Pour le mode multijoueur, assurez-vous que le serveur est démarré !
+            </p>
+            <code style="background: #2c3e50; color: white; padding: 10px 20px; border-radius: 8px; display: inline-block;">
+                npm start
+            </code>
+        </div>
+    </div>
+
+    <script>
+        // Nettoyer le localStorage
+        localStorage.clear();
+    </script>
+</body>
 </html>
