@@ -96,13 +96,44 @@ function Game() {
     const handleAction = () => {
         if (!selectedPlayer || !socket) return
 
+        // Déterminer l'action selon le rôle
+        let action = 'unknown'
+
+        switch (myRole) {
+            case 'loup':
+                action = 'kill'
+                break
+            case 'voyante':
+                action = 'see'
+                break
+            case 'sorciere':
+                // TODO: Demander au joueur s'il veut heal ou poison
+                action = 'heal' // Par défaut heal
+                break
+            case 'livreur':
+                action = 'protect'
+                break
+            case 'cupidon':
+                action = 'couple'
+                break
+            case 'chasseur':
+                action = 'shoot'
+                break
+            case 'riche':
+            case 'villageois':
+                // Ces rôles n'ont pas d'action de nuit
+                return
+            default:
+                return
+        }
+
         socket.emit('nightAction', {
-            action: myRole === 'loup' ? 'kill' : myRole === 'voyante' ? 'see' : 'heal',
+            action,
             targetId: selectedPlayer
         })
 
         setSelectedPlayer(null)
-        alert('Action enregistrée !')
+        alert(`Action ${action} enregistrée !`)
     }
 
     const handleVote = () => {
@@ -205,30 +236,42 @@ function Game() {
                         {/* Grille de joueurs */}
                         <div className="card">
                             <h3 className="text-xl font-bold mb-4">
-                                👥 Joueurs {phase === 'night' && myRole === 'loup' ? '(Cliquez pour tuer)' :
-                                    phase === 'vote' ? '(Cliquez pour voter)' : ''}
+                                👥 Joueurs {
+                                    phase === 'night' && ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon'].includes(myRole)
+                                        ? '(Cliquez pour agir)'
+                                        : phase === 'vote'
+                                            ? '(Cliquez pour voter)'
+                                            : ''
+                                }
                             </h3>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                {players.map((player) => (
-                                    <div
-                                        key={player.id}
-                                        onClick={() => {
-                                            if (player.alive && ((phase === 'night' && myRole === 'loup') || phase === 'vote')) {
-                                                setSelectedPlayer(player.id)
-                                            }
-                                        }}
-                                        className={`p-4 rounded-xl text-center cursor-pointer border-2 transition-all
-                                            ${!player.alive ? 'bg-gray-900 opacity-50' : 'bg-night-800 hover:bg-blood-900/30'}
-                                            ${selectedPlayer === player.id ? 'border-blood-600 shadow-neon-red' : 'border-transparent hover:border-blood-600'}
-                                        `}
-                                    >
-                                        <div className="text-3xl mb-2">{player.alive ? '😊' : '💀'}</div>
-                                        <p className="font-bold">{player.name}</p>
-                                        <p className="text-sm text-gray-500">
-                                            {player.alive ? 'En vie' : 'Mort'}
-                                        </p>
-                                    </div>
-                                ))}
+                                {players.map((player) => {
+                                    // Déterminer si ce joueur peut être cliqué
+                                    const isNightActive = phase === 'night' && ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon'].includes(myRole)
+                                    const canClick = player.alive && (isNightActive || phase === 'vote')
+
+                                    return (
+                                        <div
+                                            key={player.id}
+                                            onClick={() => {
+                                                if (canClick) {
+                                                    setSelectedPlayer(player.id)
+                                                }
+                                            }}
+                                            className={`p-4 rounded-xl text-center transition-all
+                                                ${!player.alive ? 'bg-gray-900 opacity-50' : 'bg-night-800'}
+                                                ${canClick ? 'cursor-pointer hover:bg-blood-900/30' : 'cursor-default'}
+                                                ${selectedPlayer === player.id ? 'border-2 border-blood-600 shadow-neon-red' : 'border-2 border-transparent hover:border-blood-600'}
+                                            `}
+                                        >
+                                            <div className="text-3xl mb-2">{player.alive ? '😊' : '💀'}</div>
+                                            <p className="font-bold">{player.name}</p>
+                                            <p className="text-sm text-gray-500">
+                                                {player.alive ? 'En vie' : 'Mort'}
+                                            </p>
+                                        </div>
+                                    )
+                                })}
                             </div>
 
                             {/* Bouton d'action */}
