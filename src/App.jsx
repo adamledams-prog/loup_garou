@@ -6,7 +6,7 @@ import Game from './pages/Game'
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gradient-to-br from-night-900 via-night-700 to-blood-900">
+      <div className="min-h-screen w-full bg-gradient-to-br from-night-900 via-night-700 to-blood-900">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/lobby" element={<Lobby />} />

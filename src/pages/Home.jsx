@@ -5,8 +5,8 @@ function Home() {
     const navigate = useNavigate()
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4">
-            <div className="w-full max-w-4xl">
+        <div className="min-h-screen flex items-center justify-center p-4 md:p-8">
+            <div className="w-full max-w-6xl">
 
                 {/* Logo et titre */}
                 <div className="text-center mb-12 animate-float">

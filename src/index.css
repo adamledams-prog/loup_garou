@@ -3,12 +3,22 @@
 @tailwind utilities;
 
 @layer base {
+
+  html,
+  body,
+  #root {
+    @apply min-h-screen w-full;
+  }
+
   body {
     @apply bg-gradient-to-br from-night-900 via-night-700 to-blood-900;
-    @apply min-h-screen text-white;
+    @apply text-white;
+    margin: 0;
+    padding: 0;
     background-image:
       radial-gradient(at 20% 30%, rgba(220, 38, 38, 0.15) 0, transparent 50%),
       radial-gradient(at 80% 70%, rgba(127, 29, 29, 0.15) 0, transparent 50%);
+    background-attachment: fixed;
   }
 }
 
