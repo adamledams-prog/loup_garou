@@ -19,12 +19,13 @@ const io = socketIo(server, {
     }
 });
 
-// Servir les fichiers statiques
-app.use(express.static(__dirname));
-
-// Route par défaut - rediriger vers index.html
+// Route de santé pour Railway
 app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/index.html');
+    res.json({
+        status: 'ok',
+        message: '🎮 Serveur Loup-Garou en ligne',
+        timestamp: new Date().toISOString()
+    });
 });
 
 // Structure des salles de jeu
@@ -624,7 +625,7 @@ function checkWinCondition(room) {
 
 // Démarrer le serveur
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`🎮 Serveur Loup-Garou démarré sur le port ${PORT}`);
-    console.log(`🌐 Accédez au jeu sur http://localhost:${PORT}`);
+    console.log(`🌐 Serveur accessible sur 0.0.0.0:${PORT}`);
 });
