@@ -115,31 +115,25 @@ class GameRoom {
         const playerCount = this.players.size;
         const roles = [];
 
-        // 1 loup-garou obligatoire
-        roles.push('loup');
+        // Ajouter les loups (selon loupCount ou 1 par défaut)
+        const numLoups = this.loupCount || 1;
+        for (let i = 0; i < numLoups && roles.length < playerCount; i++) {
+            roles.push('loup');
+        }
 
-        // Si des rôles personnalisés sont définis, les utiliser
+        // Si des rôles personnalisés sont définis, les ajouter
         if (this.customRoles && this.customRoles.length > 0) {
-            // Ajouter les rôles personnalisés (max 3)
-            this.customRoles.slice(0, 3).forEach(role => {
+            this.customRoles.forEach(role => {
                 if (roles.length < playerCount) {
                     roles.push(role);
                 }
             });
-
-            // Ajouter un 2ème loup si 8+ joueurs
-            if (playerCount >= 8 && roles.length < playerCount) {
-                roles.push('loup');
-            }
         } else {
-            // Rôles par défaut selon le nombre de joueurs
-            if (playerCount >= 4) roles.push('voyante');
-            if (playerCount >= 5) roles.push('sorciere');
-            if (playerCount >= 6) roles.push('riche');
-            if (playerCount >= 7) roles.push('livreur');
-            if (playerCount >= 8) roles.push('loup'); // 2ème loup
-            if (playerCount >= 9) roles.push('chasseur');
-            if (playerCount >= 10) roles.push('cupidon');
+            // Rôles par défaut selon le nombre de joueurs (si aucun rôle choisi)
+            if (playerCount >= 4 && roles.length < playerCount) roles.push('voyante');
+            if (playerCount >= 5 && roles.length < playerCount) roles.push('sorciere');
+            if (playerCount >= 6 && roles.length < playerCount) roles.push('riche');
+            if (playerCount >= 7 && roles.length < playerCount) roles.push('livreur');
         }
 
         // Compléter avec des villageois
@@ -248,6 +242,8 @@ io.on('connection', (socket) => {
         });
 
         console.log(`${playerName} a rejoint la salle ${roomCode}`);
+    });
+
     // Démarrer la partie
     socket.on('startGame', (data) => {
         const room = rooms.get(socket.roomCode);
@@ -267,33 +263,21 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // Enregistrer les rôles personnalisés si fournis
+        // Enregistrer les rôles personnalisés et le nombre de loups si fournis
         if (data && data.customRoles && data.customRoles.length > 0) {
             room.customRoles = data.customRoles;
         }
-
-        room.startGame();;
-
-        // Vérifier que c'est l'hôte
-        const player = room.players.get(socket.playerId);
-        if (!player || !player.isHost) {
-            socket.emit('error', { message: 'Seul l\'hôte peut démarrer' });
-            return;
-        }
-
-        const canStart = room.canStartGame();
-        if (!canStart.canStart) {
-            socket.emit('error', { message: canStart.error });
-            return;
+        if (data && data.loupCount) {
+            room.loupCount = data.loupCount;
         }
 
         room.startGame();
 
         // Envoyer les rôles à chaque joueur
-        for (const player of room.players.values()) {
-            io.to(player.socketId).emit('gameStarted', {
-                role: player.role,
-                players: room.getPlayersForClient(player.id),
+        for (const p of room.players.values()) {
+            io.to(p.socketId).emit('gameStarted', {
+                role: p.role,
+                players: room.getPlayersForClient(p.id),
                 phase: 'night',
                 nightNumber: 1
             });
@@ -465,6 +449,13 @@ function processNightActions(room) {
             name: room.players.get(id).name
         })),
         players: Array.from(room.players.values()).map(p => ({
+            id: p.id,
+            name: p.name,
+            alive: p.alive
+        }))
+    });
+}
+
 // Traiter les votes
 function processVotes(room) {
     const votes = room.gameState.votes;
@@ -482,10 +473,17 @@ function processVotes(room) {
         }
     }
 
-// Traiter les votes
-function processVotes(room) {
-    const votes = room.gameState.votes;
-    const voteCounts = {};
+    // Trouver le joueur avec le plus de votes
+    let maxVotes = 0;
+    let eliminatedId = null;
+
+    for (const [playerId, count] of Object.entries(voteCounts)) {
+        if (count > maxVotes) {
+            maxVotes = count;
+            eliminatedId = playerId;
+        }
+    }
+
     if (eliminatedId) {
         const player = room.players.get(eliminatedId);
         
@@ -500,23 +498,6 @@ function processVotes(room) {
             },
             votes: voteCounts
         });
-    }           eliminated: null,
-                shieldUsed: true,
-                playerName: player.name
-            });
-        } else {
-            player.alive = false;
-            room.gameState.deadPlayers.push(eliminatedId);
-
-            io.to(room.code).emit('voteResult', {
-                eliminated: {
-                    id: eliminatedId,
-                    name: player.name,
-                    role: player.role
-                },
-                votes: voteCounts
-            });
-        }
     }
 
     // Réinitialiser les votes
