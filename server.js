@@ -92,8 +92,8 @@ class GameRoom {
     }
 
     canStartGame() {
-        if (this.players.size < 4) {
-            return { canStart: false, error: 'Il faut au moins 4 joueurs' };
+        if (this.players.size < 2) {
+            return { canStart: false, error: 'Il faut au moins 2 joueurs' };
         }
 
         const allReady = Array.from(this.players.values()).every(p => p.ready || p.isHost);
