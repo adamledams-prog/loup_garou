@@ -62,10 +62,15 @@ function Lobby() {
 
         // Écouter le démarrage de la partie
         newSocket.on('gameStarted', (data) => {
-            console.log('🎮 Jeu démarré, redirection vers /game/', data)
-            const code = data.roomCode || localStorage.getItem('roomCode')
+            console.log('🎮 Jeu démarré, data reçue:', data)
+            // Toujours utiliser localStorage car il est à jour
+            const code = localStorage.getItem('roomCode')
+            console.log('📍 RoomCode depuis localStorage:', code)
             if (code) {
+                console.log('✅ Navigation vers /game/' + code)
                 navigate(`/game/${code}`)
+            } else {
+                console.error('❌ Aucun roomCode dans localStorage !')
             }
         })
 
@@ -194,22 +199,24 @@ function Lobby() {
                                 onClick={() => {
                                     if (socket) {
                                         socket.emit('toggleReady')
-                                        setIsReady(!isReady)
                                     }
                                 }}
                             >
-                                {isReady ? '✅ Prêt !' : '⏳ Pas prêt'}
+                                {players.find(p => p.id === localStorage.getItem('playerId'))?.ready ? '✅ Prêt !' : '⏳ Pas prêt'}
                             </button>
                         </div>
 
-                        <button
-                            className="btn-primary w-full text-xl py-4"
-                            onClick={() => {
-                                if (socket) socket.emit('startGame')
-                            }}
-                        >
-                            🎮 LANCER LA PARTIE
-                        </button>
+                        {/* Bouton Lancer visible uniquement pour l'hôte */}
+                        {players.find(p => p.id === localStorage.getItem('playerId'))?.isHost && (
+                            <button
+                                className="btn-primary w-full text-xl py-4"
+                                onClick={() => {
+                                    if (socket) socket.emit('startGame')
+                                }}
+                            >
+                                🎮 LANCER LA PARTIE
+                            </button>
+                        )}
                     </div>
                 )}
 

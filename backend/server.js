@@ -309,6 +309,7 @@ io.on('connection', (socket) => {
         // Envoyer les rôles à chaque joueur
         for (const p of room.players.values()) {
             io.to(p.socketId).emit('gameStarted', {
+                roomCode: room.code,
                 role: p.role,
                 players: room.getPlayersForClient(p.id),
                 phase: 'night',

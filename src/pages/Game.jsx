@@ -24,13 +24,24 @@ function Game() {
         const storedPlayerId = localStorage.getItem('playerId')
         const storedRoomCode = localStorage.getItem('roomCode')
 
-        if (storedPlayerId && storedRoomCode) {
-            // Rejoindre la partie en cours
-            newSocket.emit('reconnectToGame', {
-                roomCode: storedRoomCode,
-                playerId: storedPlayerId
-            })
+        // Vérifier cohérence URL et localStorage
+        if (!storedPlayerId || !storedRoomCode) {
+            console.error('❌ Pas de session sauvegardée')
+            navigate('/lobby')
+            return
         }
+
+        if (roomCode && storedRoomCode !== roomCode) {
+            console.error('❌ RoomCode URL ne correspond pas au localStorage')
+            navigate('/lobby')
+            return
+        }
+
+        // Rejoindre la partie en cours
+        newSocket.emit('reconnectToGame', {
+            roomCode: storedRoomCode,
+            playerId: storedPlayerId
+        })
 
         // Recevoir l'état du jeu lors de la reconnexion
         newSocket.on('gameState', (data) => {
@@ -39,15 +50,6 @@ function Game() {
             setPhase(data.phase)
             setNightNumber(data.nightNumber)
             setPlayers(data.players)
-        })
-
-        // Recevoir le rôle et démarrage du jeu
-        newSocket.on('gameStarted', (data) => {
-            console.log('Jeu démarré:', data)
-            setMyRole(data.role)
-            setPlayers(data.players)
-            setPhase(data.phase)
-            setNightNumber(data.nightNumber)
         })
 
         // Phase de nuit
