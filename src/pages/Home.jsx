@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useRipple } from '../hooks/useRipple'
 import { soundManager } from '../utils/sound'
 import { useMultiTap, useKonamiCode } from '../hooks/useEasterEggs'
+import { getNetworkQuality, isPWAInstalled, setupPWAInstall, promptPWAInstall } from '../utils/mobile'
 
 function Home() {
     const navigate = useNavigate()
@@ -12,6 +13,8 @@ function Home() {
     const [stars, setStars] = useState([])
     const [particles, setParticles] = useState([])
     const [soundEnabled, setSoundEnabled] = useState(soundManager.enabled)
+    const [networkInfo, setNetworkInfo] = useState(null)
+    const [showInstallPrompt, setShowInstallPrompt] = useState(false)
 
     // 🎉 Easter Eggs
     const wolfEasterEgg = useMultiTap(wolfLogoRef, 10, 3000)
@@ -29,6 +32,36 @@ function Home() {
         }
         document.addEventListener('click', initSound)
         return () => document.removeEventListener('click', initSound)
+    }, [])
+
+    // 📡 Monitorer la qualité réseau
+    useEffect(() => {
+        const updateNetwork = () => {
+            const info = getNetworkQuality()
+            setNetworkInfo(info)
+        }
+
+        // Mettre à jour immédiatement
+        updateNetwork()
+
+        // Écouter les changements
+        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection
+        if (connection) {
+            connection.addEventListener('change', updateNetwork)
+            return () => connection.removeEventListener('change', updateNetwork)
+        }
+    }, [])
+
+    // 📲 Setup PWA install prompt
+    useEffect(() => {
+        setupPWAInstall()
+        // Afficher le prompt après 10 secondes si pas installé
+        if (!isPWAInstalled()) {
+            const timer = setTimeout(() => {
+                setShowInstallPrompt(true)
+            }, 10000)
+            return () => clearTimeout(timer)
+        }
     }, [])
 
     // Génération du starfield et particules
@@ -104,6 +137,51 @@ function Home() {
                     />
                 ))}
             </div>
+
+            {/* 📡 Indicateur réseau (coin supérieur droit) */}
+            {networkInfo && (
+                <div className="fixed top-4 right-4 z-50 animate-slideUp">
+                    <div className="glass-card p-3 flex items-center gap-2">
+                        <span className="text-xl">{networkInfo.icon}</span>
+                        <div className="text-xs">
+                            <div className="font-bold text-white">{networkInfo.effectiveType?.toUpperCase()}</div>
+                            {networkInfo.downlink && (
+                                <div className="text-gray-400">{networkInfo.downlink}</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 📲 Prompt d'installation PWA */}
+            {showInstallPrompt && (
+                <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 animate-slideUp max-w-md mx-4">
+                    <div className="glass-card p-4 flex items-center gap-3">
+                        <div className="text-3xl">📱</div>
+                        <div className="flex-1">
+                            <div className="font-bold text-white mb-1">Installer l'application</div>
+                            <div className="text-xs text-gray-400">Jouez hors-ligne et profitez de l'expérience complète</div>
+                        </div>
+                        <button
+                            onClick={async () => {
+                                const result = await promptPWAInstall()
+                                if (result.success) {
+                                    setShowInstallPrompt(false)
+                                }
+                            }}
+                            className="btn-primary text-sm px-4 py-2"
+                        >
+                            Installer
+                        </button>
+                        <button
+                            onClick={() => setShowInstallPrompt(false)}
+                            className="text-gray-400 hover:text-white"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="w-full max-w-6xl relative z-20" ref={heroRef}>
 

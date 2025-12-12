@@ -4,6 +4,7 @@ import io from 'socket.io-client'
 import config from '../config'
 import { useParticleSystem } from '../utils/particles'
 import { soundManager } from '../utils/sound'
+import { vibrate, requestWakeLock, releaseWakeLock } from '../utils/mobile'
 
 function Game() {
     const { roomCode } = useParams()
@@ -157,6 +158,9 @@ function Game() {
             setTotalDeaths(0)
             setEventHistory([]) // 📜 Réinitialiser l'historique
             addEvent('start', 'La partie commence !', '🎮')
+
+            // 🔆 Activer Wake Lock pour garder l'écran allumé
+            requestWakeLock()
         })
 
         // Phase de nuit
@@ -220,8 +224,9 @@ function Game() {
                     triggerDeath(x, y, 40)
                 }
 
-                // 🔊 Son mort
+                // 🔊 Son mort + 📳 Vibration
                 soundManager.playDeath()
+                vibrate.death()
             }
         })
 
@@ -267,9 +272,10 @@ function Game() {
         newSocket.on('phaseTimer', (data) => {
             setTimeRemaining(data.timeRemaining)
 
-            // 🔊 Son timer critique
+            // 🔊 Son timer critique + 📳 Vibration
             if (data.timeRemaining === 10) {
                 soundManager.playTimerCritical()
+                vibrate.critical()
             } else if (data.timeRemaining === 0) {
                 soundManager.playTimerEnd()
             }
@@ -392,7 +398,11 @@ function Game() {
             }
         })
 
-        return () => newSocket.close()
+        return () => {
+            newSocket.close()
+            // 💤 Libérer le Wake Lock quand on quitte
+            releaseWakeLock()
+        }
     }, [navigate, roomCode])
 
     const handleAction = () => {
@@ -503,8 +513,9 @@ function Game() {
             triggerVote(x, y, 40)
         }
 
-        // 🔊 Son vote
+        // 🔊 Son vote + 📳 Vibration
         soundManager.playVote()
+        vibrate.vote()
     }
 
     const handleHunterShoot = () => {

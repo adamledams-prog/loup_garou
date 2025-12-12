@@ -4,6 +4,7 @@ import io from 'socket.io-client'
 import config from '../config'
 import { useParticleSystem } from '../utils/particles'
 import { soundManager } from '../utils/sound'
+import { vibrate, shareRoomCode } from '../utils/mobile'
 
 function Lobby() {
     const navigate = useNavigate()
@@ -182,6 +183,8 @@ function Lobby() {
                     triggerConfetti(x, y, 50)
                     // 🔊 Son ready
                     soundManager.playReady()
+                    // 📳 Vibration ready
+                    vibrate.ready()
                 }
             }
         })
@@ -458,11 +461,29 @@ function Lobby() {
                                     onClick={() => {
                                         navigator.clipboard.writeText(roomCode)
                                         setCopySuccess(true)
+                                        vibrate.tap()
                                         setTimeout(() => setCopySuccess(false), 2000)
                                     }}
                                     className="btn-secondary text-sm px-4 py-2 hover:scale-110 transition-transform"
                                 >
                                     {copySuccess ? '✅ Copié !' : '📋 Copier'}
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        const result = await shareRoomCode(roomCode)
+                                        if (result.success) {
+                                            vibrate.success()
+                                            if (result.fallback === 'clipboard') {
+                                                setCopySuccess(true)
+                                                setTimeout(() => setCopySuccess(false), 2000)
+                                            }
+                                        } else {
+                                            vibrate.error()
+                                        }
+                                    }}
+                                    className="btn-primary text-sm px-4 py-2 hover:scale-110 transition-transform"
+                                >
+                                    📤 Partager
                                 </button>
                             </div>
                             <p className="text-sm text-gray-500">Partagez ce code avec vos amis</p>
