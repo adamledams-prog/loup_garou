@@ -40,6 +40,50 @@ function Game() {
     const [unreadWolfMessages, setUnreadWolfMessages] = useState(0)
     const [chatVisible, setChatVisible] = useState(false) // Pour savoir si le chat est visible
 
+    // 📜 Historique des événements
+    const [eventHistory, setEventHistory] = useState([])
+    const [showHistory, setShowHistory] = useState(false)
+
+    // 😊 Picker emoji
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+    const quickEmojis = ['😂', '❤️', '😱', '🤔', '👍', '👎']
+
+    // 💀 Animation de mort
+    const [dyingPlayers, setDyingPlayers] = useState([]) // IDs des joueurs en train de mourir
+
+    // 🔔 Système de notifications stylées
+    const [notification, setNotification] = useState(null) // { type, icon, title, message }
+
+    // 🎭 Processing avec narration
+    const [isProcessing, setIsProcessing] = useState(false)
+
+    // Fermer le picker emoji si on clique ailleurs
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (showEmojiPicker && !e.target.closest('.emoji-picker-container')) {
+                setShowEmojiPicker(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [showEmojiPicker])
+
+    // 💀 Détecter les joueurs qui meurent et déclencher l'animation
+    useEffect(() => {
+        if (players.length === 0) return
+
+        const newDead = players.filter(p => !p.alive && !dyingPlayers.includes(p.id))
+        if (newDead.length > 0) {
+            // Ajouter à la liste des mourants
+            setDyingPlayers(prev => [...prev, ...newDead.map(p => p.id)])
+
+            // Retirer après l'animation (1.5s)
+            setTimeout(() => {
+                setDyingPlayers(prev => prev.filter(id => !newDead.map(p => p.id).includes(id)))
+            }, 1500)
+        }
+    }, [players])
+
     useEffect(() => {
         const newSocket = io(config.serverUrl)
         setSocket(newSocket)
@@ -105,6 +149,8 @@ function Game() {
             setGameStartTime(Date.now())
             setTotalNights(0)
             setTotalDeaths(0)
+            setEventHistory([]) // 📜 Réinitialiser l'historique
+            addEvent('start', 'La partie commence !', '🎮')
         })
 
         // Phase de nuit
@@ -122,6 +168,10 @@ function Game() {
             setActionSuccess(null)
             setSelectedPlayer(null) // ✅ Désélectionner le joueur
             setUnreadWolfMessages(0) // 💬 Réinitialiser messages non lus
+
+            // 📜 Log événement
+            addEvent('night', `Nuit ${data.nightNumber}`, '🌙')
+
             if (data.killedTonight) {
                 setKilledTonight(data.killedTonight)
             }
@@ -141,8 +191,13 @@ function Game() {
             setHasActed(false) // ✅ Réinitialiser (pas d'action le jour mais préparer pour vote)
             setActionSuccess(null)
             setSelectedPlayer(null)
+
+            // 📜 Log événement
+            addEvent('day', 'Le village se réveille', '☀️')
+
             if (data.killedPlayer) {
-                alert(`${data.killedPlayer} est mort cette nuit...`)
+                addEvent('death', `💀 ${data.killedPlayer} est mort cette nuit`, '💀')
+                showNotification('death', '💀', 'Victime de la nuit', `${data.killedPlayer} est mort cette nuit...`)
                 // 📊 Incrémenter le compteur de morts
                 setTotalDeaths(prev => prev + 1)
             }
@@ -160,6 +215,9 @@ function Game() {
             setActionSuccess(null)
             setSelectedPlayer(null)
             setVoteProgress({ voted: 0, total: data.players.filter(p => p.alive).length })
+
+            // 📜 Log événement
+            addEvent('vote', 'Phase de vote commence', '⚖️')
         })
 
         // Progression des votes
@@ -197,7 +255,7 @@ function Game() {
 
             // Si partie introuvable ou joueur introuvable, rediriger vers lobby
             if (data.message.includes('introuvable')) {
-                alert(`❌ ${data.message}\n\nVous allez être redirigé vers le lobby.`)
+                showNotification('error', '❌', 'Erreur', `${data.message}\n\nVous allez être redirigé vers le lobby.`, 3000)
                 // Nettoyer le localStorage
                 localStorage.removeItem('playerId')
                 localStorage.removeItem('roomCode')
@@ -228,17 +286,17 @@ function Game() {
 
         // Voyante : rôle révélé
         newSocket.on('roleRevealed', (data) => {
-            alert(`🔮 ${data.targetName} est ${data.targetRole}`)
+            showNotification('info', '🔮', 'Vision de la Voyante', `${data.targetName} est ${data.targetRole}`)
         })
 
         // Cupidon : vous êtes amoureux
         newSocket.on('inLove', (data) => {
-            alert(`💘 Vous êtes amoureux avec ${data.partnerName} !`)
+            showNotification('love', '💘', 'Cupidon vous a choisi !', `Vous êtes amoureux avec ${data.partnerName} !`, 8000)
         })
 
         // Chasseur : vengeance
         newSocket.on('hunterRevenge', (data) => {
-            alert(`🏹 ${data.message}`)
+            showNotification('hunter', '🏹', 'Vengeance du Chasseur', data.message, 7000)
             setPhase('hunter') // Passer en mode chasseur
             setHasActed(false) // ✅ Réinitialiser pour le tir du chasseur
             setActionSuccess(null)
@@ -247,7 +305,7 @@ function Game() {
 
         // Chasseur a tiré
         newSocket.on('hunterShot', (data) => {
-            alert(`🏹 ${data.hunterName} a tiré sur ${data.targetName} !`)
+            showNotification('hunter', '🏹', 'Tir du Chasseur', `${data.hunterName} a tiré sur ${data.targetName} !`)
         })
 
         // 📡 Gestion des déconnexions/reconnexions
@@ -287,7 +345,11 @@ function Game() {
         newSocket.on('processingPhase', (data) => {
             if (data.processing) {
                 console.log('🔒 Serveur en phase de traitement, UI désactivée')
-                // Optionnel: on pourrait ajouter un state pour afficher un spinner
+                setIsProcessing(true)
+                // Désactiver après 3 secondes max (normalement le dayPhase arrive avant)
+                setTimeout(() => setIsProcessing(false), 3000)
+            } else {
+                setIsProcessing(false)
             }
         })
 
@@ -416,9 +478,32 @@ function Game() {
         setMessageInput('')
     }
 
+    const insertEmoji = (emoji) => {
+        setMessageInput(prev => prev + emoji)
+        setShowEmojiPicker(false)
+    }
+
+    // 🔔 Afficher une notification stylée
+    const showNotification = (type, icon, title, message, duration = 5000) => {
+        setNotification({ type, icon, title, message })
+        setTimeout(() => setNotification(null), duration)
+    }
+
     const handleReplay = () => {
         // Retourner au lobby pour créer une nouvelle partie
         navigate('/lobby')
+    }
+
+    // 📜 Fonction pour ajouter un événement à l'historique
+    const addEvent = (type, message, icon = '📌') => {
+        const newEvent = {
+            id: Date.now(),
+            type, // 'night', 'day', 'vote', 'death', 'action'
+            message,
+            icon,
+            timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+        }
+        setEventHistory(prev => [...prev, newEvent])
     }
 
     const getRoleEmoji = (role) => {
@@ -449,24 +534,128 @@ function Game() {
         return descriptions[role] || 'Participez au vote pour éliminer les loups'
     }
 
+    // 🎭 Textes de narration
+    const getNarration = (phase, nightNumber, context = {}) => {
+        const narrations = {
+            night: [
+                `La nuit ${nightNumber} tombe sur le village... Les loups-garous ouvrent les yeux. 🐺`,
+                `Le silence de la nuit ${nightNumber} est brisé par les hurlements lointains... 🌙`,
+                `Nuit ${nightNumber}. Les créatures de l'ombre se réveillent... 🌑`,
+                `Pendant que le village dort, les forces obscures s'activent... Nuit ${nightNumber}. 🦇`
+            ],
+            day: [
+                `L'aube se lève sur le village... Que s'est-il passé cette nuit ? ☀️`,
+                `Le coq chante, les villageois se rassemblent sur la place... 🐓`,
+                `Un nouveau jour commence. Les habitants découvrent avec effroi... 🌅`,
+                `Le soleil révèle les horreurs de la nuit... Le village est en émoi. 🌄`
+            ],
+            vote: [
+                `Il est temps de voter ! Qui doit être éliminé du village ? ⚖️`,
+                `Les villageois se réunissent pour désigner le coupable... 🗳️`,
+                `L'heure du jugement a sonné. Qui mérite la sentence ? ⚖️`,
+                `Le village doit choisir : qui sera banni aujourd'hui ? 👥`
+            ],
+            loading: [
+                `Les esprits de la nuit délibèrent... 🌙`,
+                `Le destin s'écrit dans l'ombre... 📜`,
+                `Les forces mystiques opèrent... ✨`,
+                `Le temps s'écoule lentement dans le village endormi... ⏳`
+            ]
+        }
+
+        const texts = narrations[phase] || narrations.loading
+        return texts[Math.floor(Math.random() * texts.length)]
+    }
+
     return (
         <div className="min-h-screen p-4">
-            {/* 🎬 Overlay de transition de phase */}
+            {/* 🔔 Notification Popup Stylée */}
+            {notification && (
+                <div className="fixed top-4 right-4 z-[100] animate-fadeIn">
+                    <div className={`max-w-md bg-gradient-to-br rounded-xl shadow-2xl border-2 p-6 ${
+                        notification.type === 'death' ? 'from-gray-900 to-gray-800 border-gray-600' :
+                        notification.type === 'love' ? 'from-pink-900 to-red-900 border-pink-500' :
+                        notification.type === 'hunter' ? 'from-orange-900 to-red-900 border-orange-500' :
+                        notification.type === 'info' ? 'from-blue-900 to-indigo-900 border-blue-500' :
+                        'from-night-800 to-night-900 border-blood-600'
+                    }`}>
+                        <div className="flex items-start gap-4">
+                            <div className="text-5xl flex-shrink-0">{notification.icon}</div>
+                            <div className="flex-1">
+                                <h3 className="text-xl font-bold text-white mb-1">{notification.title}</h3>
+                                <p className="text-gray-300 whitespace-pre-line">{notification.message}</p>
+                            </div>
+                            <button
+                                onClick={() => setNotification(null)}
+                                className="text-gray-400 hover:text-white transition-colors"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 🎬 Overlay de transition de phase avec Narrateur */}
             {phaseTransition && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 animate-fadeIn">
-                    <div className="text-center animate-slideUp">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 animate-fadeIn">
+                    <div className="text-center animate-slideUp max-w-3xl px-8">
+                        {/* Icône animée */}
                         <div className="text-9xl mb-6 animate-bounce">
                             {phaseTransition.phase === 'night' ? '🌙' :
                              phaseTransition.phase === 'day' ? '☀️' : '⚖️'}
                         </div>
-                        <h2 className="text-5xl font-black text-blood mb-4">
+
+                        {/* Titre de phase */}
+                        <h2 className="text-6xl font-black text-blood mb-6 drop-shadow-2xl">
                             {phaseTransition.phase === 'night' ? `Nuit ${phaseTransition.nightNumber}` :
-                             phaseTransition.phase === 'day' ? 'Jour' : 'Vote'}
+                             phaseTransition.phase === 'day' ? 'Lever du Jour' : 'Jugement du Village'}
                         </h2>
-                        <p className="text-xl text-gray-400">
-                            {phaseTransition.phase === 'night' ? 'Les rôles spéciaux se réveillent...' :
-                             phaseTransition.phase === 'day' ? 'Le village se réveille...' : 'Le moment du jugement...'}
-                        </p>
+
+                        {/* 🎭 Narration */}
+                        <div className="bg-night-800/50 backdrop-blur-sm rounded-xl p-6 border-2 border-blood-600/30 mb-4">
+                            <p className="text-2xl text-gray-300 italic leading-relaxed">
+                                "{getNarration(phaseTransition.phase, phaseTransition.nightNumber)}"
+                            </p>
+                        </div>
+
+                        {/* Points de chargement animés */}
+                        <div className="flex justify-center gap-2 mt-6">
+                            <div className="w-3 h-3 bg-blood-600 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                            <div className="w-3 h-3 bg-blood-600 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                            <div className="w-3 h-3 bg-blood-600 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 🌙 Processing overlay - La nuit opère */}
+            {isProcessing && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm animate-fadeIn">
+                    <div className="text-center max-w-2xl px-8">
+                        {/* Lune tournante */}
+                        <div className="text-9xl mb-6 animate-spin" style={{animationDuration: '3s'}}>
+                            🌙
+                        </div>
+
+                        {/* Titre */}
+                        <h2 className="text-5xl font-black text-blood mb-6 drop-shadow-2xl">
+                            La Nuit Opère...
+                        </h2>
+
+                        {/* 🎭 Narration mystérieuse */}
+                        <div className="bg-night-800/50 backdrop-blur-sm rounded-xl p-6 border-2 border-purple-600/30 mb-4">
+                            <p className="text-2xl text-gray-300 italic leading-relaxed">
+                                "Les forces obscures accomplissent leurs sombres desseins..."
+                            </p>
+                        </div>
+
+                        {/* Points de chargement */}
+                        <div className="flex justify-center gap-2 mt-6">
+                            <div className="w-4 h-4 bg-purple-600 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                            <div className="w-4 h-4 bg-purple-600 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                            <div className="w-4 h-4 bg-purple-600 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -520,23 +709,58 @@ function Game() {
                     </div>
                 )}
 
-                {/* Loading state */}
+                {/* 🎭 Loading state avec Narrateur */}
                 {isLoading ? (
-                    <div className="card-glow text-center py-12">
-                        <div className="text-6xl mb-4 animate-pulse">🐺</div>
-                        <h2 className="text-2xl font-bold text-blood mb-2">Connexion en cours...</h2>
-                        <p className="text-gray-400">Récupération de l'état de la partie</p>
+                    <div className="card-glow text-center py-16 max-w-2xl mx-auto">
+                        {/* Icône pulsante */}
+                        <div className="text-8xl mb-6 animate-pulse">🌙</div>
+
+                        {/* Titre */}
+                        <h2 className="text-4xl font-black text-blood mb-6">Connexion à la partie...</h2>
+
+                        {/* 🎭 Narration de chargement */}
+                        <div className="bg-night-900/50 rounded-xl p-6 border-2 border-blood-600/30 mb-6">
+                            <p className="text-xl text-gray-300 italic leading-relaxed">
+                                "{getNarration('loading')}"
+                            </p>
+                        </div>
+
+                        {/* Barre de progression */}
+                        <div className="w-full h-2 bg-night-700 rounded-full overflow-hidden mb-4">
+                            <div className="h-full bg-gradient-to-r from-blood-600 to-blood-400 animate-pulse"></div>
+                        </div>
+
+                        {/* Points de chargement */}
+                        <div className="flex justify-center gap-2 mt-4">
+                            <div className="w-3 h-3 bg-blood-600 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                            <div className="w-3 h-3 bg-blood-600 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                            <div className="w-3 h-3 bg-blood-600 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                        </div>
+
+                        <p className="text-gray-500 text-sm mt-6">Récupération de l'état de la partie...</p>
                     </div>
                 ) : gameOver ? (
-                    /* 🏁 Écran de fin de partie */
+                    /* 🏁 Écran de fin de partie avec Narration */
                     <div className="card-glow text-center py-12">
-                        <div className="text-8xl mb-6 animate-bounce">
+                        {/* Icône de victoire */}
+                        <div className="text-9xl mb-6 animate-bounce">
                             {gameOver.winner === 'villageois' ? '🎉' : '🐺'}
                         </div>
-                        <h2 className="text-4xl font-black text-blood mb-4">
-                            {gameOver.winner === 'villageois' ? '🎉 Les Villageois ont gagné !' : '🐺 Les Loups-Garous ont gagné !'}
+
+                        {/* Titre dramatique */}
+                        <h2 className="text-5xl font-black text-blood mb-4 drop-shadow-2xl">
+                            {gameOver.winner === 'villageois' ? '🎉 Victoire des Villageois !' : '🐺 Victoire des Loups-Garous !'}
                         </h2>
-                        <p className="text-gray-400 mb-8">{gameOver.message}</p>
+
+                        {/* 🎭 Narration de fin */}
+                        <div className="bg-night-900/50 rounded-xl p-6 border-2 border-blood-600/30 mb-8 max-w-2xl mx-auto">
+                            <p className="text-2xl text-gray-300 italic leading-relaxed">
+                                "{gameOver.winner === 'villageois'
+                                    ? 'Le soleil se lève sur un village libéré. Les loups-garous ont été démasqués et vaincus. La paix est revenue...'
+                                    : 'Les hurlements déchirent la nuit. Les loups-garous règnent désormais sur le village en ruines. L\'obscurité a triomphé...'}
+                                "
+                            </p>
+                        </div>
 
                         {/* 📊 Statistiques de la partie */}
                         <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto mb-8">
@@ -559,6 +783,59 @@ function Game() {
                             </div>
                         </div>
 
+                        {/* 🏆 Stats enrichies */}
+                        {gameOver.gameStats && (
+                            <div className="bg-gradient-to-br from-yellow-900/20 to-amber-900/20 border-2 border-yellow-600/50 rounded-xl p-6 mb-8 max-w-2xl mx-auto">
+                                <h3 className="text-2xl font-bold mb-6 text-center text-yellow-400">🏆 Récompenses</h3>
+                                <div className="space-y-4">
+                                    {gameOver.gameStats.mostTalkative && gameOver.gameStats.mostTalkative.count > 0 && (
+                                        <div className="bg-night-800/50 rounded-lg p-4 flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-4xl">{gameOver.gameStats.mostTalkative.avatar || '😊'}</span>
+                                                <div>
+                                                    <div className="text-lg font-bold text-white">{gameOver.gameStats.mostTalkative.name}</div>
+                                                    <div className="text-sm text-gray-400">Le plus bavard</div>
+                                                </div>
+                                            </div>
+                                            <div className="text-2xl font-bold text-yellow-400">
+                                                💬 {gameOver.gameStats.mostTalkative.count}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {gameOver.gameStats.mvp && gameOver.gameStats.mvp.count > 0 && (
+                                        <div className="bg-night-800/50 rounded-lg p-4 flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-4xl">{gameOver.gameStats.mvp.avatar || '😊'}</span>
+                                                <div>
+                                                    <div className="text-lg font-bold text-white">{gameOver.gameStats.mvp.name}</div>
+                                                    <div className="text-sm text-gray-400">MVP - Plus actif aux votes</div>
+                                                </div>
+                                            </div>
+                                            <div className="text-2xl font-bold text-yellow-400">
+                                                🗳️ {gameOver.gameStats.mvp.count}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {gameOver.gameStats.sneakiestWolf && gameOver.gameStats.sneakiestWolf.nights > 0 && (
+                                        <div className="bg-night-800/50 rounded-lg p-4 flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-4xl">{gameOver.gameStats.sneakiestWolf.avatar || '🐺'}</span>
+                                                <div>
+                                                    <div className="text-lg font-bold text-white">{gameOver.gameStats.sneakiestWolf.name}</div>
+                                                    <div className="text-sm text-gray-400">Loup le plus sournois</div>
+                                                </div>
+                                            </div>
+                                            <div className="text-2xl font-bold text-yellow-400">
+                                                🌙 {gameOver.gameStats.sneakiestWolf.nights} nuits
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Tableau des joueurs */}
                         <div className="bg-night-900 rounded-xl p-6 mb-8 max-w-2xl mx-auto">
                             <h3 className="text-xl font-bold mb-4 text-blood">📋 Récapitulatif</h3>
@@ -566,7 +843,7 @@ function Game() {
                                 {gameOver.players && gameOver.players.map((player) => (
                                     <div key={player.name} className="flex justify-between items-center bg-night-800 p-3 rounded-lg">
                                         <span className={player.alive ? 'text-white' : 'text-gray-500'}>
-                                            {player.alive ? '😊' : '💀'} {player.name}
+                                            {player.alive ? (player.avatar || '😊') : '💀'} {player.name}
                                         </span>
                                         <span className="text-blood-400 font-bold">
                                             {getRoleEmoji(player.role)} {player.role}
@@ -611,7 +888,15 @@ function Game() {
 
                                 {/* Rôle du joueur */}
                                 <div className="card-glow text-center">
-                                    <div className="text-6xl mb-3">{getRoleEmoji(myRole)}</div>
+                                    <div className="text-6xl mb-3 relative group">
+                                        {getRoleEmoji(myRole)}
+                                        {/* Tooltip */}
+                                        {myRole && (
+                                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-night-900 border border-blood-600 rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                                💡 {getRoleDescription(myRole)}
+                                            </div>
+                                        )}
+                                    </div>
                                     <h2 className="text-3xl font-black text-blood mb-2">
                                         {myRole ? myRole.charAt(0).toUpperCase() + myRole.slice(1) : 'Chargement...'}
                                     </h2>
@@ -722,7 +1007,8 @@ function Game() {
                                                         }
                                                     }}
                                                     className={`p-4 rounded-xl text-center transition-all duration-200 relative
-                                                ${!player.alive ? 'bg-gray-900 opacity-50' : 'bg-night-800'}
+                                                ${!player.alive ? 'bg-gray-900 opacity-50 player-dead' : 'bg-night-800'}
+                                                ${dyingPlayers.includes(player.id) ? 'player-dying' : ''}
                                                 ${canClick && !hasActed ? 'cursor-pointer hover:bg-blood-900/30 hover:scale-105 active:scale-95' : 'cursor-default'}
                                                 ${selectedPlayer === player.id ? 'border-4 border-blood-600 shadow-neon-red scale-105 animate-pulse' : 'border-2 border-transparent hover:border-blood-600'}
                                             `}
@@ -742,7 +1028,7 @@ function Game() {
                                                         </div>
                                                     )}
 
-                                                    <div className="text-3xl mb-2">{player.alive ? '😊' : '💀'}</div>
+                                                    <div className="text-3xl mb-2">{player.alive ? (player.avatar || '😊') : '💀'}</div>
                                                     <p className="font-bold">{player.name}</p>
                                                     <p className="text-sm text-gray-500">
                                                         {player.alive ? 'En vie' : 'Mort'}
@@ -824,6 +1110,46 @@ function Game() {
                                     </div>
                                 </div>
 
+                                {/* 📜 Historique des événements */}
+                                <div className="card">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <h3 className="text-lg font-bold">📜 Historique</h3>
+                                        <button
+                                            onClick={() => setShowHistory(!showHistory)}
+                                            className="text-sm px-3 py-1 bg-night-700 hover:bg-night-600 rounded-lg transition-colors"
+                                        >
+                                            {showHistory ? '👁️ Masquer' : '👁️ Voir tout'}
+                                        </button>
+                                    </div>
+
+                                    <div className={`space-y-2 overflow-y-auto transition-all duration-300 ${showHistory ? 'max-h-96' : 'max-h-32'}`}>
+                                        {eventHistory.length === 0 ? (
+                                            <p className="text-gray-500 text-sm italic">Aucun événement pour le moment</p>
+                                        ) : (
+                                            eventHistory.map((event) => (
+                                                <div
+                                                    key={event.id}
+                                                    className={`p-2 rounded-lg text-sm ${
+                                                        event.type === 'night' ? 'bg-blue-900/30 border-l-4 border-blue-600' :
+                                                        event.type === 'day' ? 'bg-yellow-900/30 border-l-4 border-yellow-600' :
+                                                        event.type === 'vote' ? 'bg-red-900/30 border-l-4 border-red-600' :
+                                                        event.type === 'death' ? 'bg-gray-900/50 border-l-4 border-gray-600' :
+                                                        'bg-night-800 border-l-4 border-blood-600'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-lg">{event.icon}</span>
+                                                        <div className="flex-1">
+                                                            <p className="text-white font-medium">{event.message}</p>
+                                                            <p className="text-gray-500 text-xs">{event.timestamp}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+
                                 {/* Chat */}
                                 <div className="card h-96 flex flex-col" onFocus={() => setUnreadWolfMessages(0)} onClick={() => setUnreadWolfMessages(0)}>
                                     <div className="flex justify-between items-center mb-3">
@@ -867,20 +1193,45 @@ function Game() {
                                             ))
                                         )}
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 relative emoji-picker-container">
                                         <input
                                             type="text"
-                                            placeholder={phase === 'night' && myRole !== 'loup' ? 'Chat désactivé la nuit' : 'Écrivez un message...'}
+                                            placeholder="Écrivez un message..."
                                             value={messageInput}
                                             onChange={(e) => setMessageInput(e.target.value)}
                                             onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                                            disabled={phase === 'night' && myRole !== 'loup'}
-                                            className="flex-1 bg-night-800 border-2 border-night-600 focus:border-blood-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="flex-1 bg-night-800 border-2 border-night-600 focus:border-blood-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 transition-all outline-none"
                                         />
+
+                                        {/* Bouton Emoji Picker */}
+                                        <button
+                                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                            className="bg-night-700 hover:bg-night-600 px-3 rounded-lg transition-all"
+                                            title="Ajouter un emoji"
+                                        >
+                                            😊
+                                        </button>
+
+                                        {/* Popup Emoji Picker - Stylisé */}
+                                        {showEmojiPicker && (
+                                            <div className="absolute bottom-full mb-2 right-0 bg-gradient-to-br from-night-800 to-night-900 border-2 border-blood-500 rounded-xl p-4 shadow-2xl shadow-blood-900/50 z-50 animate-fadeIn">
+                                                <div className="flex gap-2">
+                                                    {quickEmojis.map((emoji, index) => (
+                                                        <button
+                                                            key={index}
+                                                            onClick={() => insertEmoji(emoji)}
+                                                            className="text-3xl hover:scale-125 transition-transform hover:bg-blood-900/30 rounded-lg p-2 hover:shadow-lg"
+                                                        >
+                                                            {emoji}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <button
                                             onClick={sendMessage}
-                                            disabled={phase === 'night' && myRole !== 'loup'}
-                                            className="bg-blood-600 hover:bg-blood-700 px-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="bg-blood-600 hover:bg-blood-700 px-4 rounded-lg transition-all hover:scale-105"
                                         >
                                             📤
                                         </button>

@@ -90,6 +90,46 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+/* 💀 Animations de mort */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+@keyframes fadeOut {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.95); }
+  100% { opacity: 0.3; transform: scale(0.9); }
+}
+
+.player-dying {
+  animation: shake 0.5s ease-in-out, fadeOut 1s ease-in-out 0.5s forwards;
+}
+
+.player-dead {
+  opacity: 0.3;
+  transform: scale(0.9);
+  filter: grayscale(1);
+}
+
+/* 🎭 Animation d'écriture pour la narration */
+@keyframes typewriter {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes blink {
+  50% { border-color: transparent; }
+}
+
+.typewriter-text {
+  overflow: hidden;
+  border-right: 2px solid;
+  white-space: nowrap;
+  animation: typewriter 2s steps(40) 1s forwards, blink 0.75s step-end infinite;
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;

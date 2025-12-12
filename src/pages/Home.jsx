@@ -124,8 +124,14 @@ function Home() {
                 </div>
 
                 {/* Footer */}
-                <div className="text-center mt-8 text-gray-500 text-sm">
-                    <p>🌙 Créé avec passion pour les nuits mystérieuses 🐺</p>
+                <div className="text-center mt-8 space-y-4">
+                    <button
+                        onClick={() => navigate('/regles')}
+                        className="btn-secondary text-sm px-6 py-3"
+                    >
+                        📖 Comment Jouer ?
+                    </button>
+                    <p className="text-gray-500 text-sm">🌙 Créé avec passion pour les nuits mystérieuses 🐺</p>
                 </div>
             </div>
         </div>

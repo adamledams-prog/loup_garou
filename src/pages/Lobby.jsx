@@ -15,11 +15,16 @@ function Lobby() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState(null)
 
+    // 🎨 Avatars
+    const [selectedAvatar, setSelectedAvatar] = useState('😊')
+    const avatarList = ['😊', '🦊', '🐱', '🐻', '🦁', '🐼', '🦝', '🦉', '🐸', '🐰', '🐯', '🐨', '🐵', '🐷', '🐮', '🐔', '🐺', '🦆', '🦄', '🐉']
+
     // ⚙️ Configuration de la partie (visible pour l'hôte)
     const [loupCount, setLoupCount] = useState(1)
     const [selectedRoles, setSelectedRoles] = useState(['voyante', 'sorciere']) // Rôles par défaut
     const [showConfig, setShowConfig] = useState(false) // Toggle configuration
     const [copySuccess, setCopySuccess] = useState(false) // Toast "Copié !"
+    const [rapidMode, setRapidMode] = useState(false) // ⚡ Mode Rapide
 
     // Helper pour obtenir l'emoji d'un rôle
     const getRoleEmoji = (role) => {
@@ -138,7 +143,11 @@ function Lobby() {
         }
         setIsLoading(true)
         setError(null)
-        socket.emit('createRoom', { playerName })
+        socket.emit('createRoom', {
+            playerName,
+            avatar: selectedAvatar,
+            rapidMode: rapidMode
+        })
     }
 
     // Fonction pour rejoindre une salle
@@ -157,7 +166,7 @@ function Lobby() {
         }
         setIsLoading(true)
         setError(null)
-        socket.emit('joinRoom', { roomCode, playerName })
+        socket.emit('joinRoom', { roomCode, playerName, avatar: selectedAvatar })
     }
 
     // 👢 Fonction pour expulser un joueur
@@ -220,6 +229,12 @@ function Lobby() {
                         <span className="text-blood">🐺 Lobby</span>
                     </h1>
                     <p className="text-gray-400">Rejoignez ou créez une partie</p>
+                    <button
+                        onClick={() => navigate('/regles')}
+                        className="mt-3 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                    >
+                        📖 Voir les règles
+                    </button>
                 </div>
 
                 {/* Message d'erreur */}
@@ -241,6 +256,30 @@ function Lobby() {
                                 onChange={(e) => setPlayerName(e.target.value)}
                                 className="input-primary mb-4"
                             />
+
+                            {/* Sélecteur d'avatar */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-bold text-gray-300 mb-2">
+                                    🎨 Choisis ton avatar
+                                </label>
+                                <div className="grid grid-cols-10 gap-2">
+                                    {avatarList.map((avatar) => (
+                                        <button
+                                            key={avatar}
+                                            type="button"
+                                            onClick={() => setSelectedAvatar(avatar)}
+                                            className={`text-3xl p-2 rounded-lg transition-all hover:scale-110 ${
+                                                selectedAvatar === avatar
+                                                    ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
+                                                    : 'bg-night-800 hover:bg-night-700'
+                                            }`}
+                                        >
+                                            {avatar}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
                             <button
                                 className="btn-primary w-full"
                                 onClick={handleCreateRoom}
@@ -259,6 +298,30 @@ function Lobby() {
                                 onChange={(e) => setPlayerName(e.target.value)}
                                 className="input-primary mb-3"
                             />
+
+                            {/* Sélecteur d'avatar */}
+                            <div className="mb-3">
+                                <label className="block text-sm font-bold text-gray-300 mb-2">
+                                    🎨 Choisis ton avatar
+                                </label>
+                                <div className="grid grid-cols-10 gap-2">
+                                    {avatarList.map((avatar) => (
+                                        <button
+                                            key={avatar}
+                                            type="button"
+                                            onClick={() => setSelectedAvatar(avatar)}
+                                            className={`text-3xl p-2 rounded-lg transition-all hover:scale-110 ${
+                                                selectedAvatar === avatar
+                                                    ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
+                                                    : 'bg-night-800 hover:bg-night-700'
+                                            }`}
+                                        >
+                                            {avatar}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
                             <input
                                 type="text"
                                 placeholder="ABC123"
@@ -316,6 +379,7 @@ function Lobby() {
                                 {players.map((player, index) => (
                                     <div key={player.id} className="bg-night-800 p-3 rounded-lg flex justify-between items-center">
                                         <span className="font-bold flex items-center gap-2">
+                                            <span className="text-2xl">{player.avatar || '😊'}</span>
                                             <span>{player.name}</span>
                                             {player.isHost && <span className="text-xs text-yellow-500">(Hôte)</span>}
                                         </span>
@@ -470,6 +534,30 @@ function Lobby() {
                                         {/* Info villageois */}
                                         <div className="mt-3 text-xs text-gray-500 bg-night-800 p-2 rounded">
                                             ℹ️ Les villageois seront ajoutés automatiquement pour compléter
+                                        </div>
+                                    </div>
+
+                                    {/* ⚡ Mode Rapide */}
+                                    <div className="mt-4 p-4 bg-gradient-to-r from-yellow-900/20 to-orange-900/20 border-2 border-yellow-600/50 rounded-lg">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <div className="font-bold text-yellow-400 flex items-center gap-2">
+                                                    ⚡ Mode Rapide
+                                                </div>
+                                                <div className="text-xs text-gray-400 mt-1">
+                                                    Nuit: 30s • Jour: 15s • Vote: 30s
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => setRapidMode(!rapidMode)}
+                                                className={`relative w-16 h-8 rounded-full transition-all ${
+                                                    rapidMode ? 'bg-yellow-600' : 'bg-gray-600'
+                                                }`}
+                                            >
+                                                <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-transform ${
+                                                    rapidMode ? 'translate-x-9' : 'translate-x-1'
+                                                }`} />
+                                            </button>
                                         </div>
                                     </div>
 

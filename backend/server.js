@@ -231,13 +231,15 @@ setInterval(() => {
 
 // Classe pour gérer une salle
 class GameRoom {
-    constructor(code, hostId, hostName) {
+    constructor(code, hostId, hostName, hostAvatar = '😊', rapidMode = false) {
         this.code = code;
         this.hostId = hostId;
+        this.rapidMode = rapidMode; // ⚡ Mode Rapide
         this.players = new Map();
         this.players.set(hostId, {
             id: hostId,
             name: hostName,
+            avatar: hostAvatar,
             isHost: true,
             ready: false,
             role: null,
@@ -265,7 +267,7 @@ class GameRoom {
         };
     }
 
-    addPlayer(playerId, playerName, socketId) {
+    addPlayer(playerId, playerName, socketId, avatar = '😊') {
         if (this.players.size >= 10) {
             return { success: false, error: 'La salle est pleine' };
         }
@@ -277,11 +279,18 @@ class GameRoom {
         this.players.set(playerId, {
             id: playerId,
             name: playerName,
+            avatar: avatar,
             isHost: false,
             ready: false,
             role: null,
             alive: true,
-            socketId: socketId
+            socketId: socketId,
+            stats: {
+                messagesCount: 0,
+                votesReceived: 0,
+                votesGiven: 0,
+                nightsAlive: 0
+            }
         });
 
         return { success: true };
@@ -384,7 +393,8 @@ class GameRoom {
             name: p.name,
             isHost: p.isHost,
             ready: p.ready,
-            alive: p.alive
+            alive: p.alive,
+            avatar: p.avatar
         }));
     }
 
@@ -400,6 +410,7 @@ class GameRoom {
             isHost: p.isHost,
             ready: p.ready,
             alive: p.alive,
+            avatar: p.avatar,
             role: p.id === requesterId ? p.role : null, // Seulement son propre rôle
             hasActed: hasActed.includes(p.id) // Indicateur d'action nocturne
         }));
@@ -418,11 +429,11 @@ io.on('connection', (socket) => {
 
     // Créer une salle
     socket.on('createRoom', (data) => {
-        const { playerName } = data;
+        const { playerName, avatar, rapidMode } = data;
         const playerId = uuidv4();
         const roomCode = generateRoomCode();
 
-        const room = new GameRoom(roomCode, playerId, playerName);
+        const room = new GameRoom(roomCode, playerId, playerName, avatar || '😊', rapidMode || false);
         room.players.get(playerId).socketId = socket.id;
         rooms.set(roomCode, room);
 
@@ -441,7 +452,7 @@ io.on('connection', (socket) => {
 
     // Rejoindre une salle
     socket.on('joinRoom', (data) => {
-        const { roomCode, playerName } = data;
+        const { roomCode, playerName, avatar } = data;
         const room = rooms.get(roomCode);
 
         if (!room) {
@@ -450,7 +461,7 @@ io.on('connection', (socket) => {
         }
 
         const playerId = uuidv4();
-        const result = room.addPlayer(playerId, playerName, socket.id);
+        const result = room.addPlayer(playerId, playerName, socket.id, avatar || '😊');
 
         if (!result.success) {
             socket.emit('error', { message: result.error });
@@ -639,8 +650,8 @@ io.on('connection', (socket) => {
             });
         }
 
-        // Démarrer le timer de la première nuit (60s)
-        startPhaseTimer(room, 60);
+        // Démarrer le timer de la première nuit
+        startPhaseTimer(room, getPhaseDuration(room, 'night'));
 
         console.log(`Partie démarrée dans la salle ${socket.roomCode}`);
     });
@@ -865,6 +876,11 @@ io.on('connection', (socket) => {
             socket.emit('error', { message: 'Cible invalide' });
             return;
         }
+
+        // 📊 Incrémenter les stats de votes
+        player.stats.votesGiven++;
+        target.stats.votesReceived++;
+
         room.gameState.votes[socket.playerId] = targetId;
         socket.emit('voteConfirmed');
 
@@ -956,40 +972,16 @@ io.on('connection', (socket) => {
         const player = room.players.get(socket.playerId);
         if (!player) return;
 
-        // Vérifier si le chat est autorisé
-        if (room.phase === 'night' && player.role !== 'loup') {
-            socket.emit('error', {
-                message: 'Le chat est désactivé pendant la nuit (sauf pour les loups)'
-            });
-            return;
-        }
+        // 📊 Incrémenter le compteur de messages
+        player.stats.messagesCount++;
 
-        // Broadcast le message à toute la salle (ou seulement aux loups si nuit)
-        const targetRoom = room.phase === 'night' && player.role === 'loup'
-            ? Array.from(room.players.values())
-                .filter(p => p.role === 'loup')
-                .map(p => p.socketId)
-            : socket.roomCode;
-
-        if (Array.isArray(targetRoom)) {
-            // Envoyer aux loups uniquement
-            targetRoom.forEach(socketId => {
-                io.to(socketId).emit('chatMessage', {
-                    playerId: player.id,
-                    playerName: player.name,
-                    message: data.message,
-                    timestamp: Date.now()
-                });
-            });
-        } else {
-            // Broadcast à toute la salle
-            io.to(targetRoom).emit('chatMessage', {
-                playerId: player.id,
-                playerName: player.name,
-                message: data.message,
-                timestamp: Date.now()
-            });
-        }
+        // Broadcast le message à toute la salle
+        io.to(socket.roomCode).emit('chatMessage', {
+            playerId: player.id,
+            playerName: player.name,
+            message: data.message,
+            timestamp: Date.now()
+        });
     });
 
     // Déconnexion
@@ -1037,6 +1029,22 @@ io.on('connection', (socket) => {
         }
     });
 });
+
+// ⚡ Obtenir la durée selon le mode rapide
+function getPhaseDuration(room, phase) {
+    if (!room.rapidMode) {
+        // Mode normal
+        if (phase === 'night') return 60;
+        if (phase === 'day') return 30;
+        if (phase === 'vote') return 45;
+    } else {
+        // Mode rapide
+        if (phase === 'night') return 30;
+        if (phase === 'day') return 15;
+        if (phase === 'vote') return 30;
+    }
+    return 60; // Défaut
+}
 
 // Démarrer le timer pour une phase
 function startPhaseTimer(room, phaseDuration = 60) {
@@ -1087,7 +1095,6 @@ function startPhaseTimer(room, phaseDuration = 60) {
             } else if (room.phase === 'day') {
                 // Passer au vote après discussion
                 room.phase = 'vote';
-                room.phaseTimeRemaining = 45; // 45s pour voter
                 room.gameState.votes = {}; // ✅ Réinitialiser les votes au début de la phase
                 io.to(room.code).emit('votePhase', {
                     players: Array.from(room.players.values()).map(p => ({
@@ -1096,7 +1103,7 @@ function startPhaseTimer(room, phaseDuration = 60) {
                         alive: p.alive
                     }))
                 });
-                startPhaseTimer(room, 45);
+                startPhaseTimer(room, getPhaseDuration(room, 'vote'));
             } else if (room.phase === 'vote') {
                 processVotes(room);
             }
@@ -1289,8 +1296,8 @@ function processNightActions(room) {
         }))
     });
 
-    // Démarrer le timer du jour (30s de discussion avant le vote)
-    startPhaseTimer(room, 30);
+    // Démarrer le timer du jour
+    startPhaseTimer(room, getPhaseDuration(room, 'day'));
 }
 
 // Traiter les votes
@@ -1406,6 +1413,13 @@ function continueAfterVote(room) {
             room.gameState.killedTonight = null; // Reset pour la nouvelle nuit
             room.gameState.nightActions = {}; // ✅ Reset actions de nuit
 
+            // 📊 Incrémenter nightsAlive pour tous les joueurs vivants
+            Array.from(room.players.values()).forEach(p => {
+                if (p.alive) {
+                    p.stats.nightsAlive++;
+                }
+            });
+
             io.to(room.code).emit('nightPhase', {
                 nightNumber: room.nightNumber,
                 players: Array.from(room.players.values()).map(p => ({
@@ -1416,10 +1430,49 @@ function continueAfterVote(room) {
                 killedTonight: room.gameState.killedTonight
             });
 
-            // Démarrer le timer de 60s pour la nuit
-            startPhaseTimer(room, 60);
+            // Démarrer le timer pour la nuit
+            startPhaseTimer(room, getPhaseDuration(room, 'night'));
         }, 5000);
     }
+}
+
+// 📊 Calculer les statistiques de la partie
+function calculateGameStats(room) {
+    const players = Array.from(room.players.values());
+
+    // Joueur le plus bavard
+    const mostTalkative = players.reduce((max, p) =>
+        p.stats.messagesCount > (max?.stats.messagesCount || 0) ? p : max
+    , null);
+
+    // MVP (joueur ayant le plus participé aux votes)
+    const mvp = players.reduce((max, p) =>
+        p.stats.votesGiven > (max?.stats.votesGiven || 0) ? p : max
+    , null);
+
+    // Loup le plus sournois (loup ayant survécu le plus de nuits)
+    const wolves = players.filter(p => p.role === 'loup');
+    const sneakiestWolf = wolves.reduce((max, p) =>
+        p.stats.nightsAlive > (max?.stats.nightsAlive || 0) ? p : max
+    , null);
+
+    return {
+        mostTalkative: mostTalkative ? {
+            name: mostTalkative.name,
+            avatar: mostTalkative.avatar,
+            count: mostTalkative.stats.messagesCount
+        } : null,
+        mvp: mvp ? {
+            name: mvp.name,
+            avatar: mvp.avatar,
+            count: mvp.stats.votesGiven
+        } : null,
+        sneakiestWolf: sneakiestWolf ? {
+            name: sneakiestWolf.name,
+            avatar: sneakiestWolf.avatar,
+            nights: sneakiestWolf.stats.nightsAlive
+        } : null
+    };
 }
 
 // Vérifier les conditions de victoire
@@ -1435,14 +1488,20 @@ function checkWinCondition(room) {
             room.phaseTimer = null;
         }
 
+        // 📊 Calculer les stats
+        const stats = calculateGameStats(room);
+
         io.to(room.code).emit('gameOver', {
             winner: 'villageois',
             message: 'Les Villageois ont gagné ! 🎉',
             players: Array.from(room.players.values()).map(p => ({
                 name: p.name,
                 role: p.role,
-                alive: p.alive
-            }))
+                alive: p.alive,
+                avatar: p.avatar,
+                stats: p.stats
+            })),
+            gameStats: stats
         });
         return true;
     }
@@ -1454,14 +1513,20 @@ function checkWinCondition(room) {
             room.phaseTimer = null;
         }
 
+        // 📊 Calculer les stats
+        const stats = calculateGameStats(room);
+
         io.to(room.code).emit('gameOver', {
             winner: 'loups',
             message: 'Les Loups-Garous ont gagné ! 🐺',
             players: Array.from(room.players.values()).map(p => ({
                 name: p.name,
                 role: p.role,
-                alive: p.alive
-            }))
+                alive: p.alive,
+                avatar: p.avatar,
+                stats: p.stats
+            })),
+            gameStats: stats
         });
         return true;
     }
