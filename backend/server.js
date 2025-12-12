@@ -210,7 +210,7 @@ setInterval(() => {
     let cleaned = 0;
 
     for (const [code, room] of rooms.entries()) {
-        // Supprimer si tous déconnectés depuis plus de 30 min (au lieu de 10)
+        // ⚠️ JAMAIS supprimer une room en cours de jeu (sauf si terminée depuis longtemps)
         const allDisconnected = Array.from(room.players.values()).every(p => p.socketId === null);
 
         if (allDisconnected) {
@@ -220,16 +220,22 @@ setInterval(() => {
             }
 
             const inactiveTime = now - room.lastActivity;
-            // 🔧 30 minutes au lieu de 10 pour laisser le temps aux joueurs de revenir
-            if (inactiveTime > 30 * 60 * 1000) { // 30 minutes
+
+            // 🔧 Si partie en cours, attendre 60 minutes avant suppression
+            // 🔧 Si partie terminée ou lobby, attendre 30 minutes
+            const timeoutDuration = room.gameStarted && !room.gameEnded
+                ? 60 * 60 * 1000  // 60 min pour partie en cours
+                : 30 * 60 * 1000; // 30 min pour lobby/partie terminée
+
+            if (inactiveTime > timeoutDuration) {
                 // IMPORTANT: Nettoyer le timer avant de supprimer
                 if (room.phaseTimer) {
                     clearInterval(room.phaseTimer);
                     room.phaseTimer = null;
                 }
+                console.log(`🗑️ SUPPRESSION ROOM ${code} (inactivité ${timeoutDuration/60000}min, gameStarted: ${room.gameStarted}, gameEnded: ${room.gameEnded}, players: ${room.players.size})`);
                 rooms.delete(code);
                 cleaned++;
-                console.log(`🗑️ Salle ${code} supprimée (inactivité 30min)`);
             }
         } else {
             // Réinitialiser lastActivity si quelqu'un est connecté
@@ -260,6 +266,7 @@ class GameRoom {
             socketId: null
         });
         this.gameStarted = false;
+        this.gameEnded = false; // 🎮 Flag pour savoir si le game over a été atteint
         this.phase = 'lobby'; // lobby, night, day, vote
         this.nightNumber = 1;
         this.currentPlayerTurn = null;
@@ -1033,8 +1040,8 @@ io.on('connection', (socket) => {
                             room.phaseTimer = null;
                         }
                         // Supprimer la salle si vide
+                        console.log(`🗑️ SUPPRESSION ROOM ${socket.roomCode} (vide, lobby)`);
                         rooms.delete(socket.roomCode);
-                        console.log(`Salle ${socket.roomCode} supprimée (vide)`);
                     } else {
                         // Notifier les autres joueurs
                         io.to(socket.roomCode).emit('playerLeft', {
@@ -1540,6 +1547,11 @@ function checkWinCondition(room) {
             })),
             gameStats: stats
         });
+
+        // 🎮 Marquer la partie comme terminée mais GARDER la room pour consulter les résultats
+        room.gameEnded = true;
+        console.log(`🏁 GAME OVER - Room ${room.code} maintenue pour consultation résultats`);
+
         return true;
     }
 
@@ -1565,6 +1577,11 @@ function checkWinCondition(room) {
             })),
             gameStats: stats
         });
+
+        // 🎮 Marquer la partie comme terminée mais GARDER la room pour consulter les résultats
+        room.gameEnded = true;
+        console.log(`🏁 GAME OVER - Room ${room.code} maintenue pour consultation résultats`);
+
         return true;
     }
 
