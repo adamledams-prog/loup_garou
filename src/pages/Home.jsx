@@ -2,14 +2,20 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRipple } from '../hooks/useRipple'
 import { soundManager } from '../utils/sound'
+import { useMultiTap, useKonamiCode } from '../hooks/useEasterEggs'
 
 function Home() {
     const navigate = useNavigate()
     const heroRef = useRef(null)
     const rulesButtonRef = useRef(null)
+    const wolfLogoRef = useRef(null)
     const [stars, setStars] = useState([])
     const [particles, setParticles] = useState([])
     const [soundEnabled, setSoundEnabled] = useState(soundManager.enabled)
+
+    // 🎉 Easter Eggs
+    const wolfEasterEgg = useMultiTap(wolfLogoRef, 10, 3000)
+    const konamiActivated = useKonamiCode()
 
     // Effet ripple sur le bouton
     useRipple(rulesButtonRef)
@@ -104,9 +110,38 @@ function Home() {
                 {/* Logo et titre - PREMIUM VERSION */}
                 <div className="text-center mb-12">
                     {/* Logo 3D avec effet holographique */}
-                    <div className="hero-logo text-9xl md:text-[12rem] mb-8 filter drop-shadow-2xl">
+                    <div
+                        ref={wolfLogoRef}
+                        className={`hero-logo text-9xl md:text-[12rem] mb-8 filter drop-shadow-2xl cursor-pointer select-none transition-all duration-500 ${
+                            wolfEasterEgg ? 'animate-spin' : ''
+                        } ${konamiActivated ? 'hue-rotate-180 scale-150' : ''}`}
+                        style={{
+                            animation: wolfEasterEgg ? 'spin 1s ease-in-out' : undefined
+                        }}
+                    >
                         🐺
                     </div>
+
+                    {/* Message Easter Egg Wolf */}
+                    {wolfEasterEgg && (
+                        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 animate-bounce-in">
+                            <div className="bg-gradient-to-r from-blood-600 to-blood-800 px-6 py-3 rounded-full text-white font-black shadow-2xl border-2 border-blood-400">
+                                🐺 AOOUUUUU ! 🌙 Le loup appelle la meute !
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Message Konami Code */}
+                    {konamiActivated && (
+                        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[200] animate-scale-in">
+                            <div className="bg-gradient-to-br from-purple-900 to-pink-900 p-8 rounded-2xl text-white text-center shadow-2xl border-4 border-purple-400">
+                                <div className="text-6xl mb-4">🎮</div>
+                                <div className="text-3xl font-black mb-2">DEBUG MODE ACTIVÉ</div>
+                                <div className="text-lg">Console ouverte !</div>
+                                <div className="mt-4 text-sm text-gray-300">Konami Code détecté</div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Titre avec reveal */}
                     <h1 className="hero-title text-6xl md:text-8xl font-black mb-6">
