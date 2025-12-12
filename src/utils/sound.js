@@ -214,6 +214,149 @@ class SoundManager {
   }
 
   /**
+   * Hurlement de loup 🐺
+   */
+  playWolfHowl() {
+    if (!this.enabled || !this.initialized) return
+
+    try {
+      const osc = this.audioContext.createOscillator()
+      const gain = this.audioContext.createGain()
+
+      osc.connect(gain)
+      gain.connect(this.audioContext.destination)
+
+      osc.type = 'sawtooth'
+
+      const now = this.audioContext.currentTime
+
+      // Montée du hurlement (0.5s)
+      osc.frequency.setValueAtTime(200, now)
+      osc.frequency.linearRampToValueAtTime(400, now + 0.5)
+
+      // Tenue haute (0.8s)
+      osc.frequency.linearRampToValueAtTime(420, now + 1.3)
+
+      // Descente (0.7s)
+      osc.frequency.linearRampToValueAtTime(180, now + 2.0)
+
+      // Envelope
+      gain.gain.setValueAtTime(0, now)
+      gain.gain.linearRampToValueAtTime(this.volume * 0.3, now + 0.3)
+      gain.gain.setValueAtTime(this.volume * 0.3, now + 1.5)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 2.0)
+
+      osc.start(now)
+      osc.stop(now + 2.0)
+    } catch (e) {
+      console.warn('Error playing wolf howl', e)
+    }
+  }
+
+  /**
+   * Ambiance forêt nocturne avec grillons et vent 🌲🌙
+   */
+  playForestAmbience() {
+    if (!this.enabled || !this.initialized || this.forestAmbience) return
+
+    try {
+      const now = this.audioContext.currentTime
+
+      // Créer un gain node pour l'ambiance
+      const ambienceGain = this.audioContext.createGain()
+      ambienceGain.gain.value = this.volume * 0.15
+      ambienceGain.connect(this.audioContext.destination)
+
+      // Grillons (noise filtré)
+      const createCricket = () => {
+        const bufferSize = this.audioContext.sampleRate * 0.1
+        const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate)
+        const data = buffer.getChannelData(0)
+
+        // Générer du bruit blanc filtré
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1
+        }
+
+        const source = this.audioContext.createBufferSource()
+        source.buffer = buffer
+        source.loop = false
+
+        const filter = this.audioContext.createBiquadFilter()
+        filter.type = 'bandpass'
+        filter.frequency.value = 4000 + Math.random() * 2000
+        filter.Q.value = 10
+
+        const gain = this.audioContext.createGain()
+        gain.gain.value = 0.05
+
+        source.connect(filter)
+        filter.connect(gain)
+        gain.connect(ambienceGain)
+
+        source.start()
+      }
+
+      // Lancer des grillons aléatoires
+      this.forestAmbience = setInterval(() => {
+        if (!this.enabled) return
+        if (Math.random() > 0.3) {
+          createCricket()
+        }
+      }, 800)
+
+      // Vent doux (oscillateur grave modulé)
+      const windOsc = this.audioContext.createOscillator()
+      const windGain = this.audioContext.createGain()
+      const windLFO = this.audioContext.createOscillator()
+      const windLFOGain = this.audioContext.createGain()
+
+      windOsc.type = 'sine'
+      windOsc.frequency.value = 40
+
+      windLFO.type = 'sine'
+      windLFO.frequency.value = 0.2
+      windLFOGain.gain.value = 10
+
+      windLFO.connect(windLFOGain)
+      windLFOGain.connect(windOsc.frequency)
+
+      windOsc.connect(windGain)
+      windGain.connect(ambienceGain)
+
+      windGain.gain.setValueAtTime(0.02, now)
+
+      windLFO.start(now)
+      windOsc.start(now)
+
+      // Sauvegarder la référence pour le cleanup
+      this.forestAmbienceNodes = { windOsc, windLFO }
+
+    } catch (e) {
+      console.warn('Error playing forest ambience', e)
+    }
+  }
+
+  /**
+   * Arrête l'ambiance de forêt
+   */
+  stopForestAmbience() {
+    if (this.forestAmbience) {
+      clearInterval(this.forestAmbience)
+      this.forestAmbience = null
+    }
+    if (this.forestAmbienceNodes) {
+      try {
+        this.forestAmbienceNodes.windOsc.stop()
+        this.forestAmbienceNodes.windLFO.stop()
+      } catch (e) {
+        // Déjà arrêté
+      }
+      this.forestAmbienceNodes = null
+    }
+  }
+
+  /**
    * Musique d'ambiance (boucle d'accords sombres)
    */
   playAmbientMusic() {
@@ -267,6 +410,7 @@ class SoundManager {
    */
   cleanup() {
     this.stopMusic()
+    this.stopForestAmbience()
     if (this.audioContext && this.audioContext.state !== 'closed') {
       this.audioContext.close()
     }

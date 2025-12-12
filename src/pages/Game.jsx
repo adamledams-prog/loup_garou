@@ -185,6 +185,19 @@ function Game() {
             // 🔊 Son transition nuit
             soundManager.playPhaseChange('night')
 
+            // 🌲 Lancer l'ambiance de forêt nocturne
+            soundManager.playForestAmbience()
+
+            // 🐺 Hurlement de loup aléatoire pendant la nuit
+            const howlInterval = setInterval(() => {
+                if (Math.random() > 0.5) {
+                    soundManager.playWolfHowl()
+                }
+            }, 45000 + Math.random() * 30000) // Entre 45s et 75s
+
+            // Sauvegarder l'interval pour cleanup
+            window.nightHowlInterval = howlInterval
+
             if (data.killedTonight) {
                 setKilledTonight(data.killedTonight)
             }
@@ -210,6 +223,13 @@ function Game() {
 
             // 🔊 Son transition jour
             soundManager.playPhaseChange('day')
+
+            // 🌅 Arrêter l'ambiance de forêt et les hurlements
+            soundManager.stopForestAmbience()
+            if (window.nightHowlInterval) {
+                clearInterval(window.nightHowlInterval)
+                window.nightHowlInterval = null
+            }
 
             if (data.killedPlayer) {
                 addEvent('death', `💀 ${data.killedPlayer} est mort cette nuit`, '💀')
@@ -402,6 +422,12 @@ function Game() {
             newSocket.close()
             // 💤 Libérer le Wake Lock quand on quitte
             releaseWakeLock()
+            // 🌲 Arrêter l'ambiance de forêt
+            soundManager.stopForestAmbience()
+            if (window.nightHowlInterval) {
+                clearInterval(window.nightHowlInterval)
+                window.nightHowlInterval = null
+            }
         }
     }, [navigate, roomCode])
 

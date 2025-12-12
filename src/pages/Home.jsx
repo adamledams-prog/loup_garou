@@ -23,15 +23,30 @@ function Home() {
     // Effet ripple sur le bouton
     useRipple(rulesButtonRef)
 
-    // Initialiser le son au premier clic
+    // Initialiser le son au premier clic + lancer l'ambiance
     useEffect(() => {
         const initSound = () => {
             soundManager.init()
             soundManager.playClick()
+
+            // 🐺 Hurlement de loup d'accueil + ambiance forêt
+            setTimeout(() => {
+                soundManager.playWolfHowl()
+            }, 500)
+
+            setTimeout(() => {
+                soundManager.playForestAmbience()
+            }, 3000)
+
             document.removeEventListener('click', initSound)
         }
         document.addEventListener('click', initSound)
-        return () => document.removeEventListener('click', initSound)
+
+        return () => {
+            document.removeEventListener('click', initSound)
+            // Nettoyer l'ambiance quand on quitte la page
+            soundManager.stopForestAmbience()
+        }
     }, [])
 
     // 📡 Monitorer la qualité réseau
