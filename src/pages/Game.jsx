@@ -5,6 +5,7 @@ import config from '../config'
 import { useParticleSystem } from '../utils/particles'
 import { soundManager } from '../utils/sound'
 import { vibrate, requestWakeLock, releaseWakeLock } from '../utils/mobile'
+import NetworkIndicator from '../components/NetworkIndicator'
 
 function Game() {
     const { roomCode } = useParams()
@@ -63,6 +64,11 @@ function Game() {
 
     // 🎭 Processing avec narration
     const [isProcessing, setIsProcessing] = useState(false)
+
+    // 👍 Système de réactions rapides
+    const [reactions, setReactions] = useState({}) // { playerId: { emoji, timestamp } }
+    const [showReactionPicker, setShowReactionPicker] = useState(false)
+    const reactionEmojis = ['👍', '👎', '🤔', '😱', '😂', '❤️']
 
     // Fermer le picker emoji si on clique ailleurs
     useEffect(() => {
@@ -314,6 +320,26 @@ function Game() {
             }
         })
 
+        // 👍 Réactions reçues
+        newSocket.on('playerReaction', (data) => {
+            setReactions(prev => ({
+                ...prev,
+                [data.playerId]: {
+                    emoji: data.emoji,
+                    timestamp: Date.now()
+                }
+            }))
+
+            // Nettoyer après 3 secondes
+            setTimeout(() => {
+                setReactions(prev => {
+                    const newReactions = { ...prev }
+                    delete newReactions[data.playerId]
+                    return newReactions
+                })
+            }, 3000)
+        })
+
         // Erreurs
         newSocket.on('error', (data) => {
             console.error('❌ Erreur:', data.message)
@@ -520,6 +546,35 @@ function Game() {
         setSelectedPlayer(null)
     }
 
+    // 👍 Envoyer une réaction
+    const sendReaction = (emoji) => {
+        if (!socket) return
+
+        socket.emit('sendReaction', { emoji })
+        setShowReactionPicker(false)
+        vibrate.tap()
+        soundManager.playClick()
+
+        // Afficher ma propre réaction localement aussi
+        const myId = localStorage.getItem('playerId')
+        setReactions(prev => ({
+            ...prev,
+            [myId]: {
+                emoji,
+                timestamp: Date.now()
+            }
+        }))
+
+        // Nettoyer après 3 secondes
+        setTimeout(() => {
+            setReactions(prev => {
+                const newReactions = { ...prev }
+                delete newReactions[myId]
+                return newReactions
+            })
+        }, 3000)
+    }
+
     const handleVote = () => {
         if (!selectedPlayer || !socket) return
 
@@ -620,6 +675,40 @@ function Game() {
         return descriptions[role] || 'Participez au vote pour éliminer les loups'
     }
 
+    // ✨ Obtenir l'action possible pour chaque carte joueur
+    const getPlayerActionHint = (player, currentPhase, currentRole, currentHasActed) => {
+        if (!player.alive) return null
+        if (currentHasActed) return null
+
+        if (currentPhase === 'vote') {
+            return { icon: '⚖️', text: 'Voter', color: 'bg-orange-500/20 text-orange-300 border-orange-500' }
+        }
+
+        if (currentPhase === 'night') {
+            if (currentRole === 'loup') {
+                return { icon: '🐺', text: 'Tuer', color: 'bg-red-500/20 text-red-300 border-red-500' }
+            }
+            if (currentRole === 'voyante') {
+                return { icon: '🔮', text: 'Voir', color: 'bg-purple-500/20 text-purple-300 border-purple-500' }
+            }
+            if (currentRole === 'livreur') {
+                return { icon: '🍕', text: 'Protéger', color: 'bg-blue-500/20 text-blue-300 border-blue-500' }
+            }
+            if (currentRole === 'sorciere') {
+                return { icon: '🧙‍♀️', text: 'Potion', color: 'bg-green-500/20 text-green-300 border-green-500' }
+            }
+            if (currentRole === 'cupidon' && nightNumber === 1) {
+                return { icon: '💘', text: 'Lier', color: 'bg-pink-500/20 text-pink-300 border-pink-500' }
+            }
+        }
+
+        if (currentPhase === 'hunter' && currentRole === 'chasseur') {
+            return { icon: '🏹', text: 'Tirer', color: 'bg-yellow-500/20 text-yellow-300 border-yellow-500' }
+        }
+
+        return null
+    }
+
     // 🎭 Textes de narration
     const getNarration = (phase, nightNumber, context = {}) => {
         const narrations = {
@@ -655,6 +744,9 @@ function Game() {
 
     return (
         <div className="min-h-screen p-4">
+            {/* 📡 Indicateur réseau */}
+            <NetworkIndicator position="top-left" />
+
             {/* 🎊 Canvas pour particules */}
             <canvas
                 ref={canvasRef}
@@ -757,16 +849,16 @@ function Game() {
             <div className="max-w-6xl mx-auto">
 
                 {/* En-tête */}
-                <div className="flex justify-between items-center mb-6">
-                    <div>
-                        <h1 className="text-2xl md:text-3xl font-black text-blood">
+                <div className="flex justify-between items-center mb-4 md:mb-6 gap-2">
+                    <div className="flex-1 min-w-0">
+                        <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-blood truncate">
                             🐺 Partie en cours
                         </h1>
-                        <p className="text-gray-500 text-sm">Salle: {roomCode}</p>
+                        <p className="text-gray-500 text-xs md:text-sm truncate">Salle: {roomCode}</p>
                     </div>
                     <button
                         onClick={() => navigate('/')}
-                        className="btn-secondary text-sm"
+                        className="btn-secondary text-xs md:text-sm px-3 md:px-4 flex-shrink-0"
                     >
                         ❌ Quitter
                     </button>
@@ -1129,7 +1221,8 @@ function Game() {
                                             </div>
                                         )}
                                     </div>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    {/* 📱 Grille optimisée mobile: 2 colonnes sur mobile, 3 sur tablet+ */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3">
                                         {players.map((player) => {
                                             // Vérifier si le joueur actuel est vivant
                                             const currentPlayer = players.find(p => p.id === localStorage.getItem('playerId'))
@@ -1178,6 +1271,23 @@ function Game() {
                                                                         ⏳
                                                                     </div>
                                                                 )}
+                                                            </div>
+                                                        )}
+
+                                                        {/* ✨ Indice d'action possible */}
+                                                        {(() => {
+                                                            const hint = getPlayerActionHint(player, phase, myRole, hasActed)
+                                                            return hint && canClick && (
+                                                                <div className={`absolute -top-2 -left-2 ${hint.color} text-xs px-2 py-1 rounded-full font-bold shadow-lg border animate-bounce`}>
+                                                                    {hint.icon} {hint.text}
+                                                                </div>
+                                                            )
+                                                        })()}
+
+                                                        {/* 👍 Réaction flottante */}
+                                                        {reactions[player.id] && (
+                                                            <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-4xl animate-bounce z-20">
+                                                                {reactions[player.id].emoji}
                                                             </div>
                                                         )}
 
@@ -1246,6 +1356,34 @@ function Game() {
                                             <p className="text-gray-400 text-center text-sm mt-1">
                                                 En attente des autres joueurs...
                                             </p>
+                                        </div>
+                                    )}
+
+                                    {/* 👍 Bouton réactions rapides (visible pendant le jour et le vote) */}
+                                    {(phase === 'day' || phase === 'vote') && (
+                                        <div className="mt-4">
+                                            <button
+                                                onClick={() => setShowReactionPicker(!showReactionPicker)}
+                                                className="btn-secondary w-full flex items-center justify-center gap-2"
+                                            >
+                                                😊 Réagir rapidement
+                                            </button>
+
+                                            {/* Picker de réactions */}
+                                            {showReactionPicker && (
+                                                <div className="mt-3 grid grid-cols-6 gap-2 p-3 bg-night-800 rounded-lg border-2 border-blood-600 animate-slideUp">
+                                                    {reactionEmojis.map(emoji => (
+                                                        <button
+                                                            key={emoji}
+                                                            onClick={() => sendReaction(emoji)}
+                                                            className="text-2xl md:text-3xl hover:scale-125 transition-transform active:scale-95 p-2 hover:bg-night-700 rounded-lg"
+                                                            style={{ minHeight: '48px', minWidth: '48px' }}
+                                                        >
+                                                            {emoji}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>

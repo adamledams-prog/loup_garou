@@ -12,6 +12,7 @@
     "vercel-build": "vite build"
   },
   "dependencies": {
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.10.1",

@@ -15,6 +15,8 @@ function Home() {
     const [soundEnabled, setSoundEnabled] = useState(soundManager.enabled)
     const [networkInfo, setNetworkInfo] = useState(null)
     const [showInstallPrompt, setShowInstallPrompt] = useState(false)
+    const [scrollY, setScrollY] = useState(0) // ✨ Pour effet parallaxe
+    const [moonY, setMoonY] = useState(0) // 🌙 Position de la lune
 
     // 🎉 Easter Eggs
     const wolfEasterEgg = useMultiTap(wolfLogoRef, 10, 3000)
@@ -22,6 +24,19 @@ function Home() {
 
     // Effet ripple sur le bouton
     useRipple(rulesButtonRef)
+
+    // ✨ Effet parallaxe sur scroll
+    useEffect(() => {
+        const handleScroll = () => {
+            const scrolled = window.scrollY
+            setScrollY(scrolled)
+            // La lune bouge 3x moins vite que le scroll (effet parallaxe inversé)
+            setMoonY(scrolled * 0.3)
+        }
+
+        window.addEventListener('scroll', handleScroll)
+        return () => window.removeEventListener('scroll', handleScroll)
+    }, [])
 
     // Initialiser le son au premier clic + lancer l'ambiance
     useEffect(() => {
@@ -156,15 +171,35 @@ function Home() {
                 ))}
             </div>
 
-            {/* 📡 Indicateur réseau (coin supérieur droit) */}
+            {/* 📡 Indicateur réseau amélioré (coin supérieur droit) */}
             {networkInfo && (
                 <div className="fixed top-4 right-4 z-50 animate-slideUp">
-                    <div className="glass-card p-3 flex items-center gap-2">
-                        <span className="text-xl">{networkInfo.icon}</span>
-                        <div className="text-xs">
-                            <div className="font-bold text-white">{networkInfo.effectiveType?.toUpperCase()}</div>
+                    <div className={`
+                        glass-card p-4 flex items-center gap-3
+                        border-2 transition-all duration-300
+                        ${networkInfo.color === 'green' ? 'border-green-500/50 bg-green-900/20' : ''}
+                        ${networkInfo.color === 'yellow' ? 'border-yellow-500/50 bg-yellow-900/20' : ''}
+                        ${networkInfo.color === 'orange' ? 'border-orange-500/50 bg-orange-900/20' : ''}
+                        ${networkInfo.color === 'red' ? 'border-red-500/50 bg-red-900/20 animate-pulse' : ''}
+                    `}>
+                        <span className="text-3xl">{networkInfo.icon}</span>
+                        <div className="text-sm">
+                            <div className={`font-black ${
+                                networkInfo.color === 'green' ? 'text-green-400' : ''
+                            }${
+                                networkInfo.color === 'yellow' ? 'text-yellow-400' : ''
+                            }${
+                                networkInfo.color === 'orange' ? 'text-orange-400' : ''
+                            }${
+                                networkInfo.color === 'red' ? 'text-red-400' : ''
+                            }`}>
+                                {networkInfo.effectiveType?.toUpperCase() || 'NET'}
+                            </div>
                             {networkInfo.downlink && (
-                                <div className="text-gray-400">{networkInfo.downlink}</div>
+                                <div className="text-gray-400 text-xs">{networkInfo.downlink}</div>
+                            )}
+                            {networkInfo.quality && (
+                                <div className="text-xs text-gray-500 capitalize">{networkInfo.quality}</div>
                             )}
                         </div>
                     </div>
@@ -201,18 +236,31 @@ function Home() {
                 </div>
             )}
 
+            {/* 🌙 Lune avec effet parallaxe */}
+            <div
+                className="fixed top-10 right-10 text-8xl opacity-20 pointer-events-none z-10 transition-transform duration-100"
+                style={{
+                    transform: `translateY(${moonY}px)`,
+                    filter: 'blur(1px)'
+                }}
+            >
+                🌙
+            </div>
+
             <div className="w-full max-w-6xl relative z-20" ref={heroRef}>
 
                 {/* Logo et titre - PREMIUM VERSION */}
                 <div className="text-center mb-12">
-                    {/* Logo 3D avec effet holographique */}
+                    {/* Logo 3D avec effet holographique + parallaxe */}
                     <div
                         ref={wolfLogoRef}
-                        className={`hero-logo text-9xl md:text-[12rem] mb-8 filter drop-shadow-2xl cursor-pointer select-none transition-all duration-500 ${
+                        className={`hero-logo mb-8 filter drop-shadow-2xl cursor-pointer select-none transition-all duration-500 ${
                             wolfEasterEgg ? 'animate-spin' : ''
                         } ${konamiActivated ? 'hue-rotate-180 scale-150' : ''}`}
                         style={{
-                            animation: wolfEasterEgg ? 'spin 1s ease-in-out' : undefined
+                            animation: wolfEasterEgg ? 'spin 1s ease-in-out' : undefined,
+                            transform: `translateY(${scrollY * 0.5}px)`, // ✨ Parallaxe : bouge 2x moins vite
+                            fontSize: 'clamp(6rem, 20vw, 12rem)' // 📱 Responsive: 96px -> 192px
                         }}
                     >
                         🐺
@@ -220,8 +268,8 @@ function Home() {
 
                     {/* Message Easter Egg Wolf */}
                     {wolfEasterEgg && (
-                        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 animate-bounce-in">
-                            <div className="bg-gradient-to-r from-blood-600 to-blood-800 px-6 py-3 rounded-full text-white font-black shadow-2xl border-2 border-blood-400">
+                        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 animate-bounce-in max-w-[90vw]">
+                            <div className="bg-gradient-to-r from-blood-600 to-blood-800 px-4 py-2 md:px-6 md:py-3 rounded-full text-white text-sm md:text-base font-black shadow-2xl border-2 border-blood-400">
                                 🐺 AOOUUUUU ! 🌙 Le loup appelle la meute !
                             </div>
                         </div>
@@ -229,25 +277,25 @@ function Home() {
 
                     {/* Message Konami Code */}
                     {konamiActivated && (
-                        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[200] animate-scale-in">
-                            <div className="bg-gradient-to-br from-purple-900 to-pink-900 p-8 rounded-2xl text-white text-center shadow-2xl border-4 border-purple-400">
-                                <div className="text-6xl mb-4">🎮</div>
-                                <div className="text-3xl font-black mb-2">DEBUG MODE ACTIVÉ</div>
-                                <div className="text-lg">Console ouverte !</div>
-                                <div className="mt-4 text-sm text-gray-300">Konami Code détecté</div>
+                        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[200] animate-scale-in max-w-[90vw]">
+                            <div className="bg-gradient-to-br from-purple-900 to-pink-900 p-6 md:p-8 rounded-2xl text-white text-center shadow-2xl border-4 border-purple-400">
+                                <div className="text-4xl md:text-6xl mb-4">🎮</div>
+                                <div className="text-xl md:text-3xl font-black mb-2">DEBUG MODE ACTIVÉ</div>
+                                <div className="text-base md:text-lg">Console ouverte !</div>
+                                <div className="mt-4 text-xs md:text-sm text-gray-300">Konami Code détecté</div>
                             </div>
                         </div>
                     )}
 
                     {/* Titre avec reveal */}
-                    <h1 className="hero-title text-6xl md:text-8xl font-black mb-6">
+                    <h1 className="hero-title text-4xl md:text-6xl lg:text-8xl font-black mb-6">
                         <span className="text-blood bg-gradient-to-r from-blood-400 via-blood-600 to-blood-800 bg-clip-text text-transparent drop-shadow-2xl">
                             Loup-Garou
                         </span>
                     </h1>
 
                     {/* Subtitle avec reveal décalé */}
-                    <p className="hero-subtitle text-2xl md:text-3xl text-gray-300 font-bold drop-shadow-xl">
+                    <p className="hero-subtitle text-lg md:text-2xl lg:text-3xl text-gray-300 font-bold drop-shadow-xl">
                         Le village a besoin de vous... 🌙
                     </p>
                 </div>
@@ -265,11 +313,11 @@ function Home() {
                         <div className="absolute inset-0 bg-gradient-to-br from-blood-600/20 to-blood-800/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-500 opacity-50 group-hover:opacity-100"></div>
 
                         {/* Glassmorphism card */}
-                        <div className="relative bg-gradient-to-br from-night-800/60 to-night-900/60 backdrop-blur-xl rounded-3xl p-8 md:p-10 border-2 border-blood-600/30 group-hover:border-blood-500/60 shadow-2xl transform group-hover:scale-105 group-hover:-translate-y-2 transition-all duration-500 ripple-container">
-                            <div className="text-7xl md:text-8xl mb-6 text-center transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 rotate-in">
+                        <div className="relative bg-gradient-to-br from-night-800/60 to-night-900/60 backdrop-blur-xl rounded-3xl p-6 md:p-8 lg:p-10 border-2 border-blood-600/30 group-hover:border-blood-500/60 shadow-2xl transform group-hover:scale-105 group-hover:-translate-y-2 transition-all duration-500 ripple-container">
+                            <div className="text-5xl md:text-7xl lg:text-8xl mb-6 text-center transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 rotate-in">
                                 🌐
                             </div>
-                            <h2 className="text-4xl md:text-5xl font-black mb-4 text-center bg-gradient-to-r from-blood-400 via-blood-600 to-blood-800 bg-clip-text text-transparent gradient-animate">
+                            <h2 className="text-2xl md:text-4xl lg:text-5xl font-black mb-4 text-center bg-gradient-to-r from-blood-400 via-blood-600 to-blood-800 bg-clip-text text-transparent gradient-animate">
                                 Mode Multijoueur
                             </h2>
                             <div className="space-y-3 text-gray-300 text-base md:text-lg">
@@ -302,26 +350,26 @@ function Home() {
                 {/* Info jeu - GLASSMORPHISM */}
                 <div className="relative mb-8">
                     <div className="absolute inset-0 bg-gradient-to-br from-blood-600/10 to-blood-800/10 rounded-3xl blur-xl"></div>
-                    <div className="relative bg-gradient-to-br from-night-800/50 to-night-900/50 backdrop-blur-xl rounded-3xl p-8 border-2 border-blood-700/20 shadow-2xl text-center">
-                        <div className="flex items-center justify-center gap-6 mb-6">
-                            <div className="text-5xl">🎮</div>
+                    <div className="relative bg-gradient-to-br from-night-800/50 to-night-900/50 backdrop-blur-xl rounded-3xl p-6 md:p-8 border-2 border-blood-700/20 shadow-2xl text-center">
+                        <div className="flex items-center justify-center gap-4 md:gap-6 mb-6">
+                            <div className="text-3xl md:text-5xl">🎮</div>
                             <div className="text-left">
-                                <p className="text-blood-400 font-black text-2xl">100% En ligne</p>
-                                <p className="text-gray-400 text-base">Aucune installation requise</p>
+                                <p className="text-blood-400 font-black text-lg md:text-2xl">100% En ligne</p>
+                                <p className="text-gray-400 text-sm md:text-base">Aucune installation requise</p>
                             </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-6 pt-6 border-t border-blood-700/20">
+                        <div className="grid grid-cols-3 gap-3 md:gap-6 pt-6 border-t border-blood-700/20">
                             <div className="transform hover:scale-110 transition-transform duration-300">
-                                <div className="text-4xl font-black bg-gradient-to-r from-blood-400 to-blood-600 bg-clip-text text-transparent">4-10</div>
-                                <div className="text-sm text-gray-400 font-bold mt-2">Joueurs</div>
+                                <div className="text-2xl md:text-4xl font-black bg-gradient-to-r from-blood-400 to-blood-600 bg-clip-text text-transparent">4-10</div>
+                                <div className="text-xs md:text-sm text-gray-400 font-bold mt-2">Joueurs</div>
                             </div>
                             <div className="transform hover:scale-110 transition-transform duration-300">
-                                <div className="text-4xl font-black bg-gradient-to-r from-blood-400 to-blood-600 bg-clip-text text-transparent">8+</div>
-                                <div className="text-sm text-gray-400 font-bold mt-2">Rôles</div>
+                                <div className="text-2xl md:text-4xl font-black bg-gradient-to-r from-blood-400 to-blood-600 bg-clip-text text-transparent">8+</div>
+                                <div className="text-xs md:text-sm text-gray-400 font-bold mt-2">Rôles</div>
                             </div>
                             <div className="transform hover:scale-110 transition-transform duration-300">
-                                <div className="text-4xl font-black bg-gradient-to-r from-blood-400 to-blood-600 bg-clip-text text-transparent">15min</div>
-                                <div className="text-sm text-gray-400 font-bold mt-2">Partie</div>
+                                <div className="text-2xl md:text-4xl font-black bg-gradient-to-r from-blood-400 to-blood-600 bg-clip-text text-transparent">15min</div>
+                                <div className="text-xs md:text-sm text-gray-400 font-bold mt-2">Partie</div>
                             </div>
                         </div>
                     </div>

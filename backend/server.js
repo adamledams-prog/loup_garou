@@ -554,6 +554,24 @@ io.on('connection', (socket) => {
         console.log(`${player.name} est ${player.ready ? '✅ prêt' : '⏳ pas prêt'}`);
     });
 
+    // 👍 Envoyer une réaction rapide
+    socket.on('sendReaction', (data) => {
+        const room = rooms.get(socket.roomCode);
+        if (!room) return;
+
+        const player = room.players.get(socket.playerId);
+        if (!player) return;
+
+        // Broadcast la réaction à tous les joueurs de la salle
+        io.to(socket.roomCode).emit('playerReaction', {
+            playerId: player.id,
+            playerName: player.name,
+            emoji: data.emoji
+        });
+
+        console.log(`${player.name} réagit avec ${data.emoji}`);
+    });
+
     // 🤖 Ajouter un bot à la salle
     socket.on('addBot', () => {
         const room = rooms.get(socket.roomCode);
@@ -1036,12 +1054,12 @@ function getPhaseDuration(room, phase) {
         // Mode normal
         if (phase === 'night') return 60;
         if (phase === 'day') return 30;
-        if (phase === 'vote') return 45;
+        if (phase === 'vote') return 30; // ✅ Réduit de 45s à 30s pour un vote plus dynamique
     } else {
         // Mode rapide
         if (phase === 'night') return 30;
         if (phase === 'day') return 15;
-        if (phase === 'vote') return 30;
+        if (phase === 'vote') return 20; // ✅ Réduit de 30s à 20s en mode rapide
     }
     return 60; // Défaut
 }

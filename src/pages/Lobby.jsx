@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import io from 'socket.io-client'
+import { QRCodeSVG } from 'qrcode.react'
 import config from '../config'
 import { useParticleSystem } from '../utils/particles'
 import { soundManager } from '../utils/sound'
@@ -30,6 +31,12 @@ function Lobby() {
     const [currentSlide, setCurrentSlide] = useState(0)
     const [touchStart, setTouchStart] = useState(null)
     const [touchEnd, setTouchEnd] = useState(null)
+
+    // 📲 QR Code modal
+    const [showQRCode, setShowQRCode] = useState(false)
+
+    // 🔍 Modal prévisualisation des rôles
+    const [showRolesModal, setShowRolesModal] = useState(false)
 
     // Minimum swipe distance (en px)
     const minSwipeDistance = 50
@@ -121,6 +128,115 @@ function Lobby() {
             'villageois': '👤'
         }
         return emojiMap[role] || '❓'
+    }
+
+    // 📖 Base de données complète des rôles avec descriptions
+    const rolesDatabase = {
+        'loup': {
+            name: 'Loup-Garou',
+            emoji: '🐺',
+            team: 'Loups',
+            description: 'Éliminez les villageois chaque nuit sans vous faire démasquer.',
+            powers: [
+                'Se réveille chaque nuit avec les autres loups',
+                'Vote pour tuer un villageois',
+                'Peut communiquer avec les autres loups via le chat'
+            ],
+            tips: 'Coordonnez-vous avec votre meute et mentez le jour !',
+            difficulty: 'Moyen'
+        },
+        'voyante': {
+            name: 'Voyante',
+            emoji: '🔮',
+            team: 'Village',
+            description: 'Voyez le rôle d\'un joueur chaque nuit pour guider le village.',
+            powers: [
+                'Découvre le rôle d\'un joueur chaque nuit',
+                'Information cruciale pour le village',
+                'Doit rester discrète pour ne pas être ciblée'
+            ],
+            tips: 'Ne révélez pas votre identité trop tôt !',
+            difficulty: 'Facile'
+        },
+        'sorciere': {
+            name: 'Sorcière',
+            emoji: '🧙‍♀️',
+            team: 'Village',
+            description: 'Une potion de vie pour ressusciter, une potion de mort pour éliminer.',
+            powers: [
+                'Potion de vie : ressuscite la victime de la nuit (1x)',
+                'Potion de mort : élimine un joueur (1x)',
+                'Peut utiliser les deux la même nuit',
+                'Connaît la victime des loups'
+            ],
+            tips: 'Gardez vos potions pour les moments critiques !',
+            difficulty: 'Difficile'
+        },
+        'chasseur': {
+            name: 'Chasseur',
+            emoji: '🏹',
+            team: 'Village',
+            description: 'Si vous mourez, emportez quelqu\'un avec vous !',
+            powers: [
+                'Quand il meurt, il tire sur un joueur de son choix',
+                'Peut changer le cours de la partie',
+                'Fonctionne même éliminé par le village'
+            ],
+            tips: 'Visez bien, c\'est votre unique tir !',
+            difficulty: 'Facile'
+        },
+        'cupidon': {
+            name: 'Cupidon',
+            emoji: '💘',
+            team: 'Village',
+            description: 'Créez un couple amoureux la première nuit.',
+            powers: [
+                'Première nuit : désigne deux joueurs amoureux',
+                'Si l\'un meurt, l\'autre meurt de chagrin',
+                'Les amoureux peuvent être de camps différents'
+            ],
+            tips: 'Un couple mixte (loup + villageois) peut tout changer !',
+            difficulty: 'Moyen'
+        },
+        'riche': {
+            name: 'Riche',
+            emoji: '💰',
+            team: 'Village',
+            description: 'Votre fortune vous donne une voix plus forte !',
+            powers: [
+                'Son vote compte double lors des votes du village',
+                'Peut influencer fortement les décisions',
+                'Simple villageois la nuit'
+            ],
+            tips: 'Utilisez votre influence avec sagesse !',
+            difficulty: 'Facile'
+        },
+        'livreur': {
+            name: 'Livreur',
+            emoji: '🍕',
+            team: 'Village',
+            description: 'Protégez un joueur chaque nuit de votre livraison !',
+            powers: [
+                'Protège un joueur chaque nuit (sauf lui-même)',
+                'Le joueur protégé survit aux loups',
+                'Ne peut pas protéger 2x de suite la même personne'
+            ],
+            tips: 'Protégez les rôles importants révélés !',
+            difficulty: 'Moyen'
+        },
+        'villageois': {
+            name: 'Villageois',
+            emoji: '👤',
+            team: 'Village',
+            description: 'Pas de pouvoir spécial, mais votre vote compte !',
+            powers: [
+                'Participe aux votes du jour',
+                'Doit analyser et démasquer les loups',
+                'Force dans le nombre'
+            ],
+            tips: 'Écoutez, observez, votez intelligemment !',
+            difficulty: 'Facile'
+        }
     }
 
     useEffect(() => {
@@ -330,10 +446,10 @@ function Lobby() {
                     >
                         ← Retour au menu
                     </button>
-                    <h1 className="text-4xl md:text-5xl font-black mb-2">
+                    <h1 className="text-3xl md:text-4xl lg:text-5xl font-black mb-2">
                         <span className="text-blood">🐺 Lobby</span>
                     </h1>
-                    <p className="text-gray-400">Rejoignez ou créez une partie</p>
+                    <p className="text-sm md:text-base text-gray-400">Rejoignez ou créez une partie</p>
                     <button
                         onClick={() => navigate('/regles')}
                         className="mt-3 text-sm text-blue-400 hover:text-blue-300 transition-colors"
@@ -367,18 +483,22 @@ function Lobby() {
                                 <label className="block text-sm font-bold text-gray-300 mb-2">
                                     🎨 Choisis ton avatar
                                 </label>
-                                <div className="grid grid-cols-10 gap-2">
+                                <div className="grid grid-cols-8 md:grid-cols-10 gap-2">
                                     {avatarList.map((avatar, index) => (
                                         <button
                                             key={avatar}
                                             type="button"
                                             onClick={() => setSelectedAvatar(avatar)}
-                                            className={`text-3xl p-2 rounded-lg transition-all hover:scale-110 scale-hover bounce-in ${
+                                            className={`text-2xl md:text-3xl p-2 rounded-lg transition-all hover:scale-110 scale-hover bounce-in ${
                                                 selectedAvatar === avatar
                                                     ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
                                                     : 'bg-night-800 hover:bg-night-700'
                                             }`}
-                                            style={{ animationDelay: `${index * 0.03}s` }}
+                                            style={{
+                                                animationDelay: `${index * 0.03}s`,
+                                                minHeight: '48px',
+                                                minWidth: '48px'
+                                            }}
                                         >
                                             {avatar}
                                         </button>
@@ -453,7 +573,7 @@ function Lobby() {
                     <div className="space-y-6">
                         <div className="card-glow text-center">
                             <p className="text-gray-400 mb-2">Code de la salle</p>
-                            <div className="flex items-center justify-center gap-3 mb-4">
+                            <div className="flex flex-wrap items-center justify-center gap-3 mb-4">
                                 <div className="text-5xl font-black tracking-widest text-blood">
                                     {roomCode || 'ABC123'}
                                 </div>
@@ -484,6 +604,17 @@ function Lobby() {
                                     className="btn-primary text-sm px-4 py-2 hover:scale-110 transition-transform"
                                 >
                                     📤 Partager
+                                </button>
+                                {/* ✨ Nouveau bouton QR Code */}
+                                <button
+                                    onClick={() => {
+                                        setShowQRCode(true)
+                                        vibrate.tap()
+                                        soundManager.playClick()
+                                    }}
+                                    className="btn-secondary text-sm px-4 py-2 hover:scale-110 transition-transform flex items-center gap-2"
+                                >
+                                    📱 QR Code
                                 </button>
                             </div>
                             <p className="text-sm text-gray-500">Partagez ce code avec vos amis</p>
@@ -652,9 +783,21 @@ function Lobby() {
                                 {/* ⚙️ Configuration de la partie (dépliable) */}
                                 {showConfig && (
                                     <div className="card bg-night-900 border-2 border-blood-600 animate-slideUp">
-                                        <h3 className="text-lg font-bold mb-4 text-blood flex items-center gap-2">
-                                            ⚙️ Personnaliser les rôles
-                                        </h3>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-lg font-bold text-blood flex items-center gap-2">
+                                                ⚙️ Personnaliser les rôles
+                                            </h3>
+                                            <button
+                                                onClick={() => {
+                                                    setShowRolesModal(true)
+                                                    vibrate.tap()
+                                                    soundManager.playClick()
+                                                }}
+                                                className="bg-purple-600 hover:bg-purple-700 text-white text-sm px-3 py-2 rounded-lg font-bold transition-all flex items-center gap-2"
+                                            >
+                                                📖 Guide des rôles
+                                            </button>
+                                        </div>
 
                                     {/* Nombre de loups */}
                                     <div className="mb-6">
@@ -824,6 +967,180 @@ function Lobby() {
                 )}
 
             </div>
+
+            {/* 📱 Modal QR Code */}
+            {showQRCode && (
+                <div
+                    className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn"
+                    onClick={() => setShowQRCode(false)}
+                >
+                    <div
+                        className="card max-w-md w-full space-y-6 animate-slideUp"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="text-center">
+                            <h2 className="text-3xl font-black mb-2">
+                                📱 Scanner pour rejoindre
+                            </h2>
+                            <p className="text-gray-400 text-sm">
+                                Vos amis peuvent scanner ce QR code pour rejoindre automatiquement
+                            </p>
+                        </div>
+
+                        {/* QR Code */}
+                        <div className="bg-white p-6 rounded-2xl flex items-center justify-center">
+                            <QRCodeSVG
+                                value={`${window.location.origin}/lobby?join=${roomCode}`}
+                                size={250}
+                                level="H"
+                                includeMargin={true}
+                                imageSettings={{
+                                    src: '/icon-192.svg',
+                                    height: 40,
+                                    width: 40,
+                                    excavate: true,
+                                }}
+                            />
+                        </div>
+
+                        {/* Code en grand */}
+                        <div className="text-center">
+                            <p className="text-gray-400 text-sm mb-2">Ou entrer le code :</p>
+                            <div className="text-5xl font-black tracking-widest text-blood">
+                                {roomCode}
+                            </div>
+                        </div>
+
+                        {/* Boutons */}
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(`${window.location.origin}/lobby?join=${roomCode}`)
+                                    vibrate.success()
+                                    soundManager.playClick()
+                                }}
+                                className="btn-secondary flex-1"
+                            >
+                                📋 Copier le lien
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowQRCode(false)
+                                    vibrate.tap()
+                                }}
+                                className="btn-primary flex-1"
+                            >
+                                ✅ Fermer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 📖 Modal Guide des rôles */}
+            {showRolesModal && (
+                <div
+                    className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn overflow-y-auto"
+                    onClick={() => setShowRolesModal(false)}
+                >
+                    <div
+                        className="card max-w-4xl w-full my-8 animate-slideUp max-h-[90vh] overflow-y-auto"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="sticky top-0 bg-night-900 pb-4 border-b border-blood-600 mb-6 z-10">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-3xl font-black">
+                                    📖 Guide des Rôles
+                                </h2>
+                                <button
+                                    onClick={() => setShowRolesModal(false)}
+                                    className="text-4xl text-gray-400 hover:text-white transition-colors"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                            <p className="text-gray-400 text-sm mt-2">
+                                Découvrez tous les rôles et leurs pouvoirs
+                            </p>
+                        </div>
+
+                        {/* Grille des rôles */}
+                        <div className="space-y-4">
+                            {Object.entries(rolesDatabase).map(([roleId, role]) => (
+                                <div
+                                    key={roleId}
+                                    className="bg-gradient-to-br from-night-800/90 to-night-900/90 rounded-xl p-6 border-2 border-night-700 hover:border-blood-600 transition-all duration-300"
+                                >
+                                    <div className="flex items-start gap-4">
+                                        {/* Emoji et info de base */}
+                                        <div className="text-center">
+                                            <div className="text-6xl mb-2">{role.emoji}</div>
+                                            <div className={`text-xs px-2 py-1 rounded-full font-bold ${
+                                                role.team === 'Loups'
+                                                    ? 'bg-red-900/50 text-red-300 border border-red-700'
+                                                    : 'bg-green-900/50 text-green-300 border border-green-700'
+                                            }`}>
+                                                {role.team}
+                                            </div>
+                                        </div>
+
+                                        {/* Contenu */}
+                                        <div className="flex-1">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <h3 className="text-2xl font-black text-white">
+                                                    {role.name}
+                                                </h3>
+                                                <div className="text-xs px-3 py-1 rounded-full bg-purple-900/50 text-purple-300 border border-purple-700 font-bold">
+                                                    {role.difficulty}
+                                                </div>
+                                            </div>
+
+                                            <p className="text-gray-300 mb-4 text-sm leading-relaxed">
+                                                {role.description}
+                                            </p>
+
+                                            {/* Pouvoirs */}
+                                            <div className="mb-3">
+                                                <div className="text-sm font-bold text-blood mb-2">
+                                                    ✨ Pouvoirs :
+                                                </div>
+                                                <ul className="space-y-1">
+                                                    {role.powers.map((power, idx) => (
+                                                        <li key={idx} className="text-xs text-gray-400 flex items-start gap-2">
+                                                            <span className="text-blood mt-0.5">•</span>
+                                                            <span>{power}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+
+                                            {/* Conseils */}
+                                            <div className="bg-blood-900/20 border border-blood-800/50 rounded-lg p-3">
+                                                <div className="text-xs font-bold text-blood mb-1">
+                                                    💡 Conseil :
+                                                </div>
+                                                <div className="text-xs text-gray-400">
+                                                    {role.tips}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Bouton fermer en bas */}
+                        <div className="sticky bottom-0 bg-night-900 pt-6 border-t border-blood-600 mt-6">
+                            <button
+                                onClick={() => setShowRolesModal(false)}
+                                className="btn-primary w-full"
+                            >
+                                ✅ Compris, fermer le guide
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
