@@ -263,16 +263,17 @@ function Lobby() {
                                     🎨 Choisis ton avatar
                                 </label>
                                 <div className="grid grid-cols-10 gap-2">
-                                    {avatarList.map((avatar) => (
+                                    {avatarList.map((avatar, index) => (
                                         <button
                                             key={avatar}
                                             type="button"
                                             onClick={() => setSelectedAvatar(avatar)}
-                                            className={`text-3xl p-2 rounded-lg transition-all hover:scale-110 ${
+                                            className={`text-3xl p-2 rounded-lg transition-all hover:scale-110 scale-hover bounce-in ${
                                                 selectedAvatar === avatar
                                                     ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
                                                     : 'bg-night-800 hover:bg-night-700'
                                             }`}
+                                            style={{ animationDelay: `${index * 0.03}s` }}
                                         >
                                             {avatar}
                                         </button>
@@ -281,7 +282,7 @@ function Lobby() {
                             </div>
 
                             <button
-                                className="btn-primary w-full"
+                                className="btn-primary w-full ripple-container"
                                 onClick={handleCreateRoom}
                                 disabled={isLoading}
                             >
@@ -305,16 +306,17 @@ function Lobby() {
                                     🎨 Choisis ton avatar
                                 </label>
                                 <div className="grid grid-cols-10 gap-2">
-                                    {avatarList.map((avatar) => (
+                                    {avatarList.map((avatar, index) => (
                                         <button
                                             key={avatar}
                                             type="button"
                                             onClick={() => setSelectedAvatar(avatar)}
-                                            className={`text-3xl p-2 rounded-lg transition-all hover:scale-110 ${
+                                            className={`text-3xl p-2 rounded-lg transition-all hover:scale-110 scale-hover bounce-in ${
                                                 selectedAvatar === avatar
                                                     ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
                                                     : 'bg-night-800 hover:bg-night-700'
                                             }`}
+                                            style={{ animationDelay: `${index * 0.03}s` }}
                                         >
                                             {avatar}
                                         </button>
@@ -327,11 +329,11 @@ function Lobby() {
                                 placeholder="ABC123"
                                 value={roomCode}
                                 onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                                className="input-code mb-4"
+                                className="input-code mb-4 input-glow"
                                 maxLength={6}
                             />
                             <button
-                                className="btn-secondary w-full"
+                                className="btn-secondary w-full ripple-container"
                                 onClick={handleJoinRoom}
                                 disabled={isLoading}
                             >

@@ -1255,16 +1255,35 @@ function Game() {
                                         </div>
                                     )}
 
-                                    <div className="flex-1 bg-night-900 rounded-lg p-3 mb-3 overflow-y-auto">
+                                    <div className="flex-1 bg-gradient-to-b from-night-900/50 to-night-900/80 backdrop-blur-sm rounded-lg p-3 mb-3 overflow-y-auto chat-scroll-smooth">
                                         {messages.length === 0 ? (
-                                            <p className="text-gray-500 text-sm italic">Aucun message</p>
+                                            <div className="flex items-center justify-center h-full">
+                                                <p className="text-gray-500 text-sm italic fade-in">💬 Aucun message</p>
+                                            </div>
                                         ) : (
-                                            messages.map((msg, index) => (
-                                                <div key={index} className="mb-2">
-                                                    <span className="font-bold text-blood-500">{msg.playerName}: </span>
-                                                    <span className="text-gray-300">{msg.message}</span>
-                                                </div>
-                                            ))
+                                            <div className="space-y-3">
+                                                {messages.map((msg, index) => {
+                                                    const isMyMessage = msg.playerId === localStorage.getItem('playerId')
+                                                    return (
+                                                        <div
+                                                            key={index}
+                                                            className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
+                                                            style={{ animationDelay: `${index * 0.05}s` }}
+                                                        >
+                                                            <div className={`chat-bubble ${isMyMessage ? 'chat-bubble-right' : 'chat-bubble-left'}`}>
+                                                                {!isMyMessage && (
+                                                                    <div className="text-xs font-bold text-blood-400 mb-1">
+                                                                        {msg.playerName}
+                                                                    </div>
+                                                                )}
+                                                                <div className={`text-sm ${isMyMessage ? 'text-gray-200' : 'text-gray-300'}`}>
+                                                                    {msg.message}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
                                         )}
                                     </div>
                                     <div className="flex gap-2 relative emoji-picker-container">
@@ -1274,27 +1293,28 @@ function Game() {
                                             value={messageInput}
                                             onChange={(e) => setMessageInput(e.target.value)}
                                             onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                                            className="flex-1 bg-night-800 border-2 border-night-600 focus:border-blood-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 transition-all outline-none"
+                                            className="flex-1 bg-gradient-to-r from-night-800 to-night-900 border-2 border-night-600 focus:border-blood-600 focus:ring-2 focus:ring-blood-500/20 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 transition-all outline-none shadow-lg hover:shadow-xl transform focus:scale-102"
                                         />
 
                                         {/* Bouton Emoji Picker */}
                                         <button
                                             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                                            className="bg-night-700 hover:bg-night-600 px-3 rounded-lg transition-all"
+                                            className="bg-gradient-to-br from-night-700 to-night-800 hover:from-night-600 hover:to-night-700 px-4 py-3 rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
                                             title="Ajouter un emoji"
                                         >
-                                            😊
+                                            <span className="text-xl">😊</span>
                                         </button>
 
                                         {/* Popup Emoji Picker - Stylisé */}
                                         {showEmojiPicker && (
-                                            <div className="absolute bottom-full mb-2 right-0 bg-gradient-to-br from-night-800 to-night-900 border-2 border-blood-500 rounded-xl p-4 shadow-2xl shadow-blood-900/50 z-50 animate-fadeIn">
+                                            <div className="absolute bottom-full mb-2 right-0 bg-gradient-to-br from-night-800 to-night-900 border-2 border-blood-500 rounded-xl p-4 shadow-2xl shadow-blood-900/50 z-50 animate-fadeIn backdrop-blur-md">
                                                 <div className="flex gap-2">
                                                     {quickEmojis.map((emoji, index) => (
                                                         <button
                                                             key={index}
                                                             onClick={() => insertEmoji(emoji)}
-                                                            className="text-3xl hover:scale-125 transition-transform hover:bg-blood-900/30 rounded-lg p-2 hover:shadow-lg"
+                                                            className="text-3xl hover:scale-125 transition-transform hover:bg-blood-900/30 rounded-lg p-2 hover:shadow-lg bounce-in"
+                                                            style={{ animationDelay: `${index * 0.05}s` }}
                                                         >
                                                             {emoji}
                                                         </button>
@@ -1305,9 +1325,9 @@ function Game() {
 
                                         <button
                                             onClick={sendMessage}
-                                            className="bg-blood-600 hover:bg-blood-700 px-4 rounded-lg transition-all hover:scale-105"
+                                            className="bg-gradient-to-br from-blood-600 to-blood-700 hover:from-blood-500 hover:to-blood-600 px-5 py-3 rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 ripple-container"
                                         >
-                                            📤
+                                            <span className="text-xl">📤</span>
                                         </button>
                                     </div>
                                 </div>

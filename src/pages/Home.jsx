@@ -1,11 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useRipple } from '../hooks/useRipple'
 
 function Home() {
     const navigate = useNavigate()
     const heroRef = useRef(null)
+    const rulesButtonRef = useRef(null)
     const [stars, setStars] = useState([])
     const [particles, setParticles] = useState([])
+
+    // Effet ripple sur le bouton
+    useRipple(rulesButtonRef)
 
     // Génération du starfield et particules
     useEffect(() => {
@@ -109,17 +114,18 @@ function Home() {
                     {/* Mode En Ligne */}
                     <div
                         onClick={() => navigate('/lobby')}
-                        className="relative cursor-pointer group"
+                        className="relative cursor-pointer group slide-up"
+                        style={{ animationDelay: '0.1s' }}
                     >
                         {/* Glow effect background */}
                         <div className="absolute inset-0 bg-gradient-to-br from-blood-600/20 to-blood-800/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-500 opacity-50 group-hover:opacity-100"></div>
 
                         {/* Glassmorphism card */}
-                        <div className="relative bg-gradient-to-br from-night-800/60 to-night-900/60 backdrop-blur-xl rounded-3xl p-8 border-2 border-blood-600/30 group-hover:border-blood-500/60 shadow-2xl transform group-hover:scale-105 group-hover:-translate-y-2 transition-all duration-500">
-                            <div className="text-7xl mb-6 text-center transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-500">
+                        <div className="relative bg-gradient-to-br from-night-800/60 to-night-900/60 backdrop-blur-xl rounded-3xl p-8 border-2 border-blood-600/30 group-hover:border-blood-500/60 shadow-2xl transform group-hover:scale-105 group-hover:-translate-y-2 transition-all duration-500 ripple-container">
+                            <div className="text-7xl mb-6 text-center transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 rotate-in">
                                 🌐
                             </div>
-                            <h2 className="text-4xl font-black mb-4 text-center bg-gradient-to-r from-blood-400 via-blood-600 to-blood-800 bg-clip-text text-transparent">
+                            <h2 className="text-4xl font-black mb-4 text-center bg-gradient-to-r from-blood-400 via-blood-600 to-blood-800 bg-clip-text text-transparent gradient-animate">
                                 Mode En Ligne
                             </h2>
                             <div className="space-y-3 text-gray-300 text-lg">
@@ -149,13 +155,13 @@ function Home() {
                     </div>
 
                     {/* Mode Local */}
-                    <div className="relative cursor-not-allowed group">
+                    <div className="relative cursor-not-allowed group slide-up" style={{ animationDelay: '0.2s' }}>
                         {/* Glow effect background */}
                         <div className="absolute inset-0 bg-gradient-to-br from-gray-600/10 to-gray-800/10 rounded-3xl blur-xl"></div>
 
                         {/* Glassmorphism card */}
                         <div className="relative bg-gradient-to-br from-night-800/40 to-night-900/40 backdrop-blur-xl rounded-3xl p-8 border-2 border-gray-700/30 shadow-2xl opacity-60 group-hover:opacity-75 transition-all duration-500">
-                            <div className="text-7xl mb-6 text-center">
+                            <div className="text-7xl mb-6 text-center fade-in" style={{ animationDelay: '0.3s' }}>
                                 📱
                             </div>
                             <h2 className="text-4xl font-black mb-4 text-center text-gray-400">
@@ -219,8 +225,9 @@ function Home() {
                 {/* Footer */}
                 <div className="text-center mt-8 space-y-6">
                     <button
+                        ref={rulesButtonRef}
                         onClick={() => navigate('/regles')}
-                        className="btn-secondary px-8 py-4 text-lg font-bold transform hover:scale-110 transition-all duration-300"
+                        className="btn-secondary px-8 py-4 text-lg font-bold transform hover:scale-110 transition-all duration-300 ripple-container"
                     >
                         📖 Comment Jouer ?
                     </button>
