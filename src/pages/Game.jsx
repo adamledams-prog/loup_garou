@@ -28,6 +28,18 @@ function Game() {
     const [isConnected, setIsConnected] = useState(true) // 📡 État de connexion
     const [reconnecting, setReconnecting] = useState(false) // 🔄 Tentative de reconnexion
 
+    // 📊 Statistiques de la partie
+    const [gameStartTime, setGameStartTime] = useState(null)
+    const [totalNights, setTotalNights] = useState(0)
+    const [totalDeaths, setTotalDeaths] = useState(0)
+
+    // 🎬 Overlay de transition de phase
+    const [phaseTransition, setPhaseTransition] = useState(null) // { phase: 'night', nightNumber: 1 }
+
+    // 💬 Messages non lus dans le chat loup
+    const [unreadWolfMessages, setUnreadWolfMessages] = useState(0)
+    const [chatVisible, setChatVisible] = useState(false) // Pour savoir si le chat est visible
+
     useEffect(() => {
         const newSocket = io(config.serverUrl)
         setSocket(newSocket)
@@ -88,25 +100,42 @@ function Game() {
             setActionSuccess(null)
             setIsLoading(false)
             setError(null)
+
+            // 📊 Initialiser les stats
+            setGameStartTime(Date.now())
+            setTotalNights(0)
+            setTotalDeaths(0)
         })
 
         // Phase de nuit
         newSocket.on('nightPhase', (data) => {
             console.log('Phase de nuit:', data)
+
+            // 🎬 Afficher la transition
+            setPhaseTransition({ phase: 'night', nightNumber: data.nightNumber })
+            setTimeout(() => setPhaseTransition(null), 2500) // Masquer après 2.5s
+
             setPhase('night')
             setNightNumber(data.nightNumber)
             setPlayers(data.players)
             setHasActed(false) // ✅ Réinitialiser à chaque nouvelle nuit
             setActionSuccess(null)
             setSelectedPlayer(null) // ✅ Désélectionner le joueur
+            setUnreadWolfMessages(0) // 💬 Réinitialiser messages non lus
             if (data.killedTonight) {
                 setKilledTonight(data.killedTonight)
             }
-        })
 
-        // Phase de jour
+            // 📊 Incrémenter le compteur de nuits
+            setTotalNights(prev => prev + 1)
+        })        // Phase de jour
         newSocket.on('dayPhase', (data) => {
             console.log('Phase de jour:', data)
+
+            // 🎬 Afficher la transition
+            setPhaseTransition({ phase: 'day' })
+            setTimeout(() => setPhaseTransition(null), 2500)
+
             setPhase('day')
             setPlayers(data.players)
             setHasActed(false) // ✅ Réinitialiser (pas d'action le jour mais préparer pour vote)
@@ -114,11 +143,17 @@ function Game() {
             setSelectedPlayer(null)
             if (data.killedPlayer) {
                 alert(`${data.killedPlayer} est mort cette nuit...`)
+                // 📊 Incrémenter le compteur de morts
+                setTotalDeaths(prev => prev + 1)
             }
         })
 
         // Phase de vote
         newSocket.on('votePhase', (data) => {
+            // 🎬 Afficher la transition
+            setPhaseTransition({ phase: 'vote' })
+            setTimeout(() => setPhaseTransition(null), 2500)
+
             setPhase('vote')
             setPlayers(data.players)
             setHasActed(false) // ✅ Réinitialiser pour le vote
@@ -149,6 +184,11 @@ function Game() {
         // Messages chat
         newSocket.on('chatMessage', (data) => {
             setMessages(prev => [...prev, data])
+
+            // Si c'est un message loup et que je suis loup et que le chat n'est pas visible, incrémenter
+            if (phase === 'night' && myRole === 'loup' && data.playerId !== localStorage.getItem('playerId') && !chatVisible) {
+                setUnreadWolfMessages(prev => prev + 1)
+            }
         })
 
         // Erreurs
@@ -411,6 +451,26 @@ function Game() {
 
     return (
         <div className="min-h-screen p-4">
+            {/* 🎬 Overlay de transition de phase */}
+            {phaseTransition && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 animate-fadeIn">
+                    <div className="text-center animate-slideUp">
+                        <div className="text-9xl mb-6 animate-bounce">
+                            {phaseTransition.phase === 'night' ? '🌙' :
+                             phaseTransition.phase === 'day' ? '☀️' : '⚖️'}
+                        </div>
+                        <h2 className="text-5xl font-black text-blood mb-4">
+                            {phaseTransition.phase === 'night' ? `Nuit ${phaseTransition.nightNumber}` :
+                             phaseTransition.phase === 'day' ? 'Jour' : 'Vote'}
+                        </h2>
+                        <p className="text-xl text-gray-400">
+                            {phaseTransition.phase === 'night' ? 'Les rôles spéciaux se réveillent...' :
+                             phaseTransition.phase === 'day' ? 'Le village se réveille...' : 'Le moment du jugement...'}
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <div className="max-w-6xl mx-auto">
 
                 {/* En-tête */}
@@ -477,6 +537,27 @@ function Game() {
                             {gameOver.winner === 'villageois' ? '🎉 Les Villageois ont gagné !' : '🐺 Les Loups-Garous ont gagné !'}
                         </h2>
                         <p className="text-gray-400 mb-8">{gameOver.message}</p>
+
+                        {/* 📊 Statistiques de la partie */}
+                        <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto mb-8">
+                            <div className="bg-night-800 border border-blood-600/30 rounded-lg p-4">
+                                <div className="text-3xl mb-2">🌙</div>
+                                <div className="text-2xl font-bold text-white">{totalNights}</div>
+                                <div className="text-sm text-gray-400">Nuits</div>
+                            </div>
+                            <div className="bg-night-800 border border-blood-600/30 rounded-lg p-4">
+                                <div className="text-3xl mb-2">💀</div>
+                                <div className="text-2xl font-bold text-white">{totalDeaths}</div>
+                                <div className="text-sm text-gray-400">Morts</div>
+                            </div>
+                            <div className="bg-night-800 border border-blood-600/30 rounded-lg p-4">
+                                <div className="text-3xl mb-2">⏱️</div>
+                                <div className="text-2xl font-bold text-white">
+                                    {gameStartTime ? Math.floor((Date.now() - gameStartTime) / 60000) : 0}
+                                </div>
+                                <div className="text-sm text-gray-400">Minutes</div>
+                            </div>
+                        </div>
 
                         {/* Tableau des joueurs */}
                         <div className="bg-night-900 rounded-xl p-6 mb-8 max-w-2xl mx-auto">
@@ -557,22 +638,41 @@ function Game() {
                                                     'Votez pour éliminer un joueur'}
                                     </p>
 
-                                    {/* Timer visuel */}
-                                    <div className="mt-3">
-                                        <div className="flex items-center justify-center gap-2 mb-2">
-                                            <span className="text-3xl">⏱️</span>
-                                            <span className={`text-4xl font-black ${timeRemaining <= 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
-                                                {timeRemaining}s
-                                            </span>
-                                        </div>
-                                        <div className="w-full bg-night-900 rounded-full h-3 overflow-hidden">
-                                            <div
-                                                className={`h-full transition-all duration-1000 ${timeRemaining > 30 ? 'bg-green-500' :
-                                                    timeRemaining > 10 ? 'bg-yellow-500' :
-                                                        'bg-red-500'
-                                                    }`}
-                                                style={{ width: `${(timeRemaining / 60) * 100}%` }}
-                                            />
+                                    {/* Timer circulaire */}
+                                    <div className="mt-4 flex justify-center">
+                                        <div className="relative inline-block">
+                                            {/* SVG Cercle */}
+                                            <svg className="transform -rotate-90" width="120" height="120">
+                                                {/* Cercle de fond */}
+                                                <circle
+                                                    cx="60"
+                                                    cy="60"
+                                                    r="52"
+                                                    fill="none"
+                                                    stroke="#1a1a2e"
+                                                    strokeWidth="8"
+                                                />
+                                                {/* Cercle de progression */}
+                                                <circle
+                                                    cx="60"
+                                                    cy="60"
+                                                    r="52"
+                                                    fill="none"
+                                                    stroke={timeRemaining > 30 ? '#10b981' : timeRemaining > 10 ? '#f59e0b' : '#ef4444'}
+                                                    strokeWidth="8"
+                                                    strokeLinecap="round"
+                                                    strokeDasharray={`${2 * Math.PI * 52}`}
+                                                    strokeDashoffset={`${2 * Math.PI * 52 * (1 - timeRemaining / 60)}`}
+                                                    className="transition-all duration-1000"
+                                                />
+                                            </svg>
+                                            {/* Temps restant au centre */}
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                                <span className={`text-4xl font-black ${timeRemaining <= 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
+                                                    {timeRemaining}
+                                                </span>
+                                                <span className="text-xs text-gray-400">secondes</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -627,10 +727,18 @@ function Game() {
                                                 ${selectedPlayer === player.id ? 'border-4 border-blood-600 shadow-neon-red scale-105 animate-pulse' : 'border-2 border-transparent hover:border-blood-600'}
                                             `}
                                                 >
-                                                    {/* Badge "A agi" pour la nuit */}
-                                                    {phase === 'night' && player.hasActed && (
-                                                        <div className="absolute top-1 right-1 bg-green-600 text-white text-xs px-2 py-1 rounded-full font-bold">
-                                                            ✅ A agi
+                                                    {/* Badges d'action pendant la nuit */}
+                                                    {phase === 'night' && player.alive && (
+                                                        <div className="absolute top-1 right-1">
+                                                            {player.hasActed ? (
+                                                                <div className="bg-green-600 text-white text-xs px-2 py-1 rounded-full font-bold shadow-lg">
+                                                                    ✅
+                                                                </div>
+                                                            ) : (
+                                                                <div className="bg-orange-600 text-white text-xs px-2 py-1 rounded-full font-bold shadow-lg animate-pulse">
+                                                                    ⏳
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
 
@@ -717,9 +825,17 @@ function Game() {
                                 </div>
 
                                 {/* Chat */}
-                                <div className="card h-96 flex flex-col">
+                                <div className="card h-96 flex flex-col" onFocus={() => setUnreadWolfMessages(0)} onClick={() => setUnreadWolfMessages(0)}>
                                     <div className="flex justify-between items-center mb-3">
-                                        <h3 className="text-lg font-bold">💬 Chat</h3>
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="text-lg font-bold">💬 Chat</h3>
+                                            {/* Badge de messages non lus */}
+                                            {unreadWolfMessages > 0 && phase === 'night' && myRole === 'loup' && (
+                                                <div className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
+                                                    {unreadWolfMessages} nouveau{unreadWolfMessages > 1 ? 'x' : ''}
+                                                </div>
+                                            )}
+                                        </div>
                                         {/* Badge chat loups */}
                                         {phase === 'night' && myRole === 'loup' && (
                                             <div className="bg-blood-900/30 border border-blood-600 rounded-lg px-2 py-1">

@@ -19,6 +19,22 @@ function Lobby() {
     const [loupCount, setLoupCount] = useState(1)
     const [selectedRoles, setSelectedRoles] = useState(['voyante', 'sorciere']) // Rôles par défaut
     const [showConfig, setShowConfig] = useState(false) // Toggle configuration
+    const [copySuccess, setCopySuccess] = useState(false) // Toast "Copié !"
+
+    // Helper pour obtenir l'emoji d'un rôle
+    const getRoleEmoji = (role) => {
+        const emojiMap = {
+            'loup': '🐺',
+            'voyante': '🔮',
+            'sorciere': '🧪',
+            'chasseur': '🎯',
+            'cupidon': '💘',
+            'riche': '💰',
+            'livreur': '📦',
+            'villageois': '👤'
+        }
+        return emojiMap[role] || '❓'
+    }
 
     useEffect(() => {
         console.log('🔌 Connexion Socket.io vers:', config.serverUrl)
@@ -267,15 +283,34 @@ function Lobby() {
                     <div className="space-y-6">
                         <div className="card-glow text-center">
                             <p className="text-gray-400 mb-2">Code de la salle</p>
-                            <div className="text-5xl font-black tracking-widest text-blood mb-4">
-                                {roomCode || 'ABC123'}
+                            <div className="flex items-center justify-center gap-3 mb-4">
+                                <div className="text-5xl font-black tracking-widest text-blood">
+                                    {roomCode || 'ABC123'}
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(roomCode)
+                                        setCopySuccess(true)
+                                        setTimeout(() => setCopySuccess(false), 2000)
+                                    }}
+                                    className="btn-secondary text-sm px-4 py-2 hover:scale-110 transition-transform"
+                                >
+                                    {copySuccess ? '✅ Copié !' : '📋 Copier'}
+                                </button>
                             </div>
                             <p className="text-sm text-gray-500">Partagez ce code avec vos amis</p>
                         </div>
 
                         <div className="card">
-                            <h3 className="text-xl font-bold mb-4 text-gray-300">
-                                👥 Joueurs ({players.length}/10)
+                            <h3 className="text-xl font-bold mb-4 text-gray-300 flex items-center justify-between">
+                                <span>
+                                    👥 Joueurs ({players.filter(p => p.ready || p.isHost).length}/{players.length})
+                                </span>
+                                {players.length > 1 && players.filter(p => p.ready || p.isHost).length === players.length && (
+                                    <span className="text-green-500 text-sm font-bold animate-pulse">
+                                        ✅ Tous prêts !
+                                    </span>
+                                )}
                             </h3>
                             <div className="space-y-2">
                                 {players.map((player, index) => (
@@ -423,18 +458,45 @@ function Lobby() {
                                         </div>
                                     </div>
 
-                                    {/* Récapitulatif */}
-                                    <div className="mt-4 p-3 bg-night-800 rounded-lg border border-blood-600/30">
-                                        <div className="text-sm text-gray-400">
-                                            <div className="font-bold text-white mb-2">📊 Récapitulatif :</div>
-                                            <div>• {loupCount} {loupCount === 1 ? 'Loup' : 'Loups'} 🐺</div>
-                                            {selectedRoles.length > 0 && (
-                                                <div>• {selectedRoles.length} rôle{selectedRoles.length > 1 ? 's' : ''} spécial{selectedRoles.length > 1 ? 'aux' : ''}</div>
-                                            )}
-                                            <div>• {Math.max(0, players.length - loupCount - selectedRoles.length)} Villageois 👤</div>
-                                            <div className="mt-2 pt-2 border-t border-blood-600/30 font-bold text-white">
-                                                Total : {players.length} joueurs
-                                            </div>
+                                    {/* Récapitulatif visuel */}
+                                    <div className="mt-4 p-4 bg-night-800 rounded-lg border border-blood-600/30">
+                                        <div className="font-bold text-white mb-3 text-center">📊 Composition de la partie</div>
+
+                                        {/* Grille des rôles */}
+                                        <div className="flex flex-wrap gap-2 justify-center mb-3">
+                                            {/* Loups */}
+                                            {Array.from({ length: loupCount }).map((_, i) => (
+                                                <div key={`loup-${i}`}
+                                                     className="w-12 h-12 bg-blood-900/40 border border-blood-600 rounded-lg flex items-center justify-center text-2xl hover:scale-110 transition-transform"
+                                                     title="Loup-Garou">
+                                                    🐺
+                                                </div>
+                                            ))}
+
+                                            {/* Rôles spéciaux */}
+                                            {selectedRoles.map((role, i) => (
+                                                <div key={`role-${i}`}
+                                                     className="w-12 h-12 bg-blue-900/40 border border-blue-600 rounded-lg flex items-center justify-center text-2xl hover:scale-110 transition-transform"
+                                                     title={role.charAt(0).toUpperCase() + role.slice(1)}>
+                                                    {getRoleEmoji(role)}
+                                                </div>
+                                            ))}
+
+                                            {/* Villageois */}
+                                            {Array.from({ length: Math.max(0, players.length - loupCount - selectedRoles.length) }).map((_, i) => (
+                                                <div key={`villageois-${i}`}
+                                                     className="w-12 h-12 bg-gray-800/40 border border-gray-600 rounded-lg flex items-center justify-center text-2xl hover:scale-110 transition-transform"
+                                                     title="Villageois">
+                                                    👤
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Total */}
+                                        <div className="text-center pt-3 border-t border-blood-600/30">
+                                            <span className="text-white font-bold text-lg">
+                                                {players.length} joueurs
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
