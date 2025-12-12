@@ -25,7 +25,10 @@ class SoundManager {
     try {
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)()
       this.initialized = true
-      console.log('🔊 Audio system initialized')
+      // Forcer l'activation du son à l'init
+      this.enabled = true
+      localStorage.setItem('soundEnabled', 'true')
+      console.log('🔊 Audio system initialized - Sound enabled')
     } catch (e) {
       console.warn('Web Audio API not supported', e)
     }
@@ -269,8 +272,9 @@ class SoundManager {
 
       // Créer un gain node pour l'ambiance
       const ambienceGain = this.audioContext.createGain()
-      ambienceGain.gain.value = this.volume * 0.15
+      ambienceGain.gain.value = this.volume * 0.4 // Augmenter de 0.15 à 0.4 pour test
       ambienceGain.connect(this.audioContext.destination)
+      console.log('🌲 AmbienceGain créé, volume:', ambienceGain.gain.value)
 
       // Grillons (noise filtré)
       const createCricket = () => {
@@ -293,13 +297,14 @@ class SoundManager {
         filter.Q.value = 10
 
         const gain = this.audioContext.createGain()
-        gain.gain.value = 0.05
+        gain.gain.value = 0.2 // Augmenter de 0.05 à 0.2
 
         source.connect(filter)
         filter.connect(gain)
         gain.connect(ambienceGain)
 
         source.start()
+        console.log('🦗 Grillon joué')
       }
 
       // Lancer des grillons aléatoires
@@ -329,13 +334,14 @@ class SoundManager {
       windOsc.connect(windGain)
       windGain.connect(ambienceGain)
 
-      windGain.gain.setValueAtTime(0.02, now)
+      windGain.gain.setValueAtTime(0.1, now) // Augmenter de 0.02 à 0.1
 
       windLFO.start(now)
       windOsc.start(now)
+      console.log('💨 Vent lancé')
 
       // Sauvegarder la référence pour le cleanup
-      this.forestAmbienceNodes = { windOsc, windLFO }
+      this.forestAmbienceNodes = { windOsc, windLFO, ambienceGain }
 
       console.log('🌲 Ambiance forêt lancée avec succès')
 
