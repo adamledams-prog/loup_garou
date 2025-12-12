@@ -86,6 +86,112 @@ app.get('/api/rooms', (req, res) => {
 // Structure des salles de jeu
 const rooms = new Map();
 
+// 🤖 Classe Bot pour joueurs IA
+class BotPlayer {
+    constructor(room) {
+        this.room = room;
+        this.botNames = ['🤖 Robo', '🤖 Beep', '🤖 Chip', '🤖 Data', '🤖 Wall-E', '🤖 R2D2'];
+    }
+
+    // Obtenir un nom aléatoire non utilisé
+    getRandomName() {
+        const usedNames = Array.from(this.room.players.values()).map(p => p.name);
+        const availableNames = this.botNames.filter(name => !usedNames.includes(name));
+        return availableNames.length > 0
+            ? availableNames[Math.floor(Math.random() * availableNames.length)]
+            : `🤖 Bot${Math.floor(Math.random() * 1000)}`;
+    }
+
+    // Ajouter un bot à la room
+    addBot() {
+        if (this.room.players.size >= 10) {
+            return { success: false, error: 'La salle est pleine' };
+        }
+
+        const botId = `bot_${uuidv4()}`;
+        const botName = this.getRandomName();
+
+        this.room.players.set(botId, {
+            id: botId,
+            name: botName,
+            isHost: false,
+            ready: true, // Les bots sont toujours prêts
+            role: null,
+            alive: true,
+            socketId: 'bot', // Identifier comme bot
+            isBot: true
+        });
+
+        return { success: true, botId, botName };
+    }
+
+    // Action automatique du bot pendant la nuit
+    async performNightAction(botId, delay = 2000) {
+        const bot = this.room.players.get(botId);
+        if (!bot || !bot.alive || !bot.isBot) return;
+
+        // Attendre un délai aléatoire (1-4s) pour simuler réflexion
+        await new Promise(resolve => setTimeout(resolve, delay + Math.random() * 2000));
+
+        const role = bot.role;
+        const alivePlayers = Array.from(this.room.players.values()).filter(p => p.alive && p.id !== botId);
+
+        if (alivePlayers.length === 0) return;
+
+        // Choisir une cible aléatoire
+        const target = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
+
+        // Actions selon le rôle
+        if (role === 'loup') {
+            this.room.gameState.nightActions[botId] = { action: 'kill', target: target.id };
+        } else if (role === 'voyante') {
+            this.room.gameState.nightActions[botId] = { action: 'see', target: target.id };
+        } else if (role === 'livreur') {
+            this.room.gameState.nightActions[botId] = { action: 'protect', target: target.id };
+        } else if (role === 'cupidon' && this.room.nightNumber === 1) {
+            // Choisir 2 joueurs au hasard pour le couple
+            const shuffled = [...alivePlayers].sort(() => Math.random() - 0.5);
+            if (shuffled.length >= 2) {
+                this.room.gameState.nightActions[botId] = {
+                    action: 'love',
+                    target1: shuffled[0].id,
+                    target2: shuffled[1].id
+                };
+            }
+        }
+        // Sorcière : logique simple (50% chance de heal/poison)
+        else if (role === 'sorciere') {
+            if (this.room.gameState.killedTonight && !this.room.gameState.witchHealUsed && Math.random() > 0.5) {
+                this.room.gameState.nightActions[botId] = { action: 'heal' };
+            } else if (!this.room.gameState.witchPoisonUsed && Math.random() > 0.7) {
+                this.room.gameState.nightActions[botId] = { action: 'poison', target: target.id };
+            }
+        }
+
+        console.log(`🤖 Bot ${bot.name} (${role}) a agi`);
+    }
+
+    // Vote automatique du bot
+    async performVote(botId, delay = 2000) {
+        const bot = this.room.players.get(botId);
+        if (!bot || !bot.alive || !bot.isBot) return;
+
+        // Attendre un délai aléatoire
+        await new Promise(resolve => setTimeout(resolve, delay + Math.random() * 2000));
+
+        const alivePlayers = Array.from(this.room.players.values())
+            .filter(p => p.alive && p.id !== botId);
+
+        if (alivePlayers.length === 0) return;
+
+        // Stratégie simple : voter aléatoirement
+        const target = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
+
+        this.room.gameState.votes[botId] = target.id;
+        console.log(`🤖 Bot ${bot.name} a voté pour ${target.name}`);
+    }
+}
+
 // Nettoyage automatique des salles inactives toutes les 5 minutes
 setInterval(() => {
     const now = Date.now();
@@ -435,6 +541,44 @@ io.on('connection', (socket) => {
         });
 
         console.log(`${player.name} est ${player.ready ? '✅ prêt' : '⏳ pas prêt'}`);
+    });
+
+    // 🤖 Ajouter un bot à la salle
+    socket.on('addBot', () => {
+        const room = rooms.get(socket.roomCode);
+        if (!room) {
+            socket.emit('error', { message: 'Salle introuvable' });
+            return;
+        }
+
+        // Vérifier que c'est l'hôte
+        const player = room.players.get(socket.playerId);
+        if (!player || !player.isHost) {
+            socket.emit('error', { message: 'Seul l\'hôte peut ajouter des bots' });
+            return;
+        }
+
+        // Vérifier que le jeu n'a pas démarré
+        if (room.gameStarted) {
+            socket.emit('error', { message: 'La partie a déjà commencé' });
+            return;
+        }
+
+        // Ajouter le bot
+        const botManager = new BotPlayer(room);
+        const result = botManager.addBot();
+
+        if (!result.success) {
+            socket.emit('error', { message: result.error });
+            return;
+        }
+
+        // Notifier tous les joueurs
+        io.to(socket.roomCode).emit('playerJoined', {
+            players: room.getPlayersList()
+        });
+
+        console.log(`🤖 Bot ${result.botName} ajouté à la salle ${socket.roomCode}`);
     });
 
     // Démarrer la partie
@@ -902,6 +1046,26 @@ function startPhaseTimer(room, phaseDuration = 60) {
     }
 
     room.phaseTimeRemaining = phaseDuration;
+
+    // 🤖 Déclencher les actions des bots après 2-5 secondes
+    if (room.phase === 'night') {
+        const botManager = new BotPlayer(room);
+        const bots = Array.from(room.players.values()).filter(p => p.isBot && p.alive);
+
+        bots.forEach((bot, index) => {
+            // Délai progressif pour chaque bot (2s, 3s, 4s...)
+            const delay = 2000 + (index * 1000);
+            botManager.performNightAction(bot.id, delay);
+        });
+    } else if (room.phase === 'vote') {
+        const botManager = new BotPlayer(room);
+        const bots = Array.from(room.players.values()).filter(p => p.isBot && p.alive);
+
+        bots.forEach((bot, index) => {
+            const delay = 2000 + (index * 1000);
+            botManager.performVote(bot.id, delay);
+        });
+    }
 
     // Broadcast le temps restant toutes les secondes
     room.phaseTimer = setInterval(() => {

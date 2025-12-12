@@ -315,8 +315,9 @@ function Lobby() {
                             <div className="space-y-2">
                                 {players.map((player, index) => (
                                     <div key={player.id} className="bg-night-800 p-3 rounded-lg flex justify-between items-center">
-                                        <span className="font-bold">
-                                            {player.name} {player.isHost && '(Hôte)'}
+                                        <span className="font-bold flex items-center gap-2">
+                                            <span>{player.name}</span>
+                                            {player.isHost && <span className="text-xs text-yellow-500">(Hôte)</span>}
                                         </span>
                                         <div className="flex items-center gap-2">
                                             <span className={player.ready ? 'text-green-500' : 'text-gray-500'}>
@@ -336,6 +337,20 @@ function Lobby() {
                                     </div>
                                 ))}
                             </div>
+
+                            {/* Bouton Ajouter Bot (visible uniquement pour l'hôte) */}
+                            {amIHost() && players.length < 10 && (
+                                <button
+                                    onClick={() => {
+                                        if (socket) {
+                                            socket.emit('addBot')
+                                        }
+                                    }}
+                                    className="w-full mt-3 bg-blue-900/40 hover:bg-blue-800/60 border-2 border-blue-600 text-blue-300 font-bold py-3 px-4 rounded-lg transition-all hover:scale-105"
+                                >
+                                    🤖 Ajouter un Bot
+                                </button>
+                            )}
                         </div>
 
                         <div className="flex gap-4">
