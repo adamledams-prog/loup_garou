@@ -245,15 +245,15 @@ class SoundManager {
       // Descente (0.7s)
       osc.frequency.linearRampToValueAtTime(180, now + 2.0)
 
-      // Envelope
+      // Envelope - Volume beaucoup plus fort
       gain.gain.setValueAtTime(0, now)
-      gain.gain.linearRampToValueAtTime(this.volume * 0.3, now + 0.3)
-      gain.gain.setValueAtTime(this.volume * 0.3, now + 1.5)
+      gain.gain.linearRampToValueAtTime(this.volume * 0.8, now + 0.3) // 0.3 → 0.8
+      gain.gain.setValueAtTime(this.volume * 0.8, now + 1.5)
       gain.gain.exponentialRampToValueAtTime(0.001, now + 2.0)
 
       osc.start(now)
       osc.stop(now + 2.0)
-      console.log('🐺 Hurlement lancé avec succès')
+      console.log('🐺 Hurlement lancé avec succès, volume:', this.volume * 0.8)
     } catch (e) {
       console.error('❌ Error playing wolf howl', e)
     }
@@ -293,18 +293,18 @@ class SoundManager {
 
         const filter = this.audioContext.createBiquadFilter()
         filter.type = 'bandpass'
-        filter.frequency.value = 4000 + Math.random() * 2000
-        filter.Q.value = 10
+        filter.frequency.value = 2500 + Math.random() * 1500 // 2.5-4kHz au lieu de 4-6kHz
+        filter.Q.value = 15 // Plus sélectif
 
         const gain = this.audioContext.createGain()
-        gain.gain.value = 0.2 // Augmenter de 0.05 à 0.2
+        gain.gain.value = 0.15 // Réduire légèrement pour équilibrer
 
         source.connect(filter)
         filter.connect(gain)
         gain.connect(ambienceGain)
 
         source.start()
-        console.log('🦗 Grillon joué')
+        // Retirer le log pour moins de spam
       }
 
       // Lancer des grillons aléatoires
@@ -334,11 +334,14 @@ class SoundManager {
       windOsc.connect(windGain)
       windGain.connect(ambienceGain)
 
-      windGain.gain.setValueAtTime(0.1, now) // Augmenter de 0.02 à 0.1
+      // Fade-in progressif du vent (évite le clic brutal)
+      windGain.gain.setValueAtTime(0, now)
+      windGain.gain.linearRampToValueAtTime(0.08, now + 3) // Monte en 3 secondes
 
       windLFO.start(now)
       windOsc.start(now)
-      console.log('💨 Vent lancé')
+      // Ne PAS appeler stop() - le vent doit continuer indéfiniment
+      console.log('💨 Vent lancé avec fade-in 3s')
 
       // Sauvegarder la référence pour le cleanup
       this.forestAmbienceNodes = { windOsc, windLFO, ambienceGain }
