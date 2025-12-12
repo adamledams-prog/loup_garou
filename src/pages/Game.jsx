@@ -923,41 +923,93 @@ function Game() {
                                                     'Votez pour éliminer un joueur'}
                                     </p>
 
-                                    {/* Timer circulaire */}
-                                    <div className="mt-4 flex justify-center">
-                                        <div className="relative inline-block">
-                                            {/* SVG Cercle */}
-                                            <svg className="transform -rotate-90" width="120" height="120">
-                                                {/* Cercle de fond */}
+                                    {/* Timer circulaire PREMIUM */}
+                                    <div className="mt-6 flex justify-center">
+                                        <div className={`timer-container relative inline-block ${timeRemaining <= 5 ? 'critical' : timeRemaining <= 10 ? 'warning' : ''}`}>
+
+                                            {/* Glow effect rotatif */}
+                                            {timeRemaining <= 10 && (
+                                                <div className="timer-glow"></div>
+                                            )}
+
+                                            {/* SVG Cercle PREMIUM */}
+                                            <svg className="transform -rotate-90 relative z-10" width="140" height="140">
+                                                {/* Cercle de fond avec effet glassmorphism */}
                                                 <circle
-                                                    cx="60"
-                                                    cy="60"
-                                                    r="52"
-                                                    fill="none"
-                                                    stroke="#1a1a2e"
-                                                    strokeWidth="8"
+                                                    cx="70"
+                                                    cy="70"
+                                                    r="60"
+                                                    fill="rgba(30, 30, 30, 0.6)"
+                                                    stroke="rgba(255, 255, 255, 0.1)"
+                                                    strokeWidth="2"
                                                 />
-                                                {/* Cercle de progression */}
+                                                {/* Cercle de fond track */}
                                                 <circle
-                                                    cx="60"
-                                                    cy="60"
-                                                    r="52"
+                                                    cx="70"
+                                                    cy="70"
+                                                    r="55"
                                                     fill="none"
-                                                    stroke={timeRemaining > 30 ? '#10b981' : timeRemaining > 10 ? '#f59e0b' : '#ef4444'}
-                                                    strokeWidth="8"
+                                                    stroke="rgba(100, 100, 100, 0.2)"
+                                                    strokeWidth="10"
+                                                />
+                                                {/* Cercle de progression avec gradient */}
+                                                <defs>
+                                                    <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                        <stop offset="0%" stopColor={timeRemaining > 30 ? '#10b981' : timeRemaining > 10 ? '#f59e0b' : '#ef4444'} />
+                                                        <stop offset="100%" stopColor={timeRemaining > 30 ? '#059669' : timeRemaining > 10 ? '#d97706' : '#dc2626'} />
+                                                    </linearGradient>
+                                                </defs>
+                                                <circle
+                                                    cx="70"
+                                                    cy="70"
+                                                    r="55"
+                                                    fill="none"
+                                                    stroke="url(#timerGradient)"
+                                                    strokeWidth="10"
                                                     strokeLinecap="round"
-                                                    strokeDasharray={`${2 * Math.PI * 52}`}
-                                                    strokeDashoffset={`${2 * Math.PI * 52 * (1 - timeRemaining / 60)}`}
-                                                    className="transition-all duration-1000"
+                                                    strokeDasharray={`${2 * Math.PI * 55}`}
+                                                    strokeDashoffset={`${2 * Math.PI * 55 * (1 - timeRemaining / 60)}`}
+                                                    className="transition-all duration-1000 ease-linear"
+                                                    style={{
+                                                        filter: timeRemaining <= 10 ? 'drop-shadow(0 0 8px currentColor)' : 'none'
+                                                    }}
                                                 />
                                             </svg>
-                                            {/* Temps restant au centre */}
-                                            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                                <span className={`text-4xl font-black ${timeRemaining <= 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
+
+                                            {/* Temps restant au centre avec style premium */}
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
+                                                <span className={`
+                                                    text-5xl font-black mb-1
+                                                    ${timeRemaining <= 5 ? 'text-red-500 animate-pulse' : timeRemaining <= 10 ? 'text-orange-400' : 'text-white'}
+                                                    ${timeRemaining === 0 ? 'timer-flash' : ''}
+                                                    bg-gradient-to-br ${timeRemaining > 30 ? 'from-green-400 to-green-600' : timeRemaining > 10 ? 'from-orange-400 to-orange-600' : 'from-red-400 to-red-600'}
+                                                    bg-clip-text text-transparent
+                                                    drop-shadow-lg
+                                                `}>
                                                     {timeRemaining}
                                                 </span>
-                                                <span className="text-xs text-gray-400">secondes</span>
+                                                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                                    {timeRemaining <= 5 ? '⚠️ Urgent' : timeRemaining <= 10 ? '⏰ Dépêchez-vous' : 'secondes'}
+                                                </span>
                                             </div>
+
+                                            {/* Particules d'alerte pour temps critique */}
+                                            {timeRemaining <= 5 && (
+                                                <div className="absolute inset-0 pointer-events-none">
+                                                    {[...Array(4)].map((_, i) => (
+                                                        <div
+                                                            key={i}
+                                                            className="absolute w-2 h-2 bg-red-500 rounded-full animate-ping"
+                                                            style={{
+                                                                top: '50%',
+                                                                left: '50%',
+                                                                animationDelay: `${i * 0.2}s`,
+                                                                transform: `translate(-50%, -50%) translate(${Math.cos(i * Math.PI / 2) * 40}px, ${Math.sin(i * Math.PI / 2) * 40}px)`
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -1006,33 +1058,55 @@ function Game() {
                                                             }
                                                         }
                                                     }}
-                                                    className={`p-4 rounded-xl text-center transition-all duration-200 relative
-                                                ${!player.alive ? 'bg-gray-900 opacity-50 player-dead' : 'bg-night-800'}
-                                                ${dyingPlayers.includes(player.id) ? 'player-dying' : ''}
-                                                ${canClick && !hasActed ? 'cursor-pointer hover:bg-blood-900/30 hover:scale-105 active:scale-95' : 'cursor-default'}
-                                                ${selectedPlayer === player.id ? 'border-4 border-blood-600 shadow-neon-red scale-105 animate-pulse' : 'border-2 border-transparent hover:border-blood-600'}
-                                            `}
+                                                    className={`
+                                                        player-card-premium
+                                                        relative p-6 rounded-xl text-center transition-all duration-400
+                                                        ${!player.alive ? 'dead' : ''}
+                                                        ${dyingPlayers.includes(player.id) ? 'player-dying' : ''}
+                                                        ${canClick && !hasActed ? 'cursor-pointer hover:cursor-pointer' : 'cursor-default opacity-70'}
+                                                        ${selectedPlayer === player.id ? 'selected' : ''}
+                                                    `}
                                                 >
-                                                    {/* Badges d'action pendant la nuit */}
-                                                    {phase === 'night' && player.alive && (
-                                                        <div className="absolute top-1 right-1">
-                                                            {player.hasActed ? (
-                                                                <div className="bg-green-600 text-white text-xs px-2 py-1 rounded-full font-bold shadow-lg">
-                                                                    ✅
-                                                                </div>
-                                                            ) : (
-                                                                <div className="bg-orange-600 text-white text-xs px-2 py-1 rounded-full font-bold shadow-lg animate-pulse">
-                                                                    ⏳
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
+                                                    {/* Effet holographique */}
+                                                    <div className="player-card-holographic"></div>
 
-                                                    <div className="text-3xl mb-2">{player.alive ? (player.avatar || '😊') : '💀'}</div>
-                                                    <p className="font-bold">{player.name}</p>
-                                                    <p className="text-sm text-gray-500">
-                                                        {player.alive ? 'En vie' : 'Mort'}
-                                                    </p>
+                                                    {/* Contenu de la carte */}
+                                                    <div className="relative z-10">
+                                                        {/* Badges d'action pendant la nuit */}
+                                                        {phase === 'night' && player.alive && (
+                                                            <div className="absolute -top-2 -right-2">
+                                                                {player.hasActed ? (
+                                                                    <div className="bg-gradient-to-r from-green-600 to-green-700 text-white text-xs px-3 py-1.5 rounded-full font-black shadow-lg border border-green-400/50">
+                                                                        ✅
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="bg-gradient-to-r from-orange-600 to-orange-700 text-white text-xs px-3 py-1.5 rounded-full font-black shadow-lg animate-pulse border border-orange-400/50">
+                                                                        ⏳
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Avatar avec effet premium */}
+                                                        <div className="text-5xl mb-3 transform transition-transform duration-300 hover:scale-110">
+                                                            {player.alive ? (player.avatar || '😊') : '💀'}
+                                                        </div>
+
+                                                        {/* Nom du joueur */}
+                                                        <p className="font-black text-lg mb-1 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                                                            {player.name}
+                                                        </p>
+
+                                                        {/* Statut */}
+                                                        <div className={`text-xs font-bold px-3 py-1 rounded-full inline-block ${player.alive ? 'bg-green-900/50 text-green-400 border border-green-700/50' : 'bg-gray-900/50 text-gray-500 border border-gray-700/50'}`}>
+                                                            {player.alive ? '💚 En vie' : '💀 Mort'}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Indicateur de sélection */}
+                                                    {selectedPlayer === player.id && (
+                                                        <div className="absolute inset-0 border-4 border-blood-500 rounded-xl pointer-events-none animate-pulse"></div>
+                                                    )}
                                                 </div>
                                             )
                                         })}

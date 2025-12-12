@@ -377,21 +377,21 @@ function Lobby() {
                             </h3>
                             <div className="space-y-2">
                                 {players.map((player, index) => (
-                                    <div key={player.id} className="bg-night-800 p-3 rounded-lg flex justify-between items-center">
-                                        <span className="font-bold flex items-center gap-2">
-                                            <span className="text-2xl">{player.avatar || '😊'}</span>
-                                            <span>{player.name}</span>
-                                            {player.isHost && <span className="text-xs text-yellow-500">(Hôte)</span>}
+                                    <div key={player.id} className="bg-gradient-to-r from-night-800/70 to-night-900/70 backdrop-blur-md p-4 rounded-xl flex justify-between items-center border border-blood-900/20 hover:border-blood-700/40 transition-all duration-300 transform hover:scale-102">
+                                        <span className="font-bold flex items-center gap-3">
+                                            <span className="text-3xl drop-shadow-lg">{player.avatar || '😊'}</span>
+                                            <span className="text-lg">{player.name}</span>
+                                            {player.isHost && <span className="text-xs bg-yellow-900/50 text-yellow-400 px-2 py-1 rounded-full border border-yellow-700/50">👑 Hôte</span>}
                                         </span>
-                                        <div className="flex items-center gap-2">
-                                            <span className={player.ready ? 'text-green-500' : 'text-gray-500'}>
+                                        <div className="flex items-center gap-3">
+                                            <span className={`text-xl ${player.ready ? 'text-green-500' : 'text-gray-500'}`}>
                                                 {player.isHost ? '👑' : player.ready ? '✅' : '⏳'}
                                             </span>
                                             {/* Bouton kick si je suis l'hôte et ce n'est pas moi */}
                                             {amIHost() && !player.isHost && (
                                                 <button
                                                     onClick={() => handleKickPlayer(player.id)}
-                                                    className="text-red-500 hover:text-red-400 text-lg"
+                                                    className="text-red-500 hover:text-red-400 text-xl transform hover:scale-125 transition-transform"
                                                     title="Expulser ce joueur"
                                                 >
                                                     👢
