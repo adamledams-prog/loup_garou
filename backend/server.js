@@ -146,6 +146,7 @@ class GameRoom {
         this.phaseTimeRemaining = 60; // Temps restant en secondes
         this.customRoles = []; // Rôles personnalisés choisis par l'hôte
         this.lastActivity = Date.now(); // Pour nettoyage automatique
+        this.processingPhase = false; // 🔒 Flag pour éviter la race condition
         this.gameState = {
             deadPlayers: [],
             killedTonight: null,
@@ -357,6 +358,53 @@ io.on('connection', (socket) => {
         console.log(`${playerName} a rejoint la salle ${roomCode}`);
     });
 
+    // 👢 Expulser un joueur (kick)
+    socket.on('kickPlayer', (data) => {
+        const room = rooms.get(socket.roomCode);
+        if (!room) {
+            socket.emit('error', { message: 'Salle introuvable' });
+            return;
+        }
+
+        const player = room.players.get(socket.playerId);
+        // Vérifier que c'est l'hôte qui demande
+        if (!player || !player.isHost) {
+            socket.emit('error', { message: 'Seul l\'hôte peut expulser un joueur' });
+            return;
+        }
+
+        const { targetId } = data;
+        const targetPlayer = room.players.get(targetId);
+        if (!targetPlayer) {
+            socket.emit('error', { message: 'Joueur introuvable' });
+            return;
+        }
+
+        // Empêcher l'hôte de s'expulser lui-même
+        if (targetId === socket.playerId) {
+            socket.emit('error', { message: 'Vous ne pouvez pas vous expulser vous-même' });
+            return;
+        }
+
+        // Notifier le joueur expulsé
+        if (targetPlayer.socketId) {
+            io.to(targetPlayer.socketId).emit('kicked', {
+                message: 'Vous avez été expulsé de la partie par l\'hôte'
+            });
+        }
+
+        // Retirer le joueur
+        room.removePlayer(targetId);
+
+        // Notifier tous les autres joueurs
+        io.to(socket.roomCode).emit('playerKicked', {
+            kickedName: targetPlayer.name,
+            players: room.getPlayersList()
+        });
+
+        console.log(`${targetPlayer.name} a été expulsé de ${socket.roomCode} par l'hôte`);
+    });
+
     // Toggle ready status
     socket.on('toggleReady', () => {
         const room = rooms.get(socket.roomCode);
@@ -520,6 +568,20 @@ io.on('connection', (socket) => {
                 socket.emit('error', { message: 'Ne peut pas cibler un joueur mort' });
                 return;
             }
+
+            // 💘 Validation spéciale pour Cupidon
+            if (action === 'couple' && room.nightNumber === 1) {
+                // Vérifier si le couple est déjà formé
+                if (room.gameState.couple.length >= 2) {
+                    socket.emit('error', { message: 'Le couple est déjà formé !' });
+                    return;
+                }
+                // Vérifier si cette personne est déjà choisie
+                if (room.gameState.couple.includes(targetId)) {
+                    socket.emit('error', { message: 'Vous ne pouvez pas choisir la même personne deux fois !' });
+                    return;
+                }
+            }
         }
 
         // Enregistrer l'action
@@ -537,8 +599,9 @@ io.on('connection', (socket) => {
 
         console.log(`🌙 Actions: ${actedPlayers}/${playersWithActions.length} joueurs ont agi`);
 
-        if (actedPlayers >= playersWithActions.length) {
+        if (actedPlayers >= playersWithActions.length && !room.processingPhase) {
             // Tous les joueurs avec actions ont agi, passer au jour
+            room.processingPhase = true; // 🔒 Verrouiller pour éviter double traitement
             console.log('✅ Tous les rôles actifs ont agi, passage au jour');
             clearInterval(room.phaseTimer); // Arrêter le timer
             processNightActions(room);
@@ -740,7 +803,8 @@ function startPhaseTimer(room, phaseDuration = 60) {
         if (room.phaseTimeRemaining <= 0) {
             clearInterval(room.phaseTimer);
 
-            if (room.phase === 'night') {
+            if (room.phase === 'night' && !room.processingPhase) {
+                room.processingPhase = true; // 🔒 Verrouiller
                 processNightActions(room);
             } else if (room.phase === 'day') {
                 // Passer au vote après discussion
@@ -826,22 +890,9 @@ function processNightActions(room) {
 
         // Cupidon - Créer un couple (seulement première nuit)
         if (player.role === 'cupidon' && action.action === 'couple' && room.nightNumber === 1) {
-            // Vérifier que le couple n'est pas déjà complet
-            if (room.gameState.couple.length < 2) {
-                // Vérifier que cette personne n'est pas déjà dans le couple
-                if (!room.gameState.couple.includes(action.targetId)) {
-                    room.gameState.couple.push(action.targetId);
-                    console.log(`💘 Cupidon a choisi ${action.targetId} pour le couple (${room.gameState.couple.length}/2)`);
-                } else {
-                    console.log(`⚠️ Cupidon a essayé de choisir ${action.targetId} deux fois !`);
-                    // Envoyer erreur au cupidon
-                    if (player.socketId) {
-                        io.to(player.socketId).emit('error', {
-                            message: 'Vous ne pouvez pas choisir la même personne deux fois !'
-                        });
-                    }
-                }
-            }
+            // La validation a déjà été faite, on ajoute directement
+            room.gameState.couple.push(action.targetId);
+            console.log(`💘 Cupidon a choisi ${action.targetId} pour le couple (${room.gameState.couple.length}/2)`);
 
             // Si le couple est complet (2 personnes), notifier
             if (room.gameState.couple.length === 2) {
@@ -917,6 +968,7 @@ function processNightActions(room) {
 
     // Passer au jour
     room.phase = 'day';
+    room.processingPhase = false; // 🔓 Déverrouiller pour la prochaine phase
 
     // Notifier tous les joueurs
     io.to(room.code).emit('dayPhase', {

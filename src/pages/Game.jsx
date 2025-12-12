@@ -22,6 +22,11 @@ function Game() {
     const [voteProgress, setVoteProgress] = useState({ voted: 0, total: 0 }) // Compteur de votes
     const [error, setError] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
+    const [hasActed, setHasActed] = useState(false) // ✅ Flag pour savoir si le joueur a déjà agi
+    const [actionSuccess, setActionSuccess] = useState(null) // ✅ Message de confirmation
+    const [gameOver, setGameOver] = useState(null) // 🏁 État game over avec infos
+    const [isConnected, setIsConnected] = useState(true) // 📡 État de connexion
+    const [reconnecting, setReconnecting] = useState(false) // 🔄 Tentative de reconnexion
 
     useEffect(() => {
         const newSocket = io(config.serverUrl)
@@ -89,6 +94,8 @@ function Game() {
             setPhase('night')
             setNightNumber(data.nightNumber)
             setPlayers(data.players)
+            setHasActed(false) // ✅ Réinitialiser à chaque nouvelle nuit
+            setActionSuccess(null)
             if (data.killedTonight) {
                 setKilledTonight(data.killedTonight)
             }
@@ -108,6 +115,8 @@ function Game() {
         newSocket.on('votePhase', (data) => {
             setPhase('vote')
             setPlayers(data.players)
+            setHasActed(false) // ✅ Réinitialiser pour le vote
+            setActionSuccess(null)
             setVoteProgress({ voted: 0, total: data.players.filter(p => p.alive).length })
         })
 
@@ -118,8 +127,9 @@ function Game() {
 
         // Fin de partie
         newSocket.on('gameOver', (data) => {
-            alert(`Partie terminée ! ${data.winner} a gagné !`)
-            navigate('/')
+            console.log('🏁 Game Over:', data)
+            setGameOver(data) // Stocker les infos de fin de partie
+            setPhase('gameOver')
         })
 
         // Timer de phase
@@ -153,6 +163,20 @@ function Game() {
             setTimeout(() => setError(null), 5000) // Effacer après 5s
         })
 
+        // ✅ Confirmation d'action
+        newSocket.on('actionConfirmed', () => {
+            setHasActed(true)
+            setActionSuccess('✅ Action enregistrée !')
+            setTimeout(() => setActionSuccess(null), 3000) // Effacer après 3s
+        })
+
+        // ✅ Confirmation de vote
+        newSocket.on('voteConfirmed', () => {
+            setHasActed(true)
+            setActionSuccess('⚖️ Vote enregistré !')
+            setTimeout(() => setActionSuccess(null), 3000)
+        })
+
         // Voyante : rôle révélé
         newSocket.on('roleRevealed', (data) => {
             alert(`🔮 ${data.targetName} est ${data.targetRole}`)
@@ -172,6 +196,39 @@ function Game() {
         // Chasseur a tiré
         newSocket.on('hunterShot', (data) => {
             alert(`🏹 ${data.hunterName} a tiré sur ${data.targetName} !`)
+        })
+
+        // 📡 Gestion des déconnexions/reconnexions
+        newSocket.on('disconnect', (reason) => {
+            console.warn('⚠️ Déconnecté:', reason)
+            setIsConnected(false)
+            setReconnecting(true)
+        })
+
+        newSocket.on('connect', () => {
+            console.log('✅ Reconnecté !')
+            setIsConnected(true)
+            setReconnecting(false)
+
+            // Si reconnexion, redemander l'état du jeu
+            const storedPlayerId = localStorage.getItem('playerId')
+            const storedRoomCode = localStorage.getItem('roomCode')
+            if (storedPlayerId && storedRoomCode) {
+                newSocket.emit('reconnectToGame', {
+                    roomCode: storedRoomCode,
+                    playerId: storedPlayerId
+                })
+            }
+        })
+
+        newSocket.io.on('reconnect_attempt', () => {
+            console.log('🔄 Tentative de reconnexion...')
+        })
+
+        newSocket.io.on('reconnect_failed', () => {
+            console.error('❌ Reconnexion échouée')
+            setError('Impossible de se reconnecter au serveur')
+            setReconnecting(false)
         })
 
         return () => newSocket.close()
@@ -274,6 +331,11 @@ function Game() {
         setMessageInput('')
     }
 
+    const handleReplay = () => {
+        // Retourner au lobby pour créer une nouvelle partie
+        navigate('/lobby')
+    }
+
     const getRoleEmoji = (role) => {
         const emojis = {
             'loup': '🐺',
@@ -329,6 +391,30 @@ function Game() {
                     </div>
                 )}
 
+                {/* Message de succès */}
+                {actionSuccess && (
+                    <div className="mb-4 bg-green-900/30 border-2 border-green-600 rounded-lg p-4 animate-slideUp">
+                        <p className="text-green-400 font-bold">{actionSuccess}</p>
+                    </div>
+                )}
+
+                {/* 📡 Bandeau de déconnexion/reconnexion */}
+                {!isConnected && (
+                    <div className="mb-4 bg-yellow-900/50 border-2 border-yellow-600 rounded-lg p-4 animate-pulse">
+                        <div className="flex items-center justify-center gap-3">
+                            <span className="text-3xl">📡</span>
+                            <div>
+                                <p className="text-yellow-400 font-bold">
+                                    {reconnecting ? '🔄 Tentative de reconnexion...' : '⚠️ Connexion perdue'}
+                                </p>
+                                <p className="text-yellow-300 text-sm">
+                                    {reconnecting ? 'Veuillez patienter...' : 'Vérifiez votre connexion Internet'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Loading state */}
                 {isLoading ? (
                     <div className="card-glow text-center py-12">
@@ -336,10 +422,54 @@ function Game() {
                         <h2 className="text-2xl font-bold text-blood mb-2">Connexion en cours...</h2>
                         <p className="text-gray-400">Récupération de l'état de la partie</p>
                     </div>
+                ) : gameOver ? (
+                    /* 🏁 Écran de fin de partie */
+                    <div className="card-glow text-center py-12">
+                        <div className="text-8xl mb-6 animate-bounce">
+                            {gameOver.winner === 'villageois' ? '🎉' : '🐺'}
+                        </div>
+                        <h2 className="text-4xl font-black text-blood mb-4">
+                            {gameOver.winner === 'villageois' ? '🎉 Les Villageois ont gagné !' : '🐺 Les Loups-Garous ont gagné !'}
+                        </h2>
+                        <p className="text-gray-400 mb-8">{gameOver.message}</p>
+
+                        {/* Tableau des joueurs */}
+                        <div className="bg-night-900 rounded-xl p-6 mb-8 max-w-2xl mx-auto">
+                            <h3 className="text-xl font-bold mb-4 text-blood">📋 Récapitulatif</h3>
+                            <div className="space-y-2">
+                                {gameOver.players && gameOver.players.map((player) => (
+                                    <div key={player.name} className="flex justify-between items-center bg-night-800 p-3 rounded-lg">
+                                        <span className={player.alive ? 'text-white' : 'text-gray-500'}>
+                                            {player.alive ? '😊' : '💀'} {player.name}
+                                        </span>
+                                        <span className="text-blood-400 font-bold">
+                                            {getRoleEmoji(player.role)} {player.role}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Boutons */}
+                        <div className="flex gap-4 justify-center">
+                            <button
+                                onClick={handleReplay}
+                                className="btn-primary text-lg px-8 py-4"
+                            >
+                                🔄 Rejouer
+                            </button>
+                            <button
+                                onClick={() => navigate('/')}
+                                className="btn-secondary text-lg px-8 py-4"
+                            >
+                                🏠 Menu principal
+                            </button>
+                        </div>
+                    </div>
                 ) : (
                     <>
                         {/* Banner pour joueur mort (mode spectateur) */}
-                        {players.find(p => p.id === localStorage.getItem('playerId'))?.alive === false && (
+                        {players.find(p => p.id === localStorage.getItem('playerId'))?.alive === false && phase !== 'gameOver' && (
                             <div className="mb-4 bg-gray-900/80 border-2 border-gray-600 rounded-lg p-4">
                                 <p className="text-gray-300 text-center font-bold">
                                     💀 Vous êtes mort ! Vous pouvez continuer à regarder la partie en mode spectateur.
@@ -467,7 +597,7 @@ function Game() {
 
                                     {/* Bouton d'action */}
                                     {/* Sorcière : toujours afficher le bouton */}
-                                    {myRole === 'sorciere' && phase === 'night' && (
+                                    {myRole === 'sorciere' && phase === 'night' && !hasActed && (
                                         <button
                                             onClick={handleAction}
                                             className="btn-primary w-full mt-4"
@@ -477,7 +607,7 @@ function Game() {
                                     )}
 
                                     {/* Chasseur : tirer en vengeance */}
-                                    {myRole === 'chasseur' && phase === 'hunter' && selectedPlayer && (
+                                    {myRole === 'chasseur' && phase === 'hunter' && selectedPlayer && !hasActed && (
                                         <button
                                             onClick={handleHunterShoot}
                                             className="btn-primary w-full mt-4"
@@ -487,13 +617,25 @@ function Game() {
                                     )}
 
                                     {/* Autres rôles : afficher si sélection */}
-                                    {myRole !== 'sorciere' && myRole !== 'chasseur' && selectedPlayer && (
+                                    {myRole !== 'sorciere' && myRole !== 'chasseur' && selectedPlayer && !hasActed && (
                                         <button
                                             onClick={phase === 'vote' ? handleVote : handleAction}
                                             className="btn-primary w-full mt-4"
                                         >
                                             {phase === 'vote' ? '⚖️ Voter' : '✅ Confirmer l\'action'}
                                         </button>
+                                    )}
+
+                                    {/* Message "Vous avez déjà agi" */}
+                                    {hasActed && (phase === 'night' || phase === 'vote') && (
+                                        <div className="bg-green-900/30 border-2 border-green-600 rounded-lg p-4 mt-4">
+                                            <p className="text-green-400 text-center font-bold">
+                                                ✅ {phase === 'vote' ? 'Vous avez voté !' : 'Vous avez déjà agi cette nuit'}
+                                            </p>
+                                            <p className="text-gray-400 text-center text-sm mt-1">
+                                                En attente des autres joueurs...
+                                            </p>
+                                        </div>
                                     )}
                                 </div>
 

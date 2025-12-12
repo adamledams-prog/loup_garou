@@ -86,6 +86,22 @@ function Lobby() {
             setIsLoading(false)
         })
 
+        // 👢 Expulsion d'un joueur
+        newSocket.on('playerKicked', (data) => {
+            console.log('👢 Joueur expulsé:', data.kickedName)
+            setPlayers(data.players)
+            setError(`${data.kickedName} a été expulsé de la partie`)
+            setTimeout(() => setError(null), 3000)
+        })
+
+        // Si je suis expulsé
+        newSocket.on('kicked', (data) => {
+            alert('⚠️ ' + data.message)
+            localStorage.removeItem('playerId')
+            localStorage.removeItem('roomCode')
+            navigate('/lobby')
+        })
+
         return () => newSocket.close()
     }, [navigate])
 
@@ -121,6 +137,20 @@ function Lobby() {
         setIsLoading(true)
         setError(null)
         socket.emit('joinRoom', { roomCode, playerName })
+    }
+
+    // 👢 Fonction pour expulser un joueur
+    const handleKickPlayer = (playerId) => {
+        if (!socket) return
+        if (window.confirm('Voulez-vous vraiment expulser ce joueur ?')) {
+            socket.emit('kickPlayer', { targetId: playerId })
+        }
+    }
+
+    // Vérifier si je suis l'hôte
+    const amIHost = () => {
+        const myId = localStorage.getItem('playerId')
+        return players.find(p => p.id === myId)?.isHost || false
     }
 
     return (
@@ -218,9 +248,21 @@ function Lobby() {
                                         <span className="font-bold">
                                             {player.name} {player.isHost && '(Hôte)'}
                                         </span>
-                                        <span className={player.ready ? 'text-green-500' : 'text-gray-500'}>
-                                            {player.isHost ? '👑' : player.ready ? '✅' : '⏳'}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className={player.ready ? 'text-green-500' : 'text-gray-500'}>
+                                                {player.isHost ? '👑' : player.ready ? '✅' : '⏳'}
+                                            </span>
+                                            {/* Bouton kick si je suis l'hôte et ce n'est pas moi */}
+                                            {amIHost() && !player.isHost && (
+                                                <button
+                                                    onClick={() => handleKickPlayer(player.id)}
+                                                    className="text-red-500 hover:text-red-400 text-lg"
+                                                    title="Expulser ce joueur"
+                                                >
+                                                    👢
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
