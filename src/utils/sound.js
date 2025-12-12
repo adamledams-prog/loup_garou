@@ -217,9 +217,11 @@ class SoundManager {
    * Hurlement de loup 🐺
    */
   playWolfHowl() {
+    console.log('🐺 playWolfHowl appelé - enabled:', this.enabled, 'initialized:', this.initialized)
     if (!this.enabled || !this.initialized) return
 
     try {
+      console.log('🐺 Création oscillateur loup...')
       const osc = this.audioContext.createOscillator()
       const gain = this.audioContext.createGain()
 
@@ -248,8 +250,9 @@ class SoundManager {
 
       osc.start(now)
       osc.stop(now + 2.0)
+      console.log('🐺 Hurlement lancé avec succès')
     } catch (e) {
-      console.warn('Error playing wolf howl', e)
+      console.error('❌ Error playing wolf howl', e)
     }
   }
 
@@ -257,9 +260,11 @@ class SoundManager {
    * Ambiance forêt nocturne avec grillons et vent 🌲🌙
    */
   playForestAmbience() {
+    console.log('🌲 playForestAmbience appelé - enabled:', this.enabled, 'initialized:', this.initialized, 'déjà actif:', !!this.forestAmbience)
     if (!this.enabled || !this.initialized || this.forestAmbience) return
 
     try {
+      console.log('🌲 Création ambiance forêt...')
       const now = this.audioContext.currentTime
 
       // Créer un gain node pour l'ambiance
@@ -332,8 +337,10 @@ class SoundManager {
       // Sauvegarder la référence pour le cleanup
       this.forestAmbienceNodes = { windOsc, windLFO }
 
+      console.log('🌲 Ambiance forêt lancée avec succès')
+
     } catch (e) {
-      console.warn('Error playing forest ambience', e)
+      console.error('❌ Error playing forest ambience', e)
     }
   }
 

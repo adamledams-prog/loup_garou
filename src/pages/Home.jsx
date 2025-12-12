@@ -26,15 +26,18 @@ function Home() {
     // Initialiser le son au premier clic + lancer l'ambiance
     useEffect(() => {
         const initSound = () => {
+            console.log('🔊 Initialisation du son...')
             soundManager.init()
             soundManager.playClick()
 
             // 🐺 Hurlement de loup d'accueil + ambiance forêt
             setTimeout(() => {
+                console.log('🐺 Tentative de hurlement de loup...')
                 soundManager.playWolfHowl()
             }, 500)
 
             setTimeout(() => {
+                console.log('🌲 Tentative d\'ambiance forêt...')
                 soundManager.playForestAmbience()
             }, 3000)
 
