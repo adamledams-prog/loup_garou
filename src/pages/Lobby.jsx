@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import io from 'socket.io-client'
 import config from '../config'
+import { useParticleSystem } from '../utils/particles'
 
 function Lobby() {
     const navigate = useNavigate()
@@ -18,6 +19,10 @@ function Lobby() {
     // 🎨 Avatars
     const [selectedAvatar, setSelectedAvatar] = useState('😊')
     const avatarList = ['😊', '🦊', '🐱', '🐻', '🦁', '🐼', '🦝', '🦉', '🐸', '🐰', '🐯', '🐨', '🐵', '🐷', '🐮', '🐔', '🐺', '🦆', '🦄', '🐉']
+
+    // 🎊 Système de particules
+    const canvasRef = useRef(null)
+    const { triggerConfetti, stopAnimation } = useParticleSystem(canvasRef)
 
     // ⚙️ Configuration de la partie (visible pour l'hôte)
     const [loupCount, setLoupCount] = useState(1)
@@ -90,6 +95,17 @@ function Lobby() {
         newSocket.on('playerReady', (data) => {
             console.log('Statut prêt mis à jour:', data)
             setPlayers(data.players)
+
+            // 🎊 Trigger confetti si un joueur devient ready
+            if (canvasRef.current) {
+                const newReadyPlayer = data.players.find(p => p.ready && !players.find(old => old.id === p.id && old.ready))
+                if (newReadyPlayer) {
+                    // Position aléatoire dans l'écran
+                    const x = Math.random() * window.innerWidth
+                    const y = Math.random() * (window.innerHeight / 2) + 100
+                    triggerConfetti(x, y, 50)
+                }
+            }
         })
 
         // Écouter le démarrage de la partie
@@ -215,6 +231,14 @@ function Lobby() {
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4">
+            {/* 🎊 Canvas pour particules */}
+            <canvas
+                ref={canvasRef}
+                className="fixed top-0 left-0 w-full h-full pointer-events-none z-50"
+                width={window.innerWidth}
+                height={window.innerHeight}
+            />
+
             <div className="w-full max-w-2xl">
 
                 {/* En-tête */}

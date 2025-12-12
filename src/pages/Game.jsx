@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import io from 'socket.io-client'
 import config from '../config'
+import { useParticleSystem } from '../utils/particles'
 
 function Game() {
     const { roomCode } = useParams()
@@ -27,6 +28,10 @@ function Game() {
     const [gameOver, setGameOver] = useState(null) // 🏁 État game over avec infos
     const [isConnected, setIsConnected] = useState(true) // 📡 État de connexion
     const [reconnecting, setReconnecting] = useState(false) // 🔄 Tentative de reconnexion
+
+    // 🎊 Système de particules
+    const canvasRef = useRef(null)
+    const { triggerDeath, triggerVote, stopAnimation } = useParticleSystem(canvasRef)
 
     // 📊 Statistiques de la partie
     const [gameStartTime, setGameStartTime] = useState(null)
@@ -200,6 +205,13 @@ function Game() {
                 showNotification('death', '💀', 'Victime de la nuit', `${data.killedPlayer} est mort cette nuit...`)
                 // 📊 Incrémenter le compteur de morts
                 setTotalDeaths(prev => prev + 1)
+
+                // 🎊 Trigger particules de mort
+                if (canvasRef.current) {
+                    const x = Math.random() * window.innerWidth
+                    const y = Math.random() * (window.innerHeight / 2) + 100
+                    triggerDeath(x, y, 40)
+                }
             }
         })
 
@@ -456,6 +468,13 @@ function Game() {
 
         socket.emit('vote', { targetId: selectedPlayer })
         setSelectedPlayer(null)
+
+        // 🎊 Explosion de vote
+        if (canvasRef.current) {
+            const x = Math.random() * window.innerWidth
+            const y = Math.random() * (window.innerHeight / 2) + 100
+            triggerVote(x, y, 40)
+        }
     }
 
     const handleHunterShoot = () => {
@@ -569,6 +588,14 @@ function Game() {
 
     return (
         <div className="min-h-screen p-4">
+            {/* 🎊 Canvas pour particules */}
+            <canvas
+                ref={canvasRef}
+                className="fixed top-0 left-0 w-full h-full pointer-events-none z-50"
+                width={window.innerWidth}
+                height={window.innerHeight}
+            />
+
             {/* 🔔 Notification Popup Stylée */}
             {notification && (
                 <div className="fixed top-4 right-4 z-[100] animate-fadeIn">
