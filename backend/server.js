@@ -217,6 +217,7 @@ class GameRoom {
         this.assignRoles();
         this.phase = 'night';
         this.nightNumber = 1;
+        this.processingPhase = false; // ✅ Reset du flag de traitement
 
         // ✅ Réinitialiser l'état du jeu pour une nouvelle partie
         this.gameState.witchHealUsed = false;
@@ -633,7 +634,19 @@ io.on('connection', (socket) => {
             // Vérifier qu'on n'ajoute pas plus de 2 cibles
             if (Array.isArray(room.gameState.nightActions[socket.playerId])) {
                 if (room.gameState.nightActions[socket.playerId].length < 2) {
+                    // 💘 Vérifier que la cible n'a pas déjà été choisie (pas de doublon)
+                    const alreadyChosen = room.gameState.nightActions[socket.playerId]
+                        .some(a => a.targetId === targetId);
+
+                    if (alreadyChosen) {
+                        socket.emit('error', { message: 'Vous avez déjà choisi cette personne pour le couple' });
+                        return;
+                    }
+
                     room.gameState.nightActions[socket.playerId].push({ action, targetId });
+                } else {
+                    socket.emit('error', { message: 'Vous avez déjà choisi 2 personnes pour le couple' });
+                    return;
                 }
             }
         } else {
@@ -673,6 +686,8 @@ io.on('connection', (socket) => {
         if (actedPlayers >= expectedActions && !room.processingPhase) {
             // Tous les joueurs avec actions ont agi, passer au jour
             room.processingPhase = true; // 🔒 Verrouiller pour éviter double traitement
+            // Notifier les clients que le serveur est en phase de traitement
+            io.to(room.code).emit('processingPhase', { processing: true });
             console.log('✅ Tous les rôles actifs ont agi, passage au jour');
             clearInterval(room.phaseTimer); // Arrêter le timer
             processNightActions(room);
@@ -747,7 +762,9 @@ io.on('connection', (socket) => {
 
         // Tuer la cible
         target.alive = false;
-        room.gameState.deadPlayers.push(targetId);
+        if (!room.gameState.deadPlayers.includes(targetId)) {
+            room.gameState.deadPlayers.push(targetId);
+        }
 
         // 💔 Vérifier si c'est un amoureux → tuer l'autre aussi
         if (room.gameState.couple.length === 2) {
@@ -757,14 +774,18 @@ io.on('connection', (socket) => {
                 const lover2 = room.players.get(lover2Id);
                 if (lover2 && lover2.alive) {
                     lover2.alive = false;
-                    room.gameState.deadPlayers.push(lover2Id);
+                    if (!room.gameState.deadPlayers.includes(lover2Id)) {
+                        room.gameState.deadPlayers.push(lover2Id);
+                    }
                     console.log(`💔 ${lover2.name} meurt de chagrin (chasseur)`);
                 }
             } else if (targetId === lover2Id) {
                 const lover1 = room.players.get(lover1Id);
                 if (lover1 && lover1.alive) {
                     lover1.alive = false;
-                    room.gameState.deadPlayers.push(lover1Id);
+                    if (!room.gameState.deadPlayers.includes(lover1Id)) {
+                        room.gameState.deadPlayers.push(lover1Id);
+                    }
                     console.log(`💔 ${lover1.name} meurt de chagrin (chasseur)`);
                 }
             }
@@ -897,6 +918,7 @@ function startPhaseTimer(room, phaseDuration = 60) {
 
             if (room.phase === 'night' && !room.processingPhase) {
                 room.processingPhase = true; // 🔒 Verrouiller
+                io.to(room.code).emit('processingPhase', { processing: true });
                 processNightActions(room);
             } else if (room.phase === 'day') {
                 // Passer au vote après discussion
@@ -1076,7 +1098,12 @@ function processNightActions(room) {
         }
     }
 
-    room.gameState.deadPlayers.push(...killedPlayers);
+    // Ajouter les morts de la nuit en évitant les doublons
+    for (const id of killedPlayers) {
+        if (!room.gameState.deadPlayers.includes(id)) {
+            room.gameState.deadPlayers.push(id);
+        }
+    }
 
     // Réinitialiser les actions
     room.gameState.nightActions = {};
@@ -1152,7 +1179,9 @@ function processVotes(room) {
         const player = room.players.get(eliminatedId);
 
         player.alive = false;
-        room.gameState.deadPlayers.push(eliminatedId);
+        if (!room.gameState.deadPlayers.includes(eliminatedId)) {
+            room.gameState.deadPlayers.push(eliminatedId);
+        }
 
         io.to(room.code).emit('voteResult', {
             eliminated: {
@@ -1236,6 +1265,12 @@ function checkWinCondition(room) {
     const aliveVillagers = alivePlayers.filter(p => p.role !== 'loup');
 
     if (aliveWolves.length === 0) {
+        // ✅ Nettoyer le timer avant de terminer la partie
+        if (room.phaseTimer) {
+            clearInterval(room.phaseTimer);
+            room.phaseTimer = null;
+        }
+
         io.to(room.code).emit('gameOver', {
             winner: 'villageois',
             message: 'Les Villageois ont gagné ! 🎉',
@@ -1249,6 +1284,12 @@ function checkWinCondition(room) {
     }
 
     if (aliveWolves.length >= aliveVillagers.length) {
+        // ✅ Nettoyer le timer avant de terminer la partie
+        if (room.phaseTimer) {
+            clearInterval(room.phaseTimer);
+            room.phaseTimer = null;
+        }
+
         io.to(room.code).emit('gameOver', {
             winner: 'loups',
             message: 'Les Loups-Garous ont gagné ! 🐺',

@@ -243,6 +243,14 @@ function Game() {
             setReconnecting(false)
         })
 
+        // 🔒 Gestion du processing phase (serveur en train de traiter)
+        newSocket.on('processingPhase', (data) => {
+            if (data.processing) {
+                console.log('🔒 Serveur en phase de traitement, UI désactivée')
+                // Optionnel: on pourrait ajouter un state pour afficher un spinner
+            }
+        })
+
         return () => newSocket.close()
     }, [navigate, roomCode])
 
