@@ -15,6 +15,11 @@ function Lobby() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState(null)
 
+    // ⚙️ Configuration de la partie (visible pour l'hôte)
+    const [loupCount, setLoupCount] = useState(1)
+    const [selectedRoles, setSelectedRoles] = useState(['voyante', 'sorciere']) // Rôles par défaut
+    const [showConfig, setShowConfig] = useState(false) // Toggle configuration
+
     useEffect(() => {
         console.log('🔌 Connexion Socket.io vers:', config.serverUrl)
         const newSocket = io(config.serverUrl)
@@ -151,6 +156,36 @@ function Lobby() {
     const amIHost = () => {
         const myId = localStorage.getItem('playerId')
         return players.find(p => p.id === myId)?.isHost || false
+    }
+
+    // ⚙️ Toggle un rôle dans la sélection
+    const toggleRole = (role) => {
+        if (selectedRoles.includes(role)) {
+            setSelectedRoles(selectedRoles.filter(r => r !== role))
+        } else {
+            setSelectedRoles([...selectedRoles, role])
+        }
+    }
+
+    // ⚙️ Valider la configuration avant de lancer
+    const validateConfig = () => {
+        const playerCount = players.length
+
+        // Vérifier qu'il y a assez de joueurs pour les rôles choisis
+        if (selectedRoles.includes('cupidon') && playerCount < 4) {
+            return 'Il faut au moins 4 joueurs pour jouer avec Cupidon'
+        }
+        if (selectedRoles.includes('chasseur') && playerCount < 5) {
+            return 'Il faut au moins 5 joueurs pour jouer avec le Chasseur'
+        }
+
+        // Vérifier qu'il n'y a pas trop de loups
+        const totalRoles = loupCount + selectedRoles.length
+        if (loupCount >= playerCount) {
+            return 'Il y a trop de loups ! Il faut au moins 1 villageois'
+        }
+
+        return null // Pas d'erreur
     }
 
     return (
@@ -292,14 +327,140 @@ function Lobby() {
 
                         {/* Bouton Lancer visible uniquement pour l'hôte */}
                         {players.find(p => p.id === localStorage.getItem('playerId'))?.isHost && (
-                            <button
-                                className="btn-primary w-full text-xl py-4"
-                                onClick={() => {
-                                    if (socket) socket.emit('startGame')
-                                }}
-                            >
-                                🎮 LANCER LA PARTIE
-                            </button>
+                            <>
+                                {/* ⚙️ Bouton toggle configuration */}
+                                <button
+                                    onClick={() => setShowConfig(!showConfig)}
+                                    className="w-full bg-night-800 hover:bg-night-700 text-gray-300 font-bold py-3 px-4 rounded-lg transition-all border-2 border-night-600 hover:border-blood-600 flex items-center justify-between"
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <span className="text-xl">⚙️</span>
+                                        <span>Configuration de la partie</span>
+                                    </span>
+                                    <span className="text-2xl transform transition-transform duration-200" style={{ transform: showConfig ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                                        ▼
+                                    </span>
+                                </button>
+
+                                {/* ⚙️ Configuration de la partie (dépliable) */}
+                                {showConfig && (
+                                    <div className="card bg-night-900 border-2 border-blood-600 animate-slideUp">
+                                        <h3 className="text-lg font-bold mb-4 text-blood flex items-center gap-2">
+                                            ⚙️ Personnaliser les rôles
+                                        </h3>
+
+                                    {/* Nombre de loups */}
+                                    <div className="mb-6">
+                                        <label className="block text-sm font-bold text-gray-300 mb-2">
+                                            🐺 Nombre de loups
+                                        </label>
+                                        <div className="flex gap-2">
+                                            {[1, 2, 3].map(count => (
+                                                <button
+                                                    key={count}
+                                                    onClick={() => setLoupCount(count)}
+                                                    className={`flex-1 py-3 px-4 rounded-lg font-bold transition-all ${
+                                                        loupCount === count
+                                                            ? 'bg-blood-600 text-white border-2 border-blood-400 shadow-neon-red'
+                                                            : 'bg-night-800 text-gray-400 border-2 border-night-600 hover:border-blood-600'
+                                                    }`}
+                                                >
+                                                    {count} {count === 1 ? 'Loup' : 'Loups'}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Rôles spéciaux */}
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-300 mb-2">
+                                            ✨ Rôles spéciaux
+                                        </label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {[
+                                                { id: 'voyante', emoji: '🔮', label: 'Voyante', minPlayers: 0 },
+                                                { id: 'sorciere', emoji: '🧙‍♀️', label: 'Sorcière', minPlayers: 0 },
+                                                { id: 'chasseur', emoji: '🏹', label: 'Chasseur', minPlayers: 5 },
+                                                { id: 'cupidon', emoji: '💘', label: 'Cupidon', minPlayers: 4 },
+                                                { id: 'riche', emoji: '💰', label: 'Riche', minPlayers: 0 },
+                                                { id: 'livreur', emoji: '🍕', label: 'Livreur', minPlayers: 0 },
+                                            ].map(role => {
+                                                const isSelected = selectedRoles.includes(role.id)
+                                                const isDisabled = role.minPlayers > 0 && players.length < role.minPlayers
+
+                                                return (
+                                                    <button
+                                                        key={role.id}
+                                                        onClick={() => !isDisabled && toggleRole(role.id)}
+                                                        disabled={isDisabled}
+                                                        className={`p-3 rounded-lg font-bold transition-all text-left ${
+                                                            isDisabled
+                                                                ? 'bg-gray-800 text-gray-600 cursor-not-allowed opacity-50'
+                                                                : isSelected
+                                                                    ? 'bg-green-600 text-white border-2 border-green-400'
+                                                                    : 'bg-night-800 text-gray-300 border-2 border-night-600 hover:border-green-600'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <span>
+                                                                {role.emoji} {role.label}
+                                                            </span>
+                                                            {isSelected && <span className="text-xl">✓</span>}
+                                                        </div>
+                                                        {isDisabled && (
+                                                            <div className="text-xs text-gray-500 mt-1">
+                                                                Min. {role.minPlayers} joueurs
+                                                            </div>
+                                                        )}
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+
+                                        {/* Info villageois */}
+                                        <div className="mt-3 text-xs text-gray-500 bg-night-800 p-2 rounded">
+                                            ℹ️ Les villageois seront ajoutés automatiquement pour compléter
+                                        </div>
+                                    </div>
+
+                                    {/* Récapitulatif */}
+                                    <div className="mt-4 p-3 bg-night-800 rounded-lg border border-blood-600/30">
+                                        <div className="text-sm text-gray-400">
+                                            <div className="font-bold text-white mb-2">📊 Récapitulatif :</div>
+                                            <div>• {loupCount} {loupCount === 1 ? 'Loup' : 'Loups'} 🐺</div>
+                                            {selectedRoles.length > 0 && (
+                                                <div>• {selectedRoles.length} rôle{selectedRoles.length > 1 ? 's' : ''} spécial{selectedRoles.length > 1 ? 'aux' : ''}</div>
+                                            )}
+                                            <div>• {Math.max(0, players.length - loupCount - selectedRoles.length)} Villageois 👤</div>
+                                            <div className="mt-2 pt-2 border-t border-blood-600/30 font-bold text-white">
+                                                Total : {players.length} joueurs
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                )}
+
+                                {/* Bouton lancer avec validation */}
+                                <button
+                                    className="btn-primary w-full text-xl py-4"
+                                    onClick={() => {
+                                        const error = validateConfig()
+                                        if (error) {
+                                            setError(error)
+                                            setTimeout(() => setError(null), 5000)
+                                            return
+                                        }
+                                        if (socket) {
+                                            socket.emit('startGame', {
+                                                customRoles: selectedRoles,
+                                                loupCount: loupCount
+                                            })
+                                        }
+                                    }}
+                                >
+                                    🎮 LANCER LA PARTIE
+                                </button>
+                            </>
                         )}
                     </div>
                 )}
