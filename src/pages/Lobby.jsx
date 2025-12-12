@@ -26,6 +26,11 @@ function Lobby() {
 
     // 🎠 Carousel 3D
     const [currentSlide, setCurrentSlide] = useState(0)
+    const [touchStart, setTouchStart] = useState(null)
+    const [touchEnd, setTouchEnd] = useState(null)
+
+    // Minimum swipe distance (en px)
+    const minSwipeDistance = 50
 
     const nextSlide = () => {
         setCurrentSlide((prev) => (prev + 1) % players.length)
@@ -33,6 +38,30 @@ function Lobby() {
 
     const prevSlide = () => {
         setCurrentSlide((prev) => (prev - 1 + players.length) % players.length)
+    }
+
+    // Touch handlers pour mobile
+    const onTouchStart = (e) => {
+        setTouchEnd(null)
+        setTouchStart(e.targetTouches[0].clientX)
+    }
+
+    const onTouchMove = (e) => {
+        setTouchEnd(e.targetTouches[0].clientX)
+    }
+
+    const onTouchEnd = () => {
+        if (!touchStart || !touchEnd) return
+
+        const distance = touchStart - touchEnd
+        const isLeftSwipe = distance > minSwipeDistance
+        const isRightSwipe = distance < -minSwipeDistance
+
+        if (isLeftSwipe) {
+            nextSlide()
+        } else if (isRightSwipe) {
+            prevSlide()
+        }
     }
 
     // Keyboard navigation pour le carousel
@@ -450,7 +479,12 @@ function Lobby() {
 
                             {/* 🎠 Carousel 3D */}
                             {players.length > 0 && (
-                                <div className="carousel-3d">
+                                <div
+                                    className="carousel-3d"
+                                    onTouchStart={onTouchStart}
+                                    onTouchMove={onTouchMove}
+                                    onTouchEnd={onTouchEnd}
+                                >
                                     <div className="carousel-track">
                                         {players.map((player, index) => (
                                             <div

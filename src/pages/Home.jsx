@@ -109,9 +109,9 @@ function Home() {
                 </div>
 
                 {/* Cartes de mode de jeu - PREMIUM GLASSMORPHISM */}
-                <div className="grid md:grid-cols-2 gap-8 mb-8">
+                <div className="max-w-2xl mx-auto mb-8">
 
-                    {/* Mode En Ligne */}
+                    {/* Mode En Ligne - SEULE CARTE */}
                     <div
                         onClick={() => navigate('/lobby')}
                         className="relative cursor-pointer group slide-up"
@@ -121,73 +121,34 @@ function Home() {
                         <div className="absolute inset-0 bg-gradient-to-br from-blood-600/20 to-blood-800/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all duration-500 opacity-50 group-hover:opacity-100"></div>
 
                         {/* Glassmorphism card */}
-                        <div className="relative bg-gradient-to-br from-night-800/60 to-night-900/60 backdrop-blur-xl rounded-3xl p-8 border-2 border-blood-600/30 group-hover:border-blood-500/60 shadow-2xl transform group-hover:scale-105 group-hover:-translate-y-2 transition-all duration-500 ripple-container">
-                            <div className="text-7xl mb-6 text-center transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 rotate-in">
+                        <div className="relative bg-gradient-to-br from-night-800/60 to-night-900/60 backdrop-blur-xl rounded-3xl p-8 md:p-10 border-2 border-blood-600/30 group-hover:border-blood-500/60 shadow-2xl transform group-hover:scale-105 group-hover:-translate-y-2 transition-all duration-500 ripple-container">
+                            <div className="text-7xl md:text-8xl mb-6 text-center transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 rotate-in">
                                 🌐
                             </div>
-                            <h2 className="text-4xl font-black mb-4 text-center bg-gradient-to-r from-blood-400 via-blood-600 to-blood-800 bg-clip-text text-transparent gradient-animate">
-                                Mode En Ligne
+                            <h2 className="text-4xl md:text-5xl font-black mb-4 text-center bg-gradient-to-r from-blood-400 via-blood-600 to-blood-800 bg-clip-text text-transparent gradient-animate">
+                                Mode Multijoueur
                             </h2>
-                            <div className="space-y-3 text-gray-300 text-lg">
+                            <div className="space-y-3 text-gray-300 text-base md:text-lg">
                                 <p className="flex items-center transform group-hover:translate-x-2 transition-transform duration-300">
                                     <span className="text-blood-500 mr-3 text-2xl">🔥</span>
                                     Jouez avec vos amis en ligne
                                 </p>
                                 <p className="flex items-center transform group-hover:translate-x-2 transition-transform duration-300 delay-75">
                                     <span className="text-blood-500 mr-3 text-2xl">👥</span>
-                                    4 à 10 joueurs
+                                    4 à 10 joueurs simultanés
                                 </p>
                                 <p className="flex items-center transform group-hover:translate-x-2 transition-transform duration-300 delay-150">
                                     <span className="text-blood-500 mr-3 text-2xl">💬</span>
                                     Chat en temps réel
                                 </p>
                                 <p className="flex items-center transform group-hover:translate-x-2 transition-transform duration-300 delay-225">
-                                    <span className="text-blood-500 mr-3 text-2xl">⚡</span>
-                                    Actions simultanées
+                                    <span className="text-blood-500 mr-3 text-2xl">📱</span>
+                                    Optimisé mobile & PWA
                                 </p>
                             </div>
                             <div className="mt-8 text-center">
-                                <span className="inline-block bg-gradient-to-r from-blood-600 to-blood-800 px-6 py-3 rounded-full text-sm font-black uppercase tracking-widest shadow-lg shadow-blood-900/50 group-hover:shadow-xl group-hover:shadow-blood-700/50 transition-all duration-300">
-                                    ✨ Recommandé
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Mode Local */}
-                    <div className="relative cursor-not-allowed group slide-up" style={{ animationDelay: '0.2s' }}>
-                        {/* Glow effect background */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-gray-600/10 to-gray-800/10 rounded-3xl blur-xl"></div>
-
-                        {/* Glassmorphism card */}
-                        <div className="relative bg-gradient-to-br from-night-800/40 to-night-900/40 backdrop-blur-xl rounded-3xl p-8 border-2 border-gray-700/30 shadow-2xl opacity-60 group-hover:opacity-75 transition-all duration-500">
-                            <div className="text-7xl mb-6 text-center fade-in" style={{ animationDelay: '0.3s' }}>
-                                📱
-                            </div>
-                            <h2 className="text-4xl font-black mb-4 text-center text-gray-400">
-                                Mode Local
-                            </h2>
-                            <div className="space-y-3 text-gray-500 text-lg">
-                                <p className="flex items-center">
-                                    <span className="mr-3 text-2xl">📲</span>
-                                    Un seul appareil
-                                </p>
-                                <p className="flex items-center">
-                                    <span className="mr-3 text-2xl">👤</span>
-                                    5 joueurs fixes
-                                </p>
-                                <p className="flex items-center">
-                                    <span className="mr-3 text-2xl">🔄</span>
-                                    Tour par tour
-                                </p>
-                                <p className="flex items-center">
-                                    <span className="mr-3 text-2xl">📡</span>
-                                    Pas de connexion requise
-                                </p>
-                            </div>
-                            <div className="mt-8 text-center">
-                                <span className="inline-block bg-gradient-to-r from-gray-600 to-gray-800 px-6 py-3 rounded-full text-sm font-black uppercase tracking-widest">
-                                    🚧 Bientôt
+                                <span className="inline-block bg-gradient-to-r from-blood-600 to-blood-800 px-8 py-4 rounded-full text-base md:text-lg font-black uppercase tracking-widest shadow-lg shadow-blood-900/50 group-hover:shadow-xl group-hover:shadow-blood-700/50 transition-all duration-300">
+                                    🎮 Jouer Maintenant
                                 </span>
                             </div>
                         </div>
