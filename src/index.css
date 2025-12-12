@@ -671,7 +671,122 @@ button:focus-visible {
   background: rgba(220, 38, 38, 0.8);
 }
 
-/* 🎭 Animation d'écriture pour la narration */
+/* � CAROUSEL 3D - Lobby waiting room */
+.carousel-3d {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  height: 400px;
+  perspective: 1200px;
+  margin: 2rem auto;
+}
+
+.carousel-track {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.carousel-card {
+  position: absolute;
+  width: 280px;
+  height: 360px;
+  left: 50%;
+  top: 50%;
+  transform-origin: center center;
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  backface-visibility: visible;
+}
+
+.carousel-card-content {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(30, 30, 40, 0.95), rgba(20, 20, 30, 0.98));
+  border: 2px solid rgba(220, 38, 38, 0.3);
+  border-radius: 1.5rem;
+  backdrop-filter: blur(12px);
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(220, 38, 38, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+}
+
+.carousel-card-content:hover {
+  border-color: rgba(220, 38, 38, 0.6);
+  box-shadow:
+    0 15px 60px rgba(0, 0, 0, 0.6),
+    0 0 40px rgba(220, 38, 38, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transform: translateY(-5px);
+}
+
+.carousel-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.3), rgba(127, 29, 29, 0.5));
+  border: 2px solid rgba(220, 38, 38, 0.5);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.carousel-nav-btn:hover {
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.5), rgba(127, 29, 29, 0.7));
+  border-color: rgba(220, 38, 38, 0.8);
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 6px 30px rgba(220, 38, 38, 0.4);
+}
+
+.carousel-nav-btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.carousel-nav-btn.prev {
+  left: -30px;
+}
+
+.carousel-nav-btn.next {
+  right: -30px;
+}
+
+@keyframes carousel-slide-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateZ(-300px) rotateY(-45deg);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) translateZ(0) rotateY(0deg);
+  }
+}
+
+.carousel-card.active .carousel-card-content {
+  border-color: rgba(220, 38, 38, 0.6);
+  box-shadow:
+    0 20px 80px rgba(0, 0, 0, 0.6),
+    0 0 60px rgba(220, 38, 38, 0.5),
+    inset 0 2px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* �🎭 Animation d'écriture pour la narration */
 @keyframes typewriter {
   from { width: 0; }
   to { width: 100%; }

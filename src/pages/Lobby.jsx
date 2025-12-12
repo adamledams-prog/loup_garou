@@ -24,6 +24,52 @@ function Lobby() {
     const canvasRef = useRef(null)
     const { triggerConfetti, stopAnimation } = useParticleSystem(canvasRef)
 
+    // 🎠 Carousel 3D
+    const [currentSlide, setCurrentSlide] = useState(0)
+
+    const nextSlide = () => {
+        setCurrentSlide((prev) => (prev + 1) % players.length)
+    }
+
+    const prevSlide = () => {
+        setCurrentSlide((prev) => (prev - 1 + players.length) % players.length)
+    }
+
+    // Keyboard navigation pour le carousel
+    useEffect(() => {
+        const handleKeyPress = (e) => {
+            if (view !== 'waiting' || players.length <= 1) return
+
+            if (e.key === 'ArrowLeft') {
+                prevSlide()
+            } else if (e.key === 'ArrowRight') {
+                nextSlide()
+            }
+        }
+
+        window.addEventListener('keydown', handleKeyPress)
+        return () => window.removeEventListener('keydown', handleKeyPress)
+    }, [view, players.length, currentSlide])
+
+    const getCarouselTransform = (index) => {
+        const total = players.length
+        const angle = (360 / total) * (index - currentSlide)
+        const radius = 280 // Distance du centre
+
+        return {
+            transform: `
+                translate(-50%, -50%)
+                rotateY(${angle}deg)
+                translateZ(${radius}px)
+                rotateY(${-angle}deg)
+            `,
+            opacity: Math.abs(index - currentSlide) === 0 ? 1 :
+                     Math.abs(index - currentSlide) === 1 ? 0.6 :
+                     Math.abs(index - currentSlide) === total - 1 ? 0.6 : 0.3,
+            pointerEvents: Math.abs(index - currentSlide) === 0 ? 'auto' : 'none'
+        }
+    }
+
     // ⚙️ Configuration de la partie (visible pour l'hôte)
     const [loupCount, setLoupCount] = useState(1)
     const [selectedRoles, setSelectedRoles] = useState(['voyante', 'sorciere']) // Rôles par défaut
@@ -391,7 +437,7 @@ function Lobby() {
                         </div>
 
                         <div className="card">
-                            <h3 className="text-xl font-bold mb-4 text-gray-300 flex items-center justify-between">
+                            <h3 className="text-xl font-bold mb-4 text-gray-300 flex items-center justify-center gap-3">
                                 <span>
                                     👥 Joueurs ({players.filter(p => p.ready || p.isHost).length}/{players.length})
                                 </span>
@@ -401,32 +447,95 @@ function Lobby() {
                                     </span>
                                 )}
                             </h3>
-                            <div className="space-y-2">
-                                {players.map((player, index) => (
-                                    <div key={player.id} className="bg-gradient-to-r from-night-800/70 to-night-900/70 backdrop-blur-md p-4 rounded-xl flex justify-between items-center border border-blood-900/20 hover:border-blood-700/40 transition-all duration-300 transform hover:scale-102">
-                                        <span className="font-bold flex items-center gap-3">
-                                            <span className="text-3xl drop-shadow-lg">{player.avatar || '😊'}</span>
-                                            <span className="text-lg">{player.name}</span>
-                                            {player.isHost && <span className="text-xs bg-yellow-900/50 text-yellow-400 px-2 py-1 rounded-full border border-yellow-700/50">👑 Hôte</span>}
-                                        </span>
-                                        <div className="flex items-center gap-3">
-                                            <span className={`text-xl ${player.ready ? 'text-green-500' : 'text-gray-500'}`}>
-                                                {player.isHost ? '👑' : player.ready ? '✅' : '⏳'}
-                                            </span>
-                                            {/* Bouton kick si je suis l'hôte et ce n'est pas moi */}
-                                            {amIHost() && !player.isHost && (
-                                                <button
-                                                    onClick={() => handleKickPlayer(player.id)}
-                                                    className="text-red-500 hover:text-red-400 text-xl transform hover:scale-125 transition-transform"
-                                                    title="Expulser ce joueur"
-                                                >
-                                                    👢
-                                                </button>
-                                            )}
-                                        </div>
+
+                            {/* 🎠 Carousel 3D */}
+                            {players.length > 0 && (
+                                <div className="carousel-3d">
+                                    <div className="carousel-track">
+                                        {players.map((player, index) => (
+                                            <div
+                                                key={player.id}
+                                                className={`carousel-card ${index === currentSlide ? 'active' : ''}`}
+                                                style={getCarouselTransform(index)}
+                                            >
+                                                <div className="carousel-card-content">
+                                                    {/* Avatar */}
+                                                    <div className="text-8xl mb-4 drop-shadow-2xl animate-bounce-in">
+                                                        {player.avatar || '😊'}
+                                                    </div>
+
+                                                    {/* Nom */}
+                                                    <h4 className="text-2xl font-black text-white mb-2 drop-shadow-lg">
+                                                        {player.name}
+                                                    </h4>
+
+                                                    {/* Badges */}
+                                                    <div className="flex items-center gap-2 mb-4">
+                                                        {player.isHost && (
+                                                            <span className="text-xs bg-yellow-900/50 text-yellow-400 px-3 py-1 rounded-full border border-yellow-700/50 font-bold">
+                                                                👑 Hôte
+                                                            </span>
+                                                        )}
+                                                        <span className={`text-xs px-3 py-1 rounded-full border font-bold ${
+                                                            player.ready
+                                                                ? 'bg-green-900/50 text-green-400 border-green-700/50'
+                                                                : 'bg-gray-800/50 text-gray-400 border-gray-700/50'
+                                                        }`}>
+                                                            {player.isHost ? '👑 Organisateur' : player.ready ? '✅ Prêt' : '⏳ En attente'}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Actions */}
+                                                    {amIHost() && !player.isHost && index === currentSlide && (
+                                                        <button
+                                                            onClick={() => handleKickPlayer(player.id)}
+                                                            className="mt-4 btn-secondary text-sm px-4 py-2 hover:bg-red-900/50 hover:border-red-600 hover:text-red-400 transition-all"
+                                                        >
+                                                            👢 Expulser
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
+
+                                    {/* Navigation buttons */}
+                                    {players.length > 1 && (
+                                        <>
+                                            <button
+                                                onClick={prevSlide}
+                                                className="carousel-nav-btn prev"
+                                                aria-label="Joueur précédent"
+                                            >
+                                                <span className="text-2xl text-white font-bold">‹</span>
+                                            </button>
+                                            <button
+                                                onClick={nextSlide}
+                                                className="carousel-nav-btn next"
+                                                aria-label="Joueur suivant"
+                                            >
+                                                <span className="text-2xl text-white font-bold">›</span>
+                                            </button>
+                                        </>
+                                    )}
+
+                                    {/* Indicators */}
+                                    <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 flex gap-2">
+                                        {players.map((_, index) => (
+                                            <button
+                                                key={index}
+                                                onClick={() => setCurrentSlide(index)}
+                                                className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                                                    index === currentSlide
+                                                        ? 'bg-blood-600 w-8'
+                                                        : 'bg-gray-600 hover:bg-gray-500'
+                                                }`}
+                                                aria-label={`Aller au joueur ${index + 1}`}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Bouton Ajouter Bot (visible uniquement pour l'hôte) */}
                             {amIHost() && players.length < 10 && (
