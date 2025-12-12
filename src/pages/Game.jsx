@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import io from 'socket.io-client'
 import config from '../config'
 import { useParticleSystem } from '../utils/particles'
+import { soundManager } from '../utils/sound'
 
 function Game() {
     const { roomCode } = useParams()
@@ -177,6 +178,9 @@ function Game() {
             // 📜 Log événement
             addEvent('night', `Nuit ${data.nightNumber}`, '🌙')
 
+            // 🔊 Son transition nuit
+            soundManager.playPhaseChange('night')
+
             if (data.killedTonight) {
                 setKilledTonight(data.killedTonight)
             }
@@ -200,6 +204,9 @@ function Game() {
             // 📜 Log événement
             addEvent('day', 'Le village se réveille', '☀️')
 
+            // 🔊 Son transition jour
+            soundManager.playPhaseChange('day')
+
             if (data.killedPlayer) {
                 addEvent('death', `💀 ${data.killedPlayer} est mort cette nuit`, '💀')
                 showNotification('death', '💀', 'Victime de la nuit', `${data.killedPlayer} est mort cette nuit...`)
@@ -212,6 +219,9 @@ function Game() {
                     const y = Math.random() * (window.innerHeight / 2) + 100
                     triggerDeath(x, y, 40)
                 }
+
+                // 🔊 Son mort
+                soundManager.playDeath()
             }
         })
 
@@ -244,16 +254,33 @@ function Game() {
             setPhase('gameOver')
             setHasActed(false) // ✅ Réinitialiser
             setSelectedPlayer(null)
+
+            // 🔊 Son victoire/défaite
+            if (data.winner === 'villageois') {
+                soundManager.playVictory()
+            } else {
+                soundManager.playDefeat()
+            }
         })
 
         // Timer de phase
         newSocket.on('phaseTimer', (data) => {
             setTimeRemaining(data.timeRemaining)
+
+            // 🔊 Son timer critique
+            if (data.timeRemaining === 10) {
+                soundManager.playTimerCritical()
+            } else if (data.timeRemaining === 0) {
+                soundManager.playTimerEnd()
+            }
         })
 
         // Messages chat
         newSocket.on('chatMessage', (data) => {
             setMessages(prev => [...prev, data])
+
+            // 🔊 Son message
+            soundManager.playMessage()
 
             // Si c'est un message loup et que je suis loup et que le chat n'est pas visible, incrémenter
             if (phase === 'night' && myRole === 'loup' && data.playerId !== localStorage.getItem('playerId') && !chatVisible) {
@@ -475,6 +502,9 @@ function Game() {
             const y = Math.random() * (window.innerHeight / 2) + 100
             triggerVote(x, y, 40)
         }
+
+        // 🔊 Son vote
+        soundManager.playVote()
     }
 
     const handleHunterShoot = () => {

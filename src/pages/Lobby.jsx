@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import io from 'socket.io-client'
 import config from '../config'
 import { useParticleSystem } from '../utils/particles'
+import { soundManager } from '../utils/sound'
 
 function Lobby() {
     const navigate = useNavigate()
@@ -179,6 +180,8 @@ function Lobby() {
                     const x = Math.random() * window.innerWidth
                     const y = Math.random() * (window.innerHeight / 2) + 100
                     triggerConfetti(x, y, 50)
+                    // 🔊 Son ready
+                    soundManager.playReady()
                 }
             }
         })

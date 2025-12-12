@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRipple } from '../hooks/useRipple'
+import { soundManager } from '../utils/sound'
 
 function Home() {
     const navigate = useNavigate()
@@ -8,9 +9,21 @@ function Home() {
     const rulesButtonRef = useRef(null)
     const [stars, setStars] = useState([])
     const [particles, setParticles] = useState([])
+    const [soundEnabled, setSoundEnabled] = useState(soundManager.enabled)
 
     // Effet ripple sur le bouton
     useRipple(rulesButtonRef)
+
+    // Initialiser le son au premier clic
+    useEffect(() => {
+        const initSound = () => {
+            soundManager.init()
+            soundManager.playClick()
+            document.removeEventListener('click', initSound)
+        }
+        document.addEventListener('click', initSound)
+        return () => document.removeEventListener('click', initSound)
+    }, [])
 
     // Génération du starfield et particules
     useEffect(() => {
@@ -185,13 +198,35 @@ function Home() {
 
                 {/* Footer */}
                 <div className="text-center mt-8 space-y-6">
-                    <button
-                        ref={rulesButtonRef}
-                        onClick={() => navigate('/regles')}
-                        className="btn-secondary px-8 py-4 text-lg font-bold transform hover:scale-110 transition-all duration-300 ripple-container"
-                    >
-                        📖 Comment Jouer ?
-                    </button>
+                    <div className="flex items-center justify-center gap-4">
+                        <button
+                            ref={rulesButtonRef}
+                            onClick={() => {
+                                soundManager.playClick()
+                                navigate('/regles')
+                            }}
+                            className="btn-secondary px-8 py-4 text-lg font-bold transform hover:scale-110 transition-all duration-300 ripple-container"
+                        >
+                            📖 Comment Jouer ?
+                        </button>
+
+                        {/* Toggle Son */}
+                        <button
+                            onClick={() => {
+                                const enabled = soundManager.toggle()
+                                setSoundEnabled(enabled)
+                                if (enabled) soundManager.playSuccess()
+                            }}
+                            className={`p-4 rounded-full text-2xl transform hover:scale-110 transition-all duration-300 ${
+                                soundEnabled
+                                    ? 'bg-gradient-to-r from-green-600 to-green-700 border-2 border-green-500'
+                                    : 'bg-gradient-to-r from-gray-600 to-gray-700 border-2 border-gray-500'
+                            }`}
+                            title={soundEnabled ? 'Son activé' : 'Son désactivé'}
+                        >
+                            {soundEnabled ? '🔊' : '🔇'}
+                        </button>
+                    </div>
                     <p className="text-gray-400 text-base font-medium animate-pulse">🌙 Créé avec passion pour les nuits mystérieuses 🐺</p>
                 </div>
             </div>
