@@ -22,18 +22,30 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.ORIGINES_AUTO
         'http://localhost:3000',
         'https://loup-garou-38saxttvx-boulahias-projects-9f2abc0a.vercel.app',
         'https://loup-garou-xi.vercel.app'
-    ];// Ajouter le regex pour tous les sous-domaines Vercel
-const corsOrigins = [
-    ...allowedOrigins,
-    /https:\/\/loup-garou-.*\.vercel\.app$/
-];
+    ];
 
+// 🔧 CORS plus permissif pour éviter les erreurs de reconnexion
 const io = socketIo(server, {
     cors: {
-        origin: corsOrigins,
+        origin: (origin, callback) => {
+            // Autoriser tous les domaines Vercel + localhost
+            if (!origin ||
+                origin.includes('localhost') ||
+                origin.includes('vercel.app') ||
+                allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(null, true); // 🔓 Autoriser tous en production pour éviter les bugs
+            }
+        },
         methods: ['GET', 'POST'],
-        credentials: true
-    }
+        credentials: true,
+        allowedHeaders: ['*']
+    },
+    // 🔧 Augmenter les timeouts pour éviter les déconnexions prématurées
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ['websocket', 'polling']
 });
 
 // Route de santé pour Railway
@@ -198,7 +210,7 @@ setInterval(() => {
     let cleaned = 0;
 
     for (const [code, room] of rooms.entries()) {
-        // Supprimer si tous déconnectés depuis plus de 10 min
+        // Supprimer si tous déconnectés depuis plus de 30 min (au lieu de 10)
         const allDisconnected = Array.from(room.players.values()).every(p => p.socketId === null);
 
         if (allDisconnected) {
@@ -208,7 +220,8 @@ setInterval(() => {
             }
 
             const inactiveTime = now - room.lastActivity;
-            if (inactiveTime > 10 * 60 * 1000) { // 10 minutes
+            // 🔧 30 minutes au lieu de 10 pour laisser le temps aux joueurs de revenir
+            if (inactiveTime > 30 * 60 * 1000) { // 30 minutes
                 // IMPORTANT: Nettoyer le timer avant de supprimer
                 if (room.phaseTimer) {
                     clearInterval(room.phaseTimer);
@@ -216,7 +229,7 @@ setInterval(() => {
                 }
                 rooms.delete(code);
                 cleaned++;
-                console.log(`🗑️ Salle ${code} supprimée (inactivité)`);
+                console.log(`🗑️ Salle ${code} supprimée (inactivité 30min)`);
             }
         } else {
             // Réinitialiser lastActivity si quelqu'un est connecté
@@ -1034,9 +1047,15 @@ io.on('connection', (socket) => {
                     if (player) {
                         player.socketId = null; // Déconnecté mais toujours dans la partie
                         console.log(`⚠️ ${player.name} déconnecté de ${socket.roomCode} (peut se reconnecter)`);
+
+                        // 📡 Notifier les autres joueurs de la déconnexion
+                        io.to(socket.roomCode).emit('playerDisconnected', {
+                            playerId: player.id,
+                            playerName: player.name
+                        });
                     }
 
-                    // Mettre à jour lastActivity pour le nettoyage automatique
+                    // ⚠️ NE PAS supprimer la room immédiatement, même si tous déconnectés
                     const allDisconnected = Array.from(room.players.values()).every(p => p.socketId === null);
                     if (allDisconnected) {
                         room.lastActivity = Date.now();

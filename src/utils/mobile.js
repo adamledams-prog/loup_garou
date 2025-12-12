@@ -227,8 +227,10 @@ let deferredPrompt = null
 
 export function setupPWAInstall() {
   window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault()
+    // ⚠️ NE PAS appeler preventDefault() automatiquement
+    // Stocker l'événement pour utilisation ultérieure
     deferredPrompt = e
+    console.log('📱 PWA Install prompt disponible')
   })
 }
 
@@ -237,8 +239,11 @@ export async function promptPWAInstall() {
     return { success: false, error: 'No install prompt available' }
   }
 
+  // Maintenant on appelle prompt() pour afficher la bannière
   deferredPrompt.prompt()
   const { outcome } = await deferredPrompt.userChoice
+
+  console.log(`📱 Install prompt ${outcome}`)
 
   deferredPrompt = null
 
