@@ -453,6 +453,24 @@ io.on('connection', (socket) => {
             room.loupCount = data.loupCount;
         }
 
+        // 🎲 Validation nombre minimum de joueurs selon les rôles
+        const playerCount = room.players.size;
+        const roles = room.customRoles || [];
+
+        // Règles minimales
+        if (roles.includes('cupidon') && playerCount < 4) {
+            socket.emit('error', { message: 'Il faut au moins 4 joueurs pour jouer avec Cupidon' });
+            return;
+        }
+        if (roles.includes('chasseur') && playerCount < 5) {
+            socket.emit('error', { message: 'Il faut au moins 5 joueurs pour jouer avec le Chasseur' });
+            return;
+        }
+        if ((room.loupCount || 1) >= playerCount) {
+            socket.emit('error', { message: 'Il y a trop de loups ! Il faut au moins 1 villageois.' });
+            return;
+        }
+
         room.startGame();
 
         // Envoyer les rôles à chaque joueur
@@ -582,6 +600,12 @@ io.on('connection', (socket) => {
                     return;
                 }
             }
+
+            // 🐺 Les loups ne peuvent pas se cibler entre eux
+            if (action === 'kill' && player.role === 'loup' && target.role === 'loup') {
+                socket.emit('error', { message: 'Vous ne pouvez pas cibler un autre loup !' });
+                return;
+            }
         }
 
         // Enregistrer l'action
@@ -678,6 +702,27 @@ io.on('connection', (socket) => {
         target.alive = false;
         room.gameState.deadPlayers.push(targetId);
 
+        // 💔 Vérifier si c'est un amoureux → tuer l'autre aussi
+        if (room.gameState.couple.length === 2) {
+            const [lover1Id, lover2Id] = room.gameState.couple;
+
+            if (targetId === lover1Id) {
+                const lover2 = room.players.get(lover2Id);
+                if (lover2 && lover2.alive) {
+                    lover2.alive = false;
+                    room.gameState.deadPlayers.push(lover2Id);
+                    console.log(`💔 ${lover2.name} meurt de chagrin (chasseur)`);
+                }
+            } else if (targetId === lover2Id) {
+                const lover1 = room.players.get(lover1Id);
+                if (lover1 && lover1.alive) {
+                    lover1.alive = false;
+                    room.gameState.deadPlayers.push(lover1Id);
+                    console.log(`💔 ${lover1.name} meurt de chagrin (chasseur)`);
+                }
+            }
+        }
+
         io.to(room.code).emit('hunterShot', {
             hunterId: player.id,
             hunterName: player.name,
@@ -685,7 +730,7 @@ io.on('connection', (socket) => {
             targetName: target.name
         });
 
-        // Continuer le jeu
+        // ✅ Continuer le jeu avec vérification de victoire
         setTimeout(() => {
             continueAfterVote(room);
         }, 3000);
@@ -810,6 +855,7 @@ function startPhaseTimer(room, phaseDuration = 60) {
                 // Passer au vote après discussion
                 room.phase = 'vote';
                 room.phaseTimeRemaining = 45; // 45s pour voter
+                room.gameState.votes = {}; // ✅ Réinitialiser les votes au début de la phase
                 io.to(room.code).emit('votePhase', {
                     players: Array.from(room.players.values()).map(p => ({
                         id: p.id,
@@ -1062,6 +1108,8 @@ function processVotes(room) {
             setTimeout(() => {
                 // Si le chasseur n'a pas tiré, continuer
                 if (room.phase === 'hunter') {
+                    console.log('⏰ Chasseur n\'a pas tiré, on continue');
+                    room.phase = 'ending_hunter'; // Marquer pour éviter double traitement
                     continueAfterVote(room);
                 }
             }, 30000);
@@ -1078,12 +1126,14 @@ function processVotes(room) {
 
 // Continuer après le vote (ou après le tir du chasseur)
 function continueAfterVote(room) {
+    // ✅ Vérifier les conditions de victoire AVANT de continuer
     if (!checkWinCondition(room)) {
         // Passer à la nuit suivante
         setTimeout(() => {
             room.phase = 'night';
             room.nightNumber++;
             room.gameState.killedTonight = null; // Reset pour la nouvelle nuit
+            room.gameState.nightActions = {}; // ✅ Reset actions de nuit
 
             io.to(room.code).emit('nightPhase', {
                 nightNumber: room.nightNumber,

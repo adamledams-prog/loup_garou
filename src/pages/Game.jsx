@@ -84,6 +84,8 @@ function Game() {
             setPhase(data.phase)
             setNightNumber(data.nightNumber)
             setPlayers(data.players)
+            setHasActed(false) // ✅ Réinitialiser au démarrage
+            setActionSuccess(null)
             setIsLoading(false)
             setError(null)
         })
@@ -96,6 +98,7 @@ function Game() {
             setPlayers(data.players)
             setHasActed(false) // ✅ Réinitialiser à chaque nouvelle nuit
             setActionSuccess(null)
+            setSelectedPlayer(null) // ✅ Désélectionner le joueur
             if (data.killedTonight) {
                 setKilledTonight(data.killedTonight)
             }
@@ -106,6 +109,9 @@ function Game() {
             console.log('Phase de jour:', data)
             setPhase('day')
             setPlayers(data.players)
+            setHasActed(false) // ✅ Réinitialiser (pas d'action le jour mais préparer pour vote)
+            setActionSuccess(null)
+            setSelectedPlayer(null)
             if (data.killedPlayer) {
                 alert(`${data.killedPlayer} est mort cette nuit...`)
             }
@@ -117,6 +123,7 @@ function Game() {
             setPlayers(data.players)
             setHasActed(false) // ✅ Réinitialiser pour le vote
             setActionSuccess(null)
+            setSelectedPlayer(null)
             setVoteProgress({ voted: 0, total: data.players.filter(p => p.alive).length })
         })
 
@@ -130,6 +137,8 @@ function Game() {
             console.log('🏁 Game Over:', data)
             setGameOver(data) // Stocker les infos de fin de partie
             setPhase('gameOver')
+            setHasActed(false) // ✅ Réinitialiser
+            setSelectedPlayer(null)
         })
 
         // Timer de phase
@@ -191,6 +200,9 @@ function Game() {
         newSocket.on('hunterRevenge', (data) => {
             alert(`🏹 ${data.message}`)
             setPhase('hunter') // Passer en mode chasseur
+            setHasActed(false) // ✅ Réinitialiser pour le tir du chasseur
+            setActionSuccess(null)
+            setSelectedPlayer(null)
         })
 
         // Chasseur a tiré
@@ -235,6 +247,9 @@ function Game() {
     }, [navigate, roomCode])
 
     const handleAction = () => {
+        // 🔒 Empêcher les actions multiples
+        if (hasActed) return
+
         // Si sorcière, ouvrir la modal de choix (pas besoin de sélection pour soigner)
         if (myRole === 'sorciere') {
             setShowWitchModal(true)
@@ -243,6 +258,9 @@ function Game() {
 
         // Pour les autres rôles, vérifier qu'un joueur est sélectionné
         if (!selectedPlayer || !socket) return
+
+        // 🔒 Bloquer immédiatement pour éviter double-clic
+        setHasActed(true)
 
         // Déterminer l'action selon le rôle
         let action = 'unknown'
@@ -282,6 +300,12 @@ function Game() {
     const handleWitchAction = () => {
         if (!witchAction || !socket) return
 
+        // 🔒 Empêcher les actions multiples
+        if (hasActed) return
+
+        // 🔒 Bloquer immédiatement
+        setHasActed(true)
+
         // Si soigner, on soigne automatiquement la victime (pas besoin de cible)
         if (witchAction === 'heal') {
             socket.emit('nightAction', {
@@ -297,6 +321,7 @@ function Game() {
         // Si poison, on a besoin d'une cible
         if (witchAction === 'poison' && !selectedPlayer) {
             setError('Sélectionnez un joueur à empoisonner')
+            setHasActed(false) // ✅ Débloquer car erreur
             return
         }
 
@@ -313,12 +338,24 @@ function Game() {
     const handleVote = () => {
         if (!selectedPlayer || !socket) return
 
+        // 🔒 Empêcher les votes multiples
+        if (hasActed) return
+
+        // 🔒 Bloquer immédiatement
+        setHasActed(true)
+
         socket.emit('vote', { targetId: selectedPlayer })
         setSelectedPlayer(null)
     }
 
     const handleHunterShoot = () => {
         if (!selectedPlayer || !socket) return
+
+        // 🔒 Empêcher les tirs multiples
+        if (hasActed) return
+
+        // 🔒 Bloquer immédiatement
+        setHasActed(true)
 
         socket.emit('hunterShoot', { targetId: selectedPlayer })
         setSelectedPlayer(null)
@@ -568,14 +605,18 @@ function Game() {
                                                 <div
                                                     key={player.id}
                                                     onClick={() => {
-                                                        if (canClick) {
+                                                        if (canClick && !hasActed) {
                                                             setSelectedPlayer(player.id)
+                                                            // 📱 Feedback tactile sur mobile (si supporté)
+                                                            if (navigator.vibrate) {
+                                                                navigator.vibrate(50) // Vibration courte
+                                                            }
                                                         }
                                                     }}
-                                                    className={`p-4 rounded-xl text-center transition-all relative
+                                                    className={`p-4 rounded-xl text-center transition-all duration-200 relative
                                                 ${!player.alive ? 'bg-gray-900 opacity-50' : 'bg-night-800'}
-                                                ${canClick ? 'cursor-pointer hover:bg-blood-900/30' : 'cursor-default'}
-                                                ${selectedPlayer === player.id ? 'border-2 border-blood-600 shadow-neon-red' : 'border-2 border-transparent hover:border-blood-600'}
+                                                ${canClick && !hasActed ? 'cursor-pointer hover:bg-blood-900/30 hover:scale-105 active:scale-95' : 'cursor-default'}
+                                                ${selectedPlayer === player.id ? 'border-4 border-blood-600 shadow-neon-red scale-105 animate-pulse' : 'border-2 border-transparent hover:border-blood-600'}
                                             `}
                                                 >
                                                     {/* Badge "A agi" pour la nuit */}
