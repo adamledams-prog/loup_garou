@@ -217,6 +217,16 @@ class GameRoom {
         this.assignRoles();
         this.phase = 'night';
         this.nightNumber = 1;
+
+        // ✅ Réinitialiser l'état du jeu pour une nouvelle partie
+        this.gameState.witchHealUsed = false;
+        this.gameState.witchPoisonUsed = false;
+        this.gameState.couple = [];
+        this.gameState.deadPlayers = [];
+        this.gameState.killedTonight = null;
+        this.gameState.livreurProtection = null;
+        this.gameState.nightActions = {};
+        this.gameState.votes = {};
     }
 
     assignRoles() {
@@ -559,6 +569,12 @@ io.on('connection', (socket) => {
             return;
         }
 
+        // ⏳ Empêcher actions pendant le traitement de la nuit
+        if (room.processingPhase) {
+            socket.emit('error', { message: 'La nuit est en cours de traitement, veuillez patienter' });
+            return;
+        }
+
         // Vérifier que l'action correspond au rôle
         const validActions = {
             'loup': ['kill'],
@@ -609,7 +625,20 @@ io.on('connection', (socket) => {
         }
 
         // Enregistrer l'action
-        room.gameState.nightActions[socket.playerId] = { action, targetId };
+        // 💘 Cupidon peut agir plusieurs fois la nuit 1, stocker dans un array
+        if (action === 'couple' && room.nightNumber === 1) {
+            if (!room.gameState.nightActions[socket.playerId]) {
+                room.gameState.nightActions[socket.playerId] = [];
+            }
+            // Vérifier qu'on n'ajoute pas plus de 2 cibles
+            if (Array.isArray(room.gameState.nightActions[socket.playerId])) {
+                if (room.gameState.nightActions[socket.playerId].length < 2) {
+                    room.gameState.nightActions[socket.playerId].push({ action, targetId });
+                }
+            }
+        } else {
+            room.gameState.nightActions[socket.playerId] = { action, targetId };
+        }
 
         // Notifier le joueur que son action est enregistrée
         socket.emit('actionConfirmed');
@@ -619,11 +648,29 @@ io.on('connection', (socket) => {
         const playersWithActions = Array.from(room.players.values()).filter(p =>
             p.alive && rolesWithNightActions.includes(p.role)
         );
+
+        // 💘 Cupidon doit agir DEUX fois la nuit 1
+        let expectedActions = playersWithActions.length;
+        if (room.nightNumber === 1) {
+            const cupidonPlayer = Array.from(room.players.values()).find(p => p.alive && p.role === 'cupidon');
+            if (cupidonPlayer) {
+                // Compter combien de fois Cupidon a agi
+                const cupidonActions = Object.entries(room.gameState.nightActions)
+                    .filter(([playerId, action]) => playerId === cupidonPlayer.id && action.action === 'couple')
+                    .length;
+
+                // Si Cupidon n'a pas fini (moins de 2 choix ET couple pas complet)
+                if (cupidonActions < 2 && room.gameState.couple.length < 2) {
+                    expectedActions++; // Il doit agir une 2e fois
+                }
+            }
+        }
+
         const actedPlayers = Object.keys(room.gameState.nightActions).length;
 
-        console.log(`🌙 Actions: ${actedPlayers}/${playersWithActions.length} joueurs ont agi`);
+        console.log(`🌙 Actions: ${actedPlayers}/${expectedActions} joueurs ont agi`);
 
-        if (actedPlayers >= playersWithActions.length && !room.processingPhase) {
+        if (actedPlayers >= expectedActions && !room.processingPhase) {
             // Tous les joueurs avec actions ont agi, passer au jour
             room.processingPhase = true; // 🔒 Verrouiller pour éviter double traitement
             console.log('✅ Tous les rôles actifs ont agi, passage au jour');
@@ -876,6 +923,9 @@ function processNightActions(room) {
     const actions = room.gameState.nightActions;
     let killedPlayers = [];
 
+    // ✅ Réinitialiser la protection du livreur (nouvelle nuit = nouvelle protection)
+    room.gameState.livreurProtection = null;
+
     // D'abord, traiter le livreur de pizza (protection)
     for (const [playerId, action] of Object.entries(actions)) {
         const player = room.players.get(playerId);
@@ -899,11 +949,22 @@ function processNightActions(room) {
     // Trouver la cible avec le plus de votes loups
     let maxWolfVotes = 0;
     let wolfTarget = null;
+    let tiedWolfTargets = []; // 🎯 Gérer l'égalité
+
     for (const [targetId, votes] of Object.entries(wolfVotes)) {
         if (votes > maxWolfVotes) {
             maxWolfVotes = votes;
             wolfTarget = targetId;
+            tiedWolfTargets = [targetId];
+        } else if (votes === maxWolfVotes && votes > 0) {
+            tiedWolfTargets.push(targetId);
         }
+    }
+
+    // 🎯 Si égalité entre loups, personne ne meurt
+    if (tiedWolfTargets.length > 1) {
+        console.log(`🐺 Égalité votes loups (${tiedWolfTargets.length} cibles), personne ne meurt`);
+        wolfTarget = null;
     }
 
     // Si un joueur a été choisi par les loups
@@ -919,61 +980,69 @@ function processNightActions(room) {
     }
 
     // Voyante - Révéler le rôle de la cible
-    for (const [playerId, action] of Object.entries(actions)) {
+    for (const [playerId, actionOrActions] of Object.entries(actions)) {
         const player = room.players.get(playerId);
 
-        if (player.role === 'voyante' && action.action === 'see') {
-            const target = room.players.get(action.targetId);
-            if (target && player.socketId) {
-                // Envoyer le rôle de la cible UNIQUEMENT à la voyante
-                io.to(player.socketId).emit('roleRevealed', {
-                    targetId: target.id,
-                    targetName: target.name,
-                    targetRole: target.role
-                });
+        // 💘 Gérer le cas où Cupidon a un array d'actions
+        const actionsArray = Array.isArray(actionOrActions) ? actionOrActions : [actionOrActions];
+
+        for (const action of actionsArray) {
+            if (player.role === 'voyante' && action.action === 'see') {
+                const target = room.players.get(action.targetId);
+                if (target && player.socketId) {
+                    // Envoyer le rôle de la cible UNIQUEMENT à la voyante
+                    io.to(player.socketId).emit('roleRevealed', {
+                        targetId: target.id,
+                        targetName: target.name,
+                        targetRole: target.role
+                    });
+                }
             }
-        }
 
-        // Cupidon - Créer un couple (seulement première nuit)
-        if (player.role === 'cupidon' && action.action === 'couple' && room.nightNumber === 1) {
-            // La validation a déjà été faite, on ajoute directement
-            room.gameState.couple.push(action.targetId);
-            console.log(`💘 Cupidon a choisi ${action.targetId} pour le couple (${room.gameState.couple.length}/2)`);
-
-            // Si le couple est complet (2 personnes), notifier
-            if (room.gameState.couple.length === 2) {
-                const lover1 = room.players.get(room.gameState.couple[0]);
-                const lover2 = room.players.get(room.gameState.couple[1]);
-
-                // Informer les amoureux
-                if (lover1 && lover1.socketId) {
-                    io.to(lover1.socketId).emit('inLove', {
-                        partnerId: lover2.id,
-                        partnerName: lover2.name
-                    });
-                }
-                if (lover2 && lover2.socketId) {
-                    io.to(lover2.socketId).emit('inLove', {
-                        partnerId: lover1.id,
-                        partnerName: lover1.name
-                    });
-                }
-                console.log(`💘 Couple formé: ${lover1.name} ❤️ ${lover2.name}`);
+            // Cupidon - Créer un couple (seulement première nuit)
+            if (player.role === 'cupidon' && action.action === 'couple' && room.nightNumber === 1) {
+                // La validation a déjà été faite, on ajoute directement
+                room.gameState.couple.push(action.targetId);
+                console.log(`💘 Cupidon a choisi ${action.targetId} pour le couple (${room.gameState.couple.length}/2)`);
             }
         }
     }
 
-    // Sorcière
-    for (const [playerId, action] of Object.entries(actions)) {
-        const player = room.players.get(playerId);
+    // 💘 Notifier les amoureux si le couple est complet
+    if (room.gameState.couple.length === 2) {
+        const lover1 = room.players.get(room.gameState.couple[0]);
+        const lover2 = room.players.get(room.gameState.couple[1]);
 
-        if (player.role === 'sorciere') {
-            if (action.action === 'heal' && !room.gameState.witchHealUsed) {
-                killedPlayers = killedPlayers.filter(id => id !== room.gameState.killedTonight);
-                room.gameState.witchHealUsed = true;
-            } else if (action.action === 'poison' && !room.gameState.witchPoisonUsed) {
-                killedPlayers.push(action.targetId);
-                room.gameState.witchPoisonUsed = true;
+        // Informer les amoureux
+        if (lover1 && lover1.socketId) {
+            io.to(lover1.socketId).emit('inLove', {
+                partnerId: lover2.id,
+                partnerName: lover2.name
+            });
+        }
+        if (lover2 && lover2.socketId) {
+            io.to(lover2.socketId).emit('inLove', {
+                partnerId: lover1.id,
+                partnerName: lover1.name
+            });
+        }
+        console.log(`💘 Couple formé: ${lover1.name} ❤️ ${lover2.name}`);
+    }
+
+    // Sorcière
+    for (const [playerId, actionOrActions] of Object.entries(actions)) {
+        const player = room.players.get(playerId);
+        const actionsArray = Array.isArray(actionOrActions) ? actionOrActions : [actionOrActions];
+
+        for (const action of actionsArray) {
+            if (player.role === 'sorciere') {
+                if (action.action === 'heal' && !room.gameState.witchHealUsed) {
+                    killedPlayers = killedPlayers.filter(id => id !== room.gameState.killedTonight);
+                    room.gameState.witchHealUsed = true;
+                } else if (action.action === 'poison' && !room.gameState.witchPoisonUsed) {
+                    killedPlayers.push(action.targetId);
+                    room.gameState.witchPoisonUsed = true;
+                }
             }
         }
     }
@@ -1097,6 +1166,15 @@ function processVotes(room) {
         // Si le chasseur meurt, il peut tirer
         if (player.role === 'chasseur') {
             room.phase = 'hunter';
+
+            // 🎯 Vérifier si le chasseur est connecté
+            if (!player.socketId) {
+                console.log('⚠️ Chasseur déconnecté, on skip sa vengeance');
+                room.phase = 'ending_hunter';
+                continueAfterVote(room);
+                return;
+            }
+
             io.to(player.socketId).emit('hunterRevenge', {
                 message: 'Vous êtes mort ! Choisissez quelqu\'un à éliminer avec vous.',
                 players: Array.from(room.players.values())
