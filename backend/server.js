@@ -33,10 +33,10 @@ const io = socketIo(server, {
         credentials: true,
         allowedHeaders: ['*']
     },
-    // 🔧 Timeouts optimisés pour détecter déconnexions rapidement
-    pingTimeout: 10000,   // 10 secondes (détecter mort connexion vite)
-    pingInterval: 5000,   // 5 secondes (ping fréquent)
-    connectTimeout: 10000, // 10 secondes pour établir connexion
+    // 🎮 Timeouts mode famille (détente, tolérants pour jeu en famille)
+    pingTimeout: 60000,   // 60 secondes - Quelqu'un peut aller aux toilettes 🚽
+    pingInterval: 25000,  // 25 secondes - Ping espacé pour stabilité
+    connectTimeout: 45000, // 45 secondes - Connexion initiale confortable
     transports: ['websocket', 'polling'], // ✅ AUTORISER POLLING + WEBSOCKET
     allowUpgrades: true, // ✅ Permettre upgrade vers WebSocket
     perMessageDeflate: false // Désactiver compression pour éviter timeouts
