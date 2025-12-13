@@ -1457,13 +1457,23 @@ function Game() {
                                         </button>
                                     )}
 
-                                    {/* Autres rôles : afficher si sélection */}
-                                    {myRole !== 'sorciere' && myRole !== 'chasseur' && selectedPlayer && !hasActed && (
+                                    {/* Vote : tous les rôles peuvent voter (sauf pendant phase hunter) */}
+                                    {phase === 'vote' && selectedPlayer && !hasActed && (
                                         <button
-                                            onClick={phase === 'vote' ? handleVote : handleAction}
+                                            onClick={handleVote}
                                             className="btn-primary w-full mt-4"
                                         >
-                                            {phase === 'vote' ? '⚖️ Voter' : '✅ Confirmer l\'action'}
+                                            ⚖️ Voter pour {players.find(p => p.id === selectedPlayer)?.name}
+                                        </button>
+                                    )}
+
+                                    {/* Actions nocturnes : uniquement pour les rôles spéciaux (sauf sorcière qui a sa modal) */}
+                                    {phase === 'night' && myRole !== 'sorciere' && selectedPlayer && !hasActed && (
+                                        <button
+                                            onClick={handleAction}
+                                            className="btn-primary w-full mt-4"
+                                        >
+                                            ✅ Confirmer l'action
                                         </button>
                                     )}
 
