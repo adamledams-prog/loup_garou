@@ -537,24 +537,24 @@ function Lobby() {
 
                                 {/* Accessoires */}
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-300 mb-3">
+                                    <label className="block text-sm font-bold text-gray-300 mb-2">
                                         ✨ Accessoires
                                     </label>
-                                    <div className="grid grid-cols-5 gap-3">
+                                    <div className="grid grid-cols-9 gap-2">
                                         <button
                                             onClick={() => {
                                                 setSelectedAccessory(null)
                                                 audioManager.beep(440, 0.05, 0.3)
                                                 vibrate.tap()
                                             }}
-                                            className={`text-xl p-3 rounded-lg transition-all hover:scale-110 ${
+                                            className={`text-lg p-2 rounded-lg transition-all hover:scale-110 ${
                                                 selectedAccessory === null
                                                     ? 'bg-blood-600 ring-2 ring-blood-400'
                                                     : 'bg-night-800 hover:bg-night-700'
                                             }`}
                                             style={{
-                                                minHeight: '60px',
-                                                minWidth: '60px'
+                                                minHeight: '45px',
+                                                minWidth: '45px'
                                             }}
                                         >
                                             ❌
@@ -567,7 +567,7 @@ function Lobby() {
                                                     audioManager.beep(520, 0.05, 0.3)
                                                     vibrate.tap()
                                                 }}
-                                                className={`text-3xl p-3 rounded-lg transition-all hover:scale-110 bounce-in ${
+                                                className={`text-2xl p-2 rounded-lg transition-all hover:scale-110 bounce-in ${
                                                     selectedAccessory === acc.id
                                                         ? 'bg-blood-600 ring-2 ring-blood-400'
                                                         : 'bg-night-800 hover:bg-night-700'
@@ -575,8 +575,8 @@ function Lobby() {
                                                 title={acc.name}
                                                 style={{
                                                     animationDelay: `${index * 0.03}s`,
-                                                    minHeight: '60px',
-                                                    minWidth: '60px'
+                                                    minHeight: '45px',
+                                                    minWidth: '45px'
                                                 }}
                                             >
                                                 {acc.emoji}
