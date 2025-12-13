@@ -1265,8 +1265,8 @@ function getPhaseDuration(room, phase) {
 
     // Mode normal
     if (!room.rapidMode) {
-        if (phase === 'night') return 30;
-        if (phase === 'day') return 30;
+        if (phase === 'night') return 60; // 60s pour la nuit
+        if (phase === 'day') return 60; // 60s pour le jour
         if (phase === 'vote') return 60; // 60s pour voter tranquillement
     } else {
         // Mode rapide
@@ -1274,7 +1274,7 @@ function getPhaseDuration(room, phase) {
         if (phase === 'day') return 15;
         if (phase === 'vote') return 30; // 30s en mode rapide
     }
-    return 30; // Défaut
+    return 60; // Défaut
 }
 
 // Démarrer le timer pour une phase
