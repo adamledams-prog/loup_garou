@@ -9,6 +9,7 @@ class AudioManager {
     this.volume = this.loadVolume()
     this.sounds = {}
     this.currentMusic = null
+    this.batInterval = null // Pour les sons aléatoires de chauve-souris
   }
 
   /**
@@ -130,7 +131,59 @@ class AudioManager {
   }
 
   /**
-   * 🎵 Musique d'ambiance (si vous en ajoutez)
+   * � Ambiance forêt nocturne (en boucle)
+   */
+  playForestAmbience() {
+    if (this.sounds['forest_night.wav']) return // Déjà en cours
+
+    console.log('🌲 Lecture ambiance forêt nocturne')
+    return this.play('forest_night.wav', {
+      loop: true,
+      volume: this.volume * 0.4 // Plus discret
+    })
+  }
+
+  stopForestAmbience() {
+    this.stop('forest_night.wav')
+  }
+
+  /**
+   * 🦇 Son de chauve-souris aléatoire
+   */
+  playBatSound() {
+    console.log('🦇 Lecture son chauve-souris')
+    return this.play('chauve_souris.wav', { volume: this.volume * 0.6 })
+  }
+
+  /**
+   * 🦇 Démarrer les sons aléatoires de chauve-souris
+   */
+  startRandomBatSounds() {
+    if (this.batInterval) return // Déjà démarré
+
+    const playRandomBat = () => {
+      if (this.enabled) {
+        this.playBatSound()
+      }
+      // Rejouer entre 8 et 20 secondes aléatoirement
+      const nextDelay = 8000 + Math.random() * 12000
+      this.batInterval = setTimeout(playRandomBat, nextDelay)
+    }
+
+    // Premier son après 3-8 secondes
+    const initialDelay = 3000 + Math.random() * 5000
+    this.batInterval = setTimeout(playRandomBat, initialDelay)
+  }
+
+  stopRandomBatSounds() {
+    if (this.batInterval) {
+      clearTimeout(this.batInterval)
+      this.batInterval = null
+    }
+  }
+
+  /**
+   * �🎵 Musique d'ambiance (si vous en ajoutez)
    */
   playAmbientMusic() {
     if (this.currentMusic) return
@@ -196,6 +249,7 @@ class AudioManager {
    * Cleanup
    */
   cleanup() {
+    this.stopRandomBatSounds()
     this.stopAll()
   }
 }

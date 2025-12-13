@@ -50,12 +50,27 @@ function Home() {
                 audioManager.playWolfHowl()
             }, 500)
 
+            // 🌲 Ambiance forêt nocturne en boucle
+            setTimeout(() => {
+                console.log('🌲 Démarrage ambiance forêt...')
+                audioManager.playForestAmbience()
+            }, 2000)
+
+            // 🦇 Sons aléatoires de chauve-souris
+            setTimeout(() => {
+                console.log('🦇 Démarrage sons aléatoires...')
+                audioManager.startRandomBatSounds()
+            }, 5000)
+
             document.removeEventListener('click', initSound)
         }
         document.addEventListener('click', initSound)
 
         return () => {
             document.removeEventListener('click', initSound)
+            // Nettoyer tous les sons quand on quitte la page
+            audioManager.stopForestAmbience()
+            audioManager.stopRandomBatSounds()
         }
     }, [])
 

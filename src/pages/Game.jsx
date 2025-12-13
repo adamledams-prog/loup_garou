@@ -191,6 +191,16 @@ function Game() {
             // 🔊 Son transition nuit
             audioManager.beep(220, 0.3, 0.5) // Low beep for night
 
+            // 🌲 Ambiance forêt nocturne en boucle
+            setTimeout(() => {
+                audioManager.playForestAmbience()
+            }, 1000)
+
+            // 🦇 Sons aléatoires de chauve-souris
+            setTimeout(() => {
+                audioManager.startRandomBatSounds()
+            }, 3000)
+
             // 🐺 Hurlement immédiat au début de la nuit
             setTimeout(() => {
                 audioManager.playWolfHowl()
@@ -230,7 +240,10 @@ function Game() {
             // 🔊 Son transition jour
             audioManager.beep(440, 0.3, 0.5) // Higher beep for day
 
-            // 🌅 Arrêter les hurlements
+            // 🌅 Arrêter toutes les ambiances nocturnes
+            audioManager.stopForestAmbience()
+            audioManager.stopRandomBatSounds()
+
             if (window.nightHowlInterval) {
                 clearInterval(window.nightHowlInterval)
                 window.nightHowlInterval = null
