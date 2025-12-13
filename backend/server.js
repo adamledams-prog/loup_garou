@@ -33,10 +33,10 @@ const io = socketIo(server, {
         credentials: true,
         allowedHeaders: ['*']
     },
-    // 🔧 Timeouts TRÈS élevés pour Railway/Vercel (contre redémarrages intempestifs)
-    pingTimeout: 300000,  // 5 minutes (Railway peut être lent)
-    pingInterval: 15000,  // 15 secondes (plus fréquent = meilleure détection)
-    connectTimeout: 60000, // 60 secondes pour établir connexion
+    // 🔧 Timeouts optimisés pour détecter déconnexions rapidement
+    pingTimeout: 10000,   // 10 secondes (détecter mort connexion vite)
+    pingInterval: 5000,   // 5 secondes (ping fréquent)
+    connectTimeout: 10000, // 10 secondes pour établir connexion
     transports: ['websocket', 'polling'], // ✅ AUTORISER POLLING + WEBSOCKET
     allowUpgrades: true, // ✅ Permettre upgrade vers WebSocket
     perMessageDeflate: false // Désactiver compression pour éviter timeouts
