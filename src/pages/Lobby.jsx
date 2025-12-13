@@ -22,7 +22,18 @@ function Lobby() {
 
     // 🎨 Avatars
     const [selectedAvatar, setSelectedAvatar] = useState('😊')
+    const [selectedAccessory, setSelectedAccessory] = useState(null)
     const avatarList = ['😊', '🦊', '🐱', '🐻', '🦁', '🐼', '🦝', '🦉', '🐸', '🐰', '🐯', '🐨', '🐵', '🐷', '🐮', '🐔', '🐺', '🦆', '🦄', '🐉']
+    const accessoryList = [
+        { id: 'crown', emoji: '👑', name: 'Couronne' },
+        { id: 'glasses', emoji: '👓', name: 'Lunettes' },
+        { id: 'hat', emoji: '🎩', name: 'Chapeau' },
+        { id: 'helmet', emoji: '⛑️', name: 'Casque' },
+        { id: 'cap', emoji: '🧢', name: 'Casquette' },
+        { id: 'party', emoji: '🎉', name: 'Fête' },
+        { id: 'flower', emoji: '🌸', name: 'Fleur' },
+        { id: 'star', emoji: '⭐', name: 'Étoile' }
+    ]
 
     // 🎊 Système de particules
     const canvasRef = useRef(null)
@@ -478,7 +489,7 @@ function Lobby() {
 
                 {/* Menu principal */}
                 {view === 'menu' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 animate-slideUp">
+                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 animate-slideUp">
                         <div className="card-glow">
                             <h2 className="text-2xl font-bold mb-4 text-center text-blood">Rejoignez ou créez une partie</h2>
                             
@@ -490,35 +501,88 @@ function Lobby() {
                                 className="input-primary mb-4"
                             />
 
-                            {/* Sélecteur d'avatar */}
+                            {/* Sélecteur d'avatar et accessoires */}
                             <div className="mb-6">
-                                <label className="block text-sm font-bold text-gray-300 mb-2">
-                                    🎨 Choisis ton avatar
-                                </label>
-                                <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
-                                    {avatarList.map((avatar, index) => (
+                                {/* Avatars - 2 lignes */}
+                                <div className="mb-6">
+                                    <label className="block text-sm font-bold text-gray-300 mb-3">
+                                        🎨 Choisis ton avatar
+                                    </label>
+                                    <div className="grid grid-cols-5 gap-3">
+                                        {avatarList.map((avatar, index) => (
+                                            <button
+                                                key={avatar}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedAvatar(avatar)
+                                                    audioManager.playAvatarChoice()
+                                                    vibrate.tap()
+                                                }}
+                                                className={`text-3xl p-3 rounded-lg transition-all hover:scale-110 scale-hover bounce-in ${
+                                                    selectedAvatar === avatar
+                                                        ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
+                                                        : 'bg-night-800 hover:bg-night-700'
+                                                }`}
+                                                style={{
+                                                    animationDelay: `${index * 0.03}s`,
+                                                    minHeight: '60px',
+                                                    minWidth: '60px'
+                                                }}
+                                            >
+                                                {avatar}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Accessoires */}
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-300 mb-3">
+                                        ✨ Accessoires
+                                    </label>
+                                    <div className="grid grid-cols-5 gap-3">
                                         <button
-                                            key={avatar}
-                                            type="button"
                                             onClick={() => {
-                                                setSelectedAvatar(avatar)
-                                                audioManager.playAvatarChoice()
+                                                setSelectedAccessory(null)
+                                                audioManager.beep(440, 0.05, 0.3)
                                                 vibrate.tap()
                                             }}
-                                            className={`text-2xl md:text-3xl p-2 rounded-lg transition-all hover:scale-110 scale-hover bounce-in ${
-                                                selectedAvatar === avatar
-                                                    ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
+                                            className={`text-xl p-3 rounded-lg transition-all hover:scale-110 ${
+                                                selectedAccessory === null
+                                                    ? 'bg-blood-600 ring-2 ring-blood-400'
                                                     : 'bg-night-800 hover:bg-night-700'
                                             }`}
                                             style={{
-                                                animationDelay: `${index * 0.03}s`,
-                                                minHeight: '48px',
-                                                minWidth: '48px'
+                                                minHeight: '60px',
+                                                minWidth: '60px'
                                             }}
                                         >
-                                            {avatar}
+                                            ❌
                                         </button>
-                                    ))}
+                                        {accessoryList.map((acc, index) => (
+                                            <button
+                                                key={acc.id}
+                                                onClick={() => {
+                                                    setSelectedAccessory(acc.id)
+                                                    audioManager.beep(520, 0.05, 0.3)
+                                                    vibrate.tap()
+                                                }}
+                                                className={`text-3xl p-3 rounded-lg transition-all hover:scale-110 bounce-in ${
+                                                    selectedAccessory === acc.id
+                                                        ? 'bg-blood-600 ring-2 ring-blood-400'
+                                                        : 'bg-night-800 hover:bg-night-700'
+                                                }`}
+                                                title={acc.name}
+                                                style={{
+                                                    animationDelay: `${index * 0.03}s`,
+                                                    minHeight: '60px',
+                                                    minWidth: '60px'
+                                                }}
+                                            >
+                                                {acc.emoji}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
 
@@ -544,8 +608,13 @@ function Lobby() {
 
                         {/* Carte d'aperçu à droite */}
                         <div className="hidden lg:flex flex-col items-center justify-center card bg-night-800 border-2 border-blood-600 shadow-neon-red">
-                            <div className="text-9xl mb-4 animate-bounce-in drop-shadow-2xl">
+                            <div className="relative text-9xl mb-4 animate-bounce-in drop-shadow-2xl">
                                 {selectedAvatar}
+                                {selectedAccessory && (
+                                    <div className="absolute -top-2 -right-2 text-5xl animate-bounce-in">
+                                        {accessoryList.find(acc => acc.id === selectedAccessory)?.emoji}
+                                    </div>
+                                )}
                             </div>
                             <div className="text-center">
                                 <p className="text-2xl font-bold text-white">
