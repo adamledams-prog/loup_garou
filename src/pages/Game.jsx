@@ -201,7 +201,15 @@ function Game() {
                 audioManager.startRandomBatSounds()
             }, 3000)
 
-            // 🐺 Hurlement immédiat au début de la nuit
+            // � Prénoms des neveux SEULEMENT à partir de la nuit 3
+            if (data.nightNumber >= 3) {
+                setTimeout(() => {
+                    console.log('👶 Activation prénoms aléatoires (nuit 3+)')
+                    audioManager.startRandomKidsNames()
+                }, 5000)
+            }
+
+            // �🐺 Hurlement immédiat au début de la nuit
             setTimeout(() => {
                 audioManager.playWolfHowl()
             }, 1500) // 1.5s après le début de la nuit
@@ -243,13 +251,12 @@ function Game() {
             // 🌅 Arrêter toutes les ambiances nocturnes
             audioManager.stopForestAmbience()
             audioManager.stopRandomBatSounds()
+            audioManager.stopRandomKidsNames() // Arrêter les prénoms aussi
 
             if (window.nightHowlInterval) {
                 clearInterval(window.nightHowlInterval)
                 window.nightHowlInterval = null
-            }
-
-            if (data.killedPlayer) {
+            }            if (data.killedPlayer) {
                 addEvent('death', `💀 ${data.killedPlayer} est mort cette nuit`, '💀')
                 showNotification('death', '💀', 'Victime de la nuit', `${data.killedPlayer} est mort cette nuit...`)
                 // 📊 Incrémenter le compteur de morts
@@ -354,16 +361,42 @@ function Game() {
             }, 3000)
         })
 
+        // 🔄 Compteur de tentatives de reconnexion
+        let reconnectAttempts = 0
+        const MAX_RECONNECT_ATTEMPTS = 3
+
         // Erreurs
         newSocket.on('error', (data) => {
             console.error('❌ Erreur:', data.message)
 
-            // Si partie introuvable ou joueur introuvable, rediriger vers lobby
+            // Si partie introuvable ou joueur introuvable, essayer de se reconnecter
             if (data.message.includes('introuvable')) {
+                if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                    reconnectAttempts++
+                    console.log(`🔄 Tentative reconnexion ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`)
+
+                    showNotification('warning', '⚠️', 'Reconnexion...',
+                        `Tentative ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} en cours...`, 2000)
+
+                    // Retry avec backoff exponentiel (1s, 2s, 3s)
+                    setTimeout(() => {
+                        console.log(`🔄 Émission reconnectToGame (tentative ${reconnectAttempts})`)
+                        newSocket.emit('reconnectToGame', {
+                            roomCode: localStorage.getItem('roomCode'),
+                            playerId: localStorage.getItem('playerId')
+                        })
+                    }, 1000 * reconnectAttempts)
+                    return
+                }
+
+                // Après 3 tentatives, vraiment abandonner
+                console.error('❌ Reconnexion échouée après 3 tentatives')
                 showNotification('error', '❌', 'Erreur', `${data.message}\n\nVous allez être redirigé vers le lobby.`, 3000)
+
                 // Nettoyer le localStorage
                 localStorage.removeItem('playerId')
                 localStorage.removeItem('roomCode')
+
                 // Rediriger après 2s
                 setTimeout(() => {
                     navigate('/lobby')

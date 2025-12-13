@@ -488,7 +488,11 @@ function Lobby() {
                                         <button
                                             key={avatar}
                                             type="button"
-                                            onClick={() => setSelectedAvatar(avatar)}
+                                            onClick={() => {
+                                                setSelectedAvatar(avatar)
+                                                audioManager.playAvatarChoice()
+                                                vibrate.tap()
+                                            }}
                                             className={`text-2xl md:text-3xl p-2 rounded-lg transition-all hover:scale-110 scale-hover bounce-in ${
                                                 selectedAvatar === avatar
                                                     ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
@@ -535,7 +539,11 @@ function Lobby() {
                                         <button
                                             key={avatar}
                                             type="button"
-                                            onClick={() => setSelectedAvatar(avatar)}
+                                            onClick={() => {
+                                                setSelectedAvatar(avatar)
+                                                audioManager.playAvatarChoice()
+                                                vibrate.tap()
+                                            }}
                                             className={`text-3xl p-2 rounded-lg transition-all hover:scale-110 scale-hover bounce-in ${
                                                 selectedAvatar === avatar
                                                     ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'

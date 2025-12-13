@@ -10,6 +10,7 @@ class AudioManager {
     this.sounds = {}
     this.currentMusic = null
     this.batInterval = null // Pour les sons aléatoires de chauve-souris
+    this.kidsNamesInterval = null // Pour les prénoms des neveux
   }
 
   /**
@@ -183,6 +184,51 @@ class AudioManager {
   }
 
   /**
+   * 👶 Prénoms des neveux (joués aléatoirement pendant la partie)
+   */
+  playRandomKidsName() {
+    const names = ['fatima.mp3', 'naim.mp3', 'sarah.mp3']
+    const randomName = names[Math.floor(Math.random() * names.length)]
+    console.log(`👶 Lecture prénom: ${randomName}`)
+    return this.play(randomName, { volume: this.volume * 0.8 })
+  }
+
+  /**
+   * 👶 Démarrer les prénoms aléatoires pendant la partie
+   */
+  startRandomKidsNames() {
+    if (this.kidsNamesInterval) return // Déjà démarré
+
+    const playRandomName = () => {
+      if (this.enabled) {
+        this.playRandomKidsName()
+      }
+      // Rejouer entre 45 et 90 secondes (plus espacé que les chauves-souris)
+      const nextDelay = 45000 + Math.random() * 45000
+      this.kidsNamesInterval = setTimeout(playRandomName, nextDelay)
+    }
+
+    // Premier nom après 20-40 secondes
+    const initialDelay = 20000 + Math.random() * 20000
+    this.kidsNamesInterval = setTimeout(playRandomName, initialDelay)
+  }
+
+  stopRandomKidsNames() {
+    if (this.kidsNamesInterval) {
+      clearTimeout(this.kidsNamesInterval)
+      this.kidsNamesInterval = null
+    }
+  }
+
+  /**
+   * 🎨 Son choix d'avatar
+   */
+  playAvatarChoice() {
+    console.log('🎨 Lecture son choix avatar')
+    return this.play('choix_avatars_ambiance.mp3', { volume: this.volume * 0.6 })
+  }
+
+  /**
    * �🎵 Musique d'ambiance (si vous en ajoutez)
    */
   playAmbientMusic() {
@@ -250,6 +296,7 @@ class AudioManager {
    */
   cleanup() {
     this.stopRandomBatSounds()
+    this.stopRandomKidsNames()
     this.stopAll()
   }
 }
