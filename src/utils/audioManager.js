@@ -225,7 +225,7 @@ class AudioManager {
    */
   playAvatarChoice() {
     console.log('🎨 Lecture son choix avatar')
-    return this.play('choix_avatars_ambiance.mp3', { volume: this.volume * 0.6 })
+    return this.play('choix_avatars_ambiance.mp3', { volume: this.volume * 1.0 }) // Volume max pour bien entendre
   }
 
   /**

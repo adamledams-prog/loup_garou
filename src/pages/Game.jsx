@@ -5,7 +5,6 @@ import config from '../config'
 import { useParticleSystem } from '../utils/particles'
 import { audioManager } from '../utils/audioManager'
 import { vibrate, requestWakeLock, releaseWakeLock } from '../utils/mobile'
-import NetworkIndicator from '../components/NetworkIndicator'
 
 function Game() {
     const { roomCode } = useParams()
@@ -843,9 +842,6 @@ function Game() {
 
     return (
         <div className="min-h-screen p-4">
-            {/* 📡 Indicateur réseau */}
-            <NetworkIndicator position="top-left" />
-
             {/* 🎊 Canvas pour particules */}
             <canvas
                 ref={canvasRef}
@@ -1595,15 +1591,6 @@ function Game() {
                                             </div>
                                         )}
                                     </div>
-
-                                    {/* Message de restriction */}
-                                    {phase === 'night' && myRole !== 'loup' && (
-                                        <div className="bg-yellow-900/30 border-2 border-yellow-600 rounded-lg p-3 mb-3">
-                                            <p className="text-yellow-400 text-sm">
-                                                🌙 Le chat est désactivé pendant la nuit (sauf pour les loups)
-                                            </p>
-                                        </div>
-                                    )}
 
                                     <div className="flex-1 bg-gradient-to-b from-night-900/50 to-night-900/80 backdrop-blur-sm rounded-lg p-3 mb-3 overflow-y-auto chat-scroll-smooth">
                                         {messages.length === 0 ? (

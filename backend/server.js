@@ -1258,20 +1258,20 @@ function getPhaseDuration(room, phase) {
 
     if (aliveCount <= 3 && aliveCount > 1) {
         console.log(`🔥 MODE FINALE : Seulement ${aliveCount} joueurs vivants, timer accéléré !`);
-        // Timer ultra court pour finale stressante
-        return 15;
+        // Timer ultra court pour finale stressante - 30s au lieu de 15s
+        return 30;
     }
 
     // Mode normal
     if (!room.rapidMode) {
         if (phase === 'night') return 30;
         if (phase === 'day') return 30;
-        if (phase === 'vote') return 30;
+        if (phase === 'vote') return 60; // 60s pour voter tranquillement
     } else {
         // Mode rapide
         if (phase === 'night') return 20;
         if (phase === 'day') return 15;
-        if (phase === 'vote') return 15;
+        if (phase === 'vote') return 30; // 30s en mode rapide
     }
     return 30; // Défaut
 }
