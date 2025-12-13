@@ -111,6 +111,7 @@ class TTSManager {
       // Créer et jouer l'audio
       this.currentAudio = new Audio(audioUrl)
       this.currentAudio.volume = 0.8
+      this.currentAudio.playbackRate = 1.5 // ⚡ Accélérer x1.5 pour dynamisme
 
       // Quand l'audio se termine, jouer le suivant
       this.currentAudio.onended = () => {
