@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import io from 'socket.io-client'
 import { QRCodeSVG } from 'qrcode.react'
 import config from '../config'
@@ -9,6 +9,7 @@ import { vibrate, shareRoomCode } from '../utils/mobile'
 
 function Lobby() {
     const navigate = useNavigate()
+    const [searchParams] = useSearchParams()
     const [socket, setSocket] = useState(null)
     const [view, setView] = useState('menu') // menu, create, join, waiting
     const [playerName, setPlayerName] = useState('')
@@ -238,6 +239,16 @@ function Lobby() {
             difficulty: 'Facile'
         }
     }
+
+    // 📲 Détecter le paramètre ?join= dans l'URL (pour QR code)
+    useEffect(() => {
+        const joinCode = searchParams.get('join')
+        if (joinCode) {
+            console.log('📲 Code détecté dans QR:', joinCode)
+            setRoomCode(joinCode.toUpperCase())
+            setView('join') // Afficher directement le formulaire de join
+        }
+    }, [searchParams])
 
     useEffect(() => {
         console.log('🔌 Connexion Socket.io vers:', config.serverUrl)
@@ -1009,6 +1020,12 @@ function Lobby() {
                                     excavate: true,
                                 }}
                             />
+                        </div>
+
+                        {/* Message explicatif */}
+                        <div className="text-center text-sm text-gray-400 mt-2">
+                            <p>🎯 Scannez ce QR code pour</p>
+                            <p className="font-bold text-white">rejoindre directement la partie !</p>
                         </div>
 
                         {/* Code en grand */}
