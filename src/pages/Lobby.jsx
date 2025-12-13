@@ -480,7 +480,8 @@ function Lobby() {
                 {view === 'menu' && (
                     <div className="space-y-4 animate-slideUp">
                         <div className="card-glow">
-                            <h2 className="text-2xl font-bold mb-4 text-blood">Créer une partie</h2>
+                            <h2 className="text-2xl font-bold mb-4 text-center text-blood">Rejoignez ou créez une partie</h2>
+                            
                             <input
                                 type="text"
                                 placeholder="Votre nom"
@@ -490,7 +491,7 @@ function Lobby() {
                             />
 
                             {/* Sélecteur d'avatar */}
-                            <div className="mb-4">
+                            <div className="mb-6">
                                 <label className="block text-sm font-bold text-gray-300 mb-2">
                                     🎨 Choisis ton avatar
                                 </label>
@@ -521,68 +522,62 @@ function Lobby() {
                                 </div>
                             </div>
 
-                            <button
-                                className="btn-primary w-full ripple-container"
-                                onClick={handleCreateRoom}
-                                disabled={isLoading}
-                            >
-                                {isLoading ? '⏳ Création...' : '🎮 Créer une salle'}
-                            </button>
-                        </div>
-
-                        <div className="card">
-                            <h2 className="text-2xl font-bold mb-4 text-gray-300">Rejoindre une partie</h2>
-                            <input
-                                type="text"
-                                placeholder="Votre nom"
-                                value={playerName}
-                                onChange={(e) => setPlayerName(e.target.value)}
-                                className="input-primary mb-3"
-                            />
-
-                            {/* Sélecteur d'avatar */}
-                            <div className="mb-3">
-                                <label className="block text-sm font-bold text-gray-300 mb-2">
-                                    🎨 Choisis ton avatar
-                                </label>
-                                <div className="grid grid-cols-10 gap-2">
-                                    {avatarList.map((avatar, index) => (
-                                        <button
-                                            key={avatar}
-                                            type="button"
-                                            onClick={() => {
-                                                setSelectedAvatar(avatar)
-                                                audioManager.playAvatarChoice()
-                                                vibrate.tap()
-                                            }}
-                                            className={`text-3xl p-2 rounded-lg transition-all hover:scale-110 scale-hover bounce-in ${
-                                                selectedAvatar === avatar
-                                                    ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
-                                                    : 'bg-night-800 hover:bg-night-700'
-                                            }`}
-                                            style={{ animationDelay: `${index * 0.03}s` }}
-                                        >
-                                            {avatar}
-                                        </button>
-                                    ))}
-                                </div>
+                            {/* Deux boutons côte à côte */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <button
+                                    className="btn-primary ripple-container py-4"
+                                    onClick={handleCreateRoom}
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? '⏳ Création...' : '🎮 Créer une partie'}
+                                </button>
+                                
+                                <button
+                                    className="btn-secondary ripple-container py-4"
+                                    onClick={() => setView('join')}
+                                    disabled={isLoading}
+                                >
+                                    🚪 Rejoindre une partie
+                                </button>
                             </div>
+                        </div>
+                    </div>
+                )}
 
+                {/* Formulaire pour rejoindre */}
+                {view === 'join' && (
+                    <div className="space-y-4 animate-slideUp">
+                        <div className="card-glow">
+                            <h2 className="text-2xl font-bold mb-4 text-center text-gray-300">Rejoindre une partie</h2>
+                            
                             <input
                                 type="text"
-                                placeholder="ABC123"
+                                placeholder="Code de la partie (ABC123)"
                                 value={roomCode}
                                 onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                                 className="input-code mb-4 input-glow"
                                 maxLength={6}
+                                autoFocus
                             />
-                            <button
-                                className="btn-secondary w-full ripple-container"
-                                onClick={handleJoinRoom}
-                                disabled={isLoading}
-                            >
-                                {isLoading ? '⏳ Connexion...' : '🚪 Rejoindre'}
-                            </button>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <button
+                                    className="btn-secondary ripple-container py-3"
+                                    onClick={() => {
+                                        setView('menu')
+                                        setRoomCode('')
+                                    }}
+                                >
+                                    ← Retour
+                                </button>
+                                <button
+                                    className="btn-primary ripple-container py-3"
+                                    onClick={handleJoinRoom}
+                                    disabled={isLoading || !roomCode.trim()}
+                                >
+                                    {isLoading ? '⏳ Connexion...' : '✅ Rejoindre'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
