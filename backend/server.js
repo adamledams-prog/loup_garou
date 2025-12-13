@@ -37,8 +37,8 @@ const io = socketIo(server, {
     pingTimeout: 300000,  // 5 minutes (Railway peut être lent)
     pingInterval: 15000,  // 15 secondes (plus fréquent = meilleure détection)
     connectTimeout: 60000, // 60 secondes pour établir connexion
-    transports: ['websocket'], // ✅ WEBSOCKET ONLY - Pas de fallback polling
-    allowUpgrades: false, // ✅ Désactiver upgrade (on reste en websocket)
+    transports: ['websocket', 'polling'], // ✅ AUTORISER POLLING + WEBSOCKET
+    allowUpgrades: true, // ✅ Permettre upgrade vers WebSocket
     perMessageDeflate: false // Désactiver compression pour éviter timeouts
 });
 
