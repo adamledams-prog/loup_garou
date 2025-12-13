@@ -108,14 +108,14 @@ class AIBotManager {
     shouldBotSpeak(phase) {
         if (!this.chatEnabled) return false;
 
-        // Probabilités : plus actif en journée
+        // 🎭 Bots TRÈS ACTIFS pour ambiance vivante !
         const probability = {
-            night: 0.15,  // 15% de chance de parler la nuit (rare)
-            day: 0.7,     // 70% de chance de parler le jour
-            vote: 0.5     // 50% pendant les votes
+            night: 0.3,   // 30% la nuit (un peu plus actif)
+            day: 0.95,    // 95% le jour (presque toujours !)
+            vote: 0.85    // 85% pendant les votes (très bavards)
         };
 
-        return Math.random() < (probability[phase] || 0.3);
+        return Math.random() < (probability[phase] || 0.5);
     }
 
     // Générer une narration personnalisée
