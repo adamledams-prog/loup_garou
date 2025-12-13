@@ -1,16 +1,19 @@
-# 🐺 Loup-Garou React - Version Multijoueur
+# 🐺 Loup-Garou Online - Jeu Multijoueur en Famille
 
-Jeu de Loup-Garou multijoueur en temps réel avec React + Socket.io
+Jeu de Loup-Garou multijoueur en temps réel avec React + Socket.io + **Bots IA intelligents** 🤖
 
-## � Fonctionnalités
+## ✨ Fonctionnalités
 
-- ✅ Créer et rejoindre des parties avec un code
+- ✅ Créer et rejoindre des parties avec un code (ou QR code)
 - ✅ 8 rôles : Loup-Garou, Voyante, Sorcière, Chasseur, Cupidon, Riche, Livreur, Villageois
-- ✅ Phases de nuit, jour et vote
-- ✅ Chat en temps réel (loups uniquement la nuit)
-- ✅ Timer automatique pour chaque phase
-- ✅ Design responsive (mobile + desktop)
-- ✅ Système de reconnexion
+- ✅ Phases de nuit, jour et vote avec timer automatique
+- ✅ **Timer accéléré en finale** (15s quand ≤3 joueurs vivants)
+- ✅ **Narrations dramatiques** avec sons et vibrations
+- ✅ Chat en temps réel (loups la nuit, tous le jour)
+- ✅ **Bots IA** qui parlent et agissent naturellement (OpenAI/OpenRouter)
+- ✅ Design responsive PWA (mobile + desktop)
+- ✅ Système de reconnexion automatique
+- ✅ Statistiques de partie (MVP, plus bavard, etc.)
 
 ## 🏗️ Architecture
 
@@ -48,11 +51,53 @@ npm run dev     # Terminal 2
 
 Puis ouvrez **http://localhost:5173**
 
+## 🤖 Bots IA (NOUVEAU !)
+
+Les bots peuvent maintenant **parler dans le chat** et **agir intelligemment** grâce à l'IA !
+
+### ⚡ Démarrage Rapide
+
+1. **Obtenir une clé API** :
+   - OpenAI : https://platform.openai.com/api-keys
+   - Ou OpenRouter : https://openrouter.ai/keys (gratuit avec Llama)
+
+2. **Configurer** :
+```bash
+cd backend
+cp .env.example .env
+# Éditer .env et ajouter :
+# OPENAI_API_KEY=sk-proj-xxxxx
+# AI_BOTS_ENABLED=true
+# AI_BOTS_CHAT=true
+```
+
+3. **Redémarrer le serveur** :
+```bash
+node server.js
+```
+
+Les bots vont maintenant :
+- 💬 Parler dans le chat selon leur rôle et la situation
+- 🎭 Avoir une personnalité unique (Robo = sarcastique, Beep = timide, etc.)
+- 🧠 Voter intelligemment en analysant le contexte
+- 📢 Apparaître dans les narrations personnalisées
+
+**Coût** : ~$0.002-0.005 par partie (négligeable) avec `gpt-4o-mini`
+
+📖 **Guide complet** : [doc/AI_BOTS.md](./doc/AI_BOTS.md)
+
+---
+
 ## 📚 Documentation complète
 
-- 📖 **Développement local ?** → [DEVELOPPEMENT.md](./DEVELOPPEMENT.md)
-- 🚀 **Déployer en production ?** → [DEPLOIEMENT.md](./DEPLOIEMENT.md)
-- 🔧 **Voir les corrections** → [CORRECTIONS.md](./CORRECTIONS.md)
+Toute la documentation est dans le dossier **`/doc`** :
+
+- 🤖 **[AI_BOTS.md](./doc/AI_BOTS.md)** - Bots IA intelligents ⭐ NOUVEAU
+- 🎮 **[FEATURES_DEPLOYED.md](./doc/FEATURES_DEPLOYED.md)** - Timer accéléré + Narrations
+- 📖 **[DEVELOPPEMENT.md](./doc/DEVELOPPEMENT.md)** - Guide de développement
+- 🚀 **[DEPLOIEMENT.md](./doc/DEPLOIEMENT.md)** - Déploiement production
+- 🔧 **[CORRECTIONS.md](./doc/CORRECTIONS.md)** - Historique des corrections
+- 📑 **[Voir tous les docs](./doc/README.md)** - Index complet
 
 ## 🎯 Technologies
 

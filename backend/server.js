@@ -1077,6 +1077,7 @@ io.on('connection', (socket) => {
                         room.gameState.deadPlayers.push(lover2Id);
                     }
                     console.log(`💔 ${lover2.name} meurt de chagrin (chasseur)`);
+                    emitNarration(io, room.code, `💔 ${lover2.name} meurt de chagrin d'amour...`, 'love', 5000);
                 }
             } else if (targetId === lover2Id) {
                 const lover1 = room.players.get(lover1Id);
@@ -1086,6 +1087,7 @@ io.on('connection', (socket) => {
                         room.gameState.deadPlayers.push(lover1Id);
                     }
                     console.log(`💔 ${lover1.name} meurt de chagrin (chasseur)`);
+                    emitNarration(io, room.code, `💔 ${lover1.name} meurt de chagrin d'amour...`, 'love', 5000);
                 }
             }
         }
@@ -1222,20 +1224,29 @@ io.on('connection', (socket) => {
     });
 });
 
-// ⚡ Obtenir la durée selon le mode rapide
+// ⚡ Obtenir la durée selon le mode rapide ET le nombre de joueurs
 function getPhaseDuration(room, phase) {
+    // 🔥 FINALE ACCÉLÉRÉE : Quand il reste 3 joueurs ou moins
+    const aliveCount = Array.from(room.players.values()).filter(p => p.alive).length;
+
+    if (aliveCount <= 3 && aliveCount > 1) {
+        console.log(`🔥 MODE FINALE : Seulement ${aliveCount} joueurs vivants, timer accéléré !`);
+        // Timer ultra court pour finale stressante
+        return 15;
+    }
+
+    // Mode normal
     if (!room.rapidMode) {
-        // Mode normal - ⚡ Timers optimisés pour gameplay fluide
-        if (phase === 'night') return 30; // ✅ Réduit de 60s à 30s
+        if (phase === 'night') return 30;
         if (phase === 'day') return 30;
         if (phase === 'vote') return 30;
     } else {
         // Mode rapide
-        if (phase === 'night') return 20; // ✅ Réduit de 30s à 20s
+        if (phase === 'night') return 20;
         if (phase === 'day') return 15;
-        if (phase === 'vote') return 15; // ✅ Réduit de 20s à 15s
+        if (phase === 'vote') return 15;
     }
-    return 30; // Défaut réduit aussi
+    return 30; // Défaut
 }
 
 // Démarrer le timer pour une phase
@@ -1446,10 +1457,15 @@ function processNightActions(room) {
                     killedPlayers = killedPlayers.filter(id => id !== room.gameState.killedTonight);
                     room.gameState.witchHealUsed = true;
                     console.log(`🧪 Sorcière heal ${room.gameState.killedTonight}`);
+                    const savedPlayer = room.players.get(room.gameState.killedTonight);
+                    if (savedPlayer) {
+                        emitNarration(io, room.code, `✨ La Sorcière a sauvé quelqu'un cette nuit...`, 'success', 4000);
+                    }
                 } else if (action.action === 'poison' && !room.gameState.witchPoisonUsed) {
                     killedPlayers.push(action.targetId);
                     room.gameState.witchPoisonUsed = true;
                     console.log(`🧪 Sorcière poison ${action.targetId}`);
+                    emitNarration(io, room.code, `☠️ La Sorcière a empoisonné quelqu'un cette nuit...`, 'danger', 4000);
                 }
             }
         }
@@ -1472,6 +1488,7 @@ function processNightActions(room) {
                 lover2.alive = false;
                 killedPlayers.push(lover2Id);
                 console.log(`💔 ${lover2.name} meurt de chagrin`);
+                emitNarration(io, room.code, `💔 ${lover2.name} meurt de chagrin d'amour...`, 'love', 5000);
             }
         } else if (killedPlayers.includes(lover2Id) && !killedPlayers.includes(lover1Id)) {
             // Amoureux 2 est mort → tuer amoureux 1
@@ -1480,6 +1497,7 @@ function processNightActions(room) {
                 lover1.alive = false;
                 killedPlayers.push(lover1Id);
                 console.log(`💔 ${lover1.name} meurt de chagrin`);
+                emitNarration(io, room.code, `💔 ${lover1.name} meurt de chagrin d'amour...`, 'love', 5000);
             }
         }
     }
@@ -1572,6 +1590,9 @@ function processVotes(room) {
 
     // Si égalité, personne n'est éliminé
     if (tiedPlayers.length > 1) {
+        const tiedNames = tiedPlayers.map(id => room.players.get(id).name).join(', ');
+        emitNarration(io, room.code, `⚖️ Égalité parfaite entre ${tiedNames} ! Le village hésite...`, 'info', 5000);
+
         io.to(room.code).emit('voteResult', {
             tie: true,
             tiedPlayers: tiedPlayers.map(id => ({
@@ -1681,6 +1702,12 @@ function continueAfterVote(room) {
                 }
             });
 
+            // 🔥 Notification mode finale
+            const aliveCount = Array.from(room.players.values()).filter(p => p.alive).length;
+            if (aliveCount <= 3 && aliveCount > 1) {
+                emitNarration(io, room.code, `🔥 FINALE ! Plus que ${aliveCount} joueurs vivants ! Le temps s'accélère...`, 'dramatic', 6000);
+            }
+
             io.to(room.code).emit('nightPhase', {
                 nightNumber: room.nightNumber,
                 players: Array.from(room.players.values()).map(p => ({
@@ -1698,7 +1725,16 @@ function continueAfterVote(room) {
     }
 }
 
-// 📊 Calculer les statistiques de la partie
+// � Émettre un message de narration dramatique
+function emitNarration(io, roomCode, message, type = 'info', duration = 4000) {
+    io.to(roomCode).emit('narration', {
+        message,
+        type, // 'info', 'danger', 'love', 'success', 'dramatic'
+        duration
+    });
+}
+
+// �📊 Calculer les statistiques de la partie
 function calculateGameStats(room) {
     const players = Array.from(room.players.values());
 

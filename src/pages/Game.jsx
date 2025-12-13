@@ -467,6 +467,32 @@ function Game() {
             showNotification('info', '🔮', 'Vision de la Voyante', `${data.targetName} est ${data.targetRole}`)
         })
 
+        // 📢 Narration dramatique
+        newSocket.on('narration', (data) => {
+            const { message, type, duration } = data
+
+            // 🔔 Notification visuelle selon le type
+            const notificationConfig = {
+                'love': { icon: '💔', title: 'Tragédie', sound: () => audioManager.beep(200, 0.4, 0.8) },
+                'danger': { icon: '☠️', title: 'Danger', sound: () => audioManager.beep(150, 0.5, 0.6) },
+                'success': { icon: '✨', title: 'Événement', sound: () => audioManager.beep(500, 0.3, 0.4) },
+                'dramatic': { icon: '🔥', title: 'Alerte', sound: () => audioManager.beep(300, 0.6, 0.9) },
+                'info': { icon: '⚖️', title: 'Info', sound: () => audioManager.beep(400, 0.2, 0.3) }
+            }
+
+            const config = notificationConfig[type] || notificationConfig.info
+
+            // 🔊 Son + vibration
+            config.sound()
+            vibrate(type === 'dramatic' ? [100, 50, 100, 50, 100] : [100, 50, 100])
+
+            // 🔔 Notification
+            showNotification(type, config.icon, config.title, message, duration)
+
+            // 📜 Ajouter à l'historique
+            addEvent(type, message, config.icon)
+        })
+
         // Cupidon : vous êtes amoureux
         newSocket.on('inLove', (data) => {
             showNotification('love', '💘', 'Cupidon vous a choisi !', `Vous êtes amoureux avec ${data.partnerName} !`, 8000)
