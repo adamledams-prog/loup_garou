@@ -961,7 +961,8 @@ io.on('connection', (socket) => {
         socket.emit('actionConfirmed');
 
         // ✅ Vérifier si tous les joueurs avec des actions nocturnes ont agi
-        const rolesWithNightActions = ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon', 'chasseur'];
+        // ⚠️ La sorcière n'est PAS dans cette liste car elle agit APRÈS avoir vu la victime
+        const rolesWithNightActions = ['loup', 'voyante', 'livreur', 'cupidon', 'chasseur'];
         const playersWithActions = Array.from(room.players.values()).filter(p =>
             p.alive && rolesWithNightActions.includes(p.role)
         );
@@ -1265,16 +1266,16 @@ function getPhaseDuration(room, phase) {
 
     // Mode normal
     if (!room.rapidMode) {
-        if (phase === 'night') return 60; // 60s pour la nuit
-        if (phase === 'day') return 60; // 60s pour le jour
-        if (phase === 'vote') return 60; // 60s pour voter tranquillement
+        if (phase === 'night') return 30; // 30s pour la nuit
+        if (phase === 'day') return 30; // 30s pour le jour
+        if (phase === 'vote') return 30; // 30s pour voter
     } else {
         // Mode rapide
         if (phase === 'night') return 20;
         if (phase === 'day') return 15;
-        if (phase === 'vote') return 30; // 30s en mode rapide
+        if (phase === 'vote') return 20; // 20s en mode rapide
     }
-    return 60; // Défaut
+    return 30; // Défaut
 }
 
 // Démarrer le timer pour une phase
@@ -1387,7 +1388,7 @@ function startPhaseTimer(room, phaseDuration = 60) {
 }
 
 // Traiter les actions de nuit
-function processNightActions(room) {
+async function processNightActions(room) {
     try {
         const actions = room.gameState.nightActions;
         let killedPlayers = [];
@@ -1442,9 +1443,35 @@ function processNightActions(room) {
         if (wolfTarget === room.gameState.livreurProtection) {
             // Protégé par la pizza ! Ne meurt pas
             room.gameState.livreurProtection = null;
+            wolfTarget = null; // ✅ Pas de victime pour la sorcière non plus
         } else {
             killedPlayers.push(wolfTarget);
             room.gameState.killedTonight = wolfTarget;
+        }
+    }
+
+    // 🧙‍♀️ Si une sorcière est vivante et qu'il y a une victime, lui donner 15 secondes pour agir
+    const witch = Array.from(room.players.values()).find(p => p.alive && p.role === 'sorciere');
+    if (witch && room.gameState.killedTonight && !room.gameState.witchHealUsed) {
+        // Notifier la sorcière qu'il y a une victime
+        io.to(witch.socketId).emit('witchDecision', {
+            victimId: room.gameState.killedTonight,
+            victimName: room.players.get(room.gameState.killedTonight).name,
+            canHeal: !room.gameState.witchHealUsed,
+            canPoison: !room.gameState.witchPoisonUsed
+        });
+
+        // Attendre 15 secondes pour la sorcière
+        await new Promise(resolve => setTimeout(resolve, 15000));
+
+        // Vérifier si la sorcière a utilisé son heal
+        const witchAction = room.gameState.nightActions[witch.id];
+        if (witchAction && witchAction.action === 'heal') {
+            killedPlayers = killedPlayers.filter(id => id !== room.gameState.killedTonight);
+            room.gameState.witchHealUsed = true;
+            room.gameState.killedTonight = null; // Plus de victime
+            console.log(`🧪 Sorcière a sauvé la victime`);
+            emitNarration(io, room.code, `✨ La Sorcière a sauvé quelqu'un cette nuit...`, 'success', 4000);
         }
     }
 
@@ -1500,23 +1527,15 @@ function processNightActions(room) {
         console.log(`💘 Couple formé: ${lover1.name} ❤️ ${lover2.name}`);
     }
 
-    // Sorcière
+    // 🧙‍♀️ Sorcière - Poison SEULEMENT (heal traité avant avec mini-phase)
     for (const [playerId, actionOrActions] of Object.entries(actions)) {
         const player = room.players.get(playerId);
         const actionsArray = Array.isArray(actionOrActions) ? actionOrActions : [actionOrActions];
 
         for (const action of actionsArray) {
             if (player.role === 'sorciere') {
-                // ✅ Heal UNIQUEMENT si quelqu'un a vraiment été tué
-                if (action.action === 'heal' && !room.gameState.witchHealUsed && room.gameState.killedTonight) {
-                    killedPlayers = killedPlayers.filter(id => id !== room.gameState.killedTonight);
-                    room.gameState.witchHealUsed = true;
-                    console.log(`🧪 Sorcière heal ${room.gameState.killedTonight}`);
-                    const savedPlayer = room.players.get(room.gameState.killedTonight);
-                    if (savedPlayer) {
-                        emitNarration(io, room.code, `✨ La Sorcière a sauvé quelqu'un cette nuit...`, 'success', 4000);
-                    }
-                } else if (action.action === 'poison' && !room.gameState.witchPoisonUsed) {
+                // Poison uniquement (heal déjà traité plus haut)
+                if (action.action === 'poison' && !room.gameState.witchPoisonUsed) {
                     killedPlayers.push(action.targetId);
                     room.gameState.witchPoisonUsed = true;
                     console.log(`🧪 Sorcière poison ${action.targetId}`);

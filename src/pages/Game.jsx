@@ -567,6 +567,16 @@ function Game() {
             }
         })
 
+        // 🧙‍♀️ Décision de la sorcière (après que les loups ont choisi)
+        newSocket.on('witchDecision', (data) => {
+            console.log('🧙‍♀️ Sorcière : victime détectée', data)
+            setKilledTonight(data.victimId)
+            setShowWitchModal(true)
+            // Notification urgente
+            showNotification('warning', '🧙‍♀️', 'Sorcière : Une victime !',
+                `${data.victimName} va mourir ! Voulez-vous le/la sauver ?`, 15000)
+        })
+
         return () => {
             newSocket.close()
             // 💤 Libérer le Wake Lock quand on quitte
