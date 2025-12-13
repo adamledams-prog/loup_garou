@@ -793,6 +793,19 @@ io.on('connection', (socket) => {
             playerId: player.id,
             playerName: player.name
         });
+
+        // ✅ RESYNCHRONISER tout le monde sur la phase actuelle
+        // (au cas où le timer a changé la phase pendant la reconnexion)
+        setTimeout(() => {
+            if (room.gameStarted && !room.gameEnded) {
+                io.to(roomCode).emit('phaseSync', {
+                    phase: room.phase,
+                    phaseTimeRemaining: room.phaseTimeRemaining,
+                    nightNumber: room.nightNumber
+                });
+                console.log(`🔄 Resync phase ${room.phase} pour tous les clients de ${roomCode}`);
+            }
+        }, 500); // Attendre 500ms pour que le client ait traité gameState
     });
 
 
