@@ -42,9 +42,9 @@ const io = socketIo(server, {
         credentials: true,
         allowedHeaders: ['*']
     },
-    // 🔧 Augmenter les timeouts pour éviter les déconnexions prématurées
-    pingTimeout: 60000,
-    pingInterval: 25000,
+    // 🔧 Timeouts très élevés pour éviter les déconnexions prématurées
+    pingTimeout: 120000,  // 2 minutes (contre micro-lags)
+    pingInterval: 25000,  // 25 secondes
     transports: ['websocket', 'polling']
 });
 
@@ -204,31 +204,59 @@ class BotPlayer {
     }
 }
 
-// Nettoyage automatique des salles inactives toutes les 5 minutes
+// Nettoyage automatique des salles inactives toutes les 10 minutes
 setInterval(() => {
     const now = Date.now();
     let cleaned = 0;
 
     for (const [code, room] of rooms.entries()) {
-        // ⚠️ JAMAIS supprimer une room en cours de jeu (sauf si terminée depuis longtemps)
         const allDisconnected = Array.from(room.players.values()).every(p => p.socketId === null);
+        const connectedCount = Array.from(room.players.values()).filter(p => p.socketId !== null).length;
+
+        // 🔍 Logging détaillé pour debug
+        console.log(`🔍 Scan room ${code}:`, {
+            gameStarted: room.gameStarted,
+            gameEnded: room.gameEnded,
+            allDisconnected,
+            connectedPlayers: connectedCount,
+            totalPlayers: room.players.size,
+            lastActivity: room.lastActivity ? new Date(room.lastActivity).toISOString() : 'null',
+            inactiveMinutes: room.lastActivity ? Math.floor((now - room.lastActivity) / 60000) : 'N/A'
+        });
 
         if (allDisconnected) {
-            // Vérifier depuis combien de temps
+            // 🔐 PROTECTION CRITIQUE : Si partie EN COURS, NE JAMAIS initialiser lastActivity ici
+            if (room.gameStarted && !room.gameEnded) {
+                if (!room.lastActivity) {
+                    console.log(`⚠️ SKIP init lastActivity pour partie ACTIVE ${code} (protection anti-race-condition)`);
+                    continue; // Ignorer complètement ce cycle
+                }
+
+                // Si lastActivity existe déjà, vérifier avec timeout TRÈS long (2 heures)
+                const inactiveTime = now - room.lastActivity;
+                if (inactiveTime > 2 * 60 * 60 * 1000) { // 2 HEURES pour partie active
+                    if (room.phaseTimer) {
+                        clearInterval(room.phaseTimer);
+                        room.phaseTimer = null;
+                    }
+                    console.log(`🗑️ SUPPRESSION ROOM ${code} (partie active inactive depuis 2h)`);
+                    rooms.delete(code);
+                    cleaned++;
+                }
+                continue; // Toujours continuer pour parties actives
+            }
+
+            // Pour lobby ou partie terminée : logique normale
             if (!room.lastActivity) {
                 room.lastActivity = now;
             }
 
             const inactiveTime = now - room.lastActivity;
 
-            // 🔧 Si partie en cours, attendre 60 minutes avant suppression
-            // 🔧 Si partie terminée ou lobby, attendre 30 minutes
-            const timeoutDuration = room.gameStarted && !room.gameEnded
-                ? 60 * 60 * 1000  // 60 min pour partie en cours
-                : 30 * 60 * 1000; // 30 min pour lobby/partie terminée
+            // 🔧 Lobby ou partie terminée : 30 minutes
+            const timeoutDuration = 30 * 60 * 1000; // 30 min
 
             if (inactiveTime > timeoutDuration) {
-                // IMPORTANT: Nettoyer le timer avant de supprimer
                 if (room.phaseTimer) {
                     clearInterval(room.phaseTimer);
                     room.phaseTimer = null;
@@ -246,7 +274,18 @@ setInterval(() => {
     if (cleaned > 0) {
         console.log(`🧹 Nettoyage: ${cleaned} salle(s) supprimée(s). Total: ${rooms.size}`);
     }
-}, 5 * 60 * 1000); // Toutes les 5 minutes
+}, 10 * 60 * 1000); // Toutes les 10 minutes (réduit risque de race condition)
+
+// 💓 Heartbeat pour maintenir les parties actives en vie
+setInterval(() => {
+    for (const [code, room] of rooms.entries()) {
+        if (room.gameStarted && !room.gameEnded) {
+            // Mettre à jour lastActivity pour parties actives toutes les 30s
+            room.lastActivity = Date.now();
+            console.log(`💓 Heartbeat room ${code} (active, ${room.players.size} joueurs)`);
+        }
+    }
+}, 30 * 1000); // Toutes les 30 secondes
 
 // Classe pour gérer une salle
 class GameRoom {
