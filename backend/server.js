@@ -1297,11 +1297,12 @@ function startPhaseTimer(room, phaseDuration = 60) {
 
 // Traiter les actions de nuit
 function processNightActions(room) {
-    const actions = room.gameState.nightActions;
-    let killedPlayers = [];
+    try {
+        const actions = room.gameState.nightActions;
+        let killedPlayers = [];
 
-    // ✅ Réinitialiser la protection du livreur (nouvelle nuit = nouvelle protection)
-    room.gameState.livreurProtection = null;
+        // ✅ Réinitialiser la protection du livreur (nouvelle nuit = nouvelle protection)
+        room.gameState.livreurProtection = null;
 
     // D'abord, traiter le livreur de pizza (protection)
     for (const [playerId, action] of Object.entries(actions)) {
@@ -1468,38 +1469,58 @@ function processNightActions(room) {
     // Réinitialiser les actions
     room.gameState.nightActions = {};
 
-    // Passer au jour
-    room.phase = 'day';
-    room.processingPhase = false; // 🔓 Déverrouiller pour la prochaine phase
+        // Passer au jour
+        room.phase = 'day';
+        room.processingPhase = false; // 🔓 Déverrouiller pour la prochaine phase
 
-    // ⏳ Attendre 1 seconde avant d'émettre dayPhase (éviter saturation WebSocket)
-    setTimeout(() => {
-        // Notifier tous les joueurs
+        // ✅ Débloquer immédiatement l'UI client
+        io.to(room.code).emit('processingPhase', { processing: false });
+
+        // ⏳ Attendre 1 seconde avant d'émettre dayPhase (éviter saturation WebSocket)
+        setTimeout(() => {
+            // Notifier tous les joueurs
+            io.to(room.code).emit('dayPhase', {
+                deadPlayers: killedPlayers.map(id => ({
+                    id,
+                    name: room.players.get(id).name
+                })),
+                players: Array.from(room.players.values()).map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    alive: p.alive
+                }))
+            });
+
+            // Démarrer le timer du jour
+            startPhaseTimer(room, getPhaseDuration(room, 'day'));
+        }, 1000);
+    } catch (error) {
+        console.error('❌ ERREUR processNightActions:', error);
+        // 🔓 TOUJOURS déverrouiller en cas d'erreur pour éviter deadlock
+        room.processingPhase = false;
+        room.phase = 'day'; // Forcer passage au jour
+        io.to(room.code).emit('error', { message: 'Erreur lors du traitement de la nuit' });
         io.to(room.code).emit('dayPhase', {
-            deadPlayers: killedPlayers.map(id => ({
-                id,
-                name: room.players.get(id).name
-            })),
+            deadPlayers: [],
             players: Array.from(room.players.values()).map(p => ({
                 id: p.id,
                 name: p.name,
                 alive: p.alive
             }))
         });
-
-        // Démarrer le timer du jour
         startPhaseTimer(room, getPhaseDuration(room, 'day'));
-    }, 1000);
+    }
 }
 
 // Traiter les votes
 function processVotes(room) {
-    const votes = room.gameState.votes;
-    const voteCounts = {};
+    try {
+        const votes = room.gameState.votes;
+        const voteCounts = {};
 
-    // Compter les votes (avec bonus pour le Riche)
-    for (const [voterId, targetId] of Object.entries(votes)) {
-        const voter = room.players.get(voterId);
+        // Compter les votes (avec bonus pour le Riche)
+        for (const [voterId, targetId] of Object.entries(votes)) {
+            const voter = room.players.get(voterId);
 
         // Le Riche vote compte double
         if (voter && voter.role === 'riche') {
@@ -1590,14 +1611,23 @@ function processVotes(room) {
         }
     }
 
-    // Réinitialiser les votes
-    room.gameState.votes = {};
+        // Réinitialiser les votes
+        room.gameState.votes = {};
 
-    // 🔓 Déverrouiller le traitement des votes
-    room.processingVotes = false;
+        // 🔓 Déverrouiller le traitement des votes
+        room.processingVotes = false;
 
-    // Vérifier les conditions de victoire
-    continueAfterVote(room);
+        // Vérifier les conditions de victoire
+        continueAfterVote(room);
+    } catch (error) {
+        console.error('❌ ERREUR processVotes:', error);
+        // 🔓 TOUJOURS déverrouiller en cas d'erreur
+        room.processingVotes = false;
+        room.gameState.votes = {};
+        io.to(room.code).emit('error', { message: 'Erreur lors du traitement des votes' });
+        // Continuer quand même pour ne pas bloquer la partie
+        continueAfterVote(room);
+    }
 }
 
 // Continuer après le vote (ou après le tir du chasseur)
