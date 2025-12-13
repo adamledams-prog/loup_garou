@@ -20,6 +20,7 @@ function Game() {
     const [messages, setMessages] = useState([])
     const [wolfMessages, setWolfMessages] = useState([]) // 🐺 Messages du chat loup
     const [activeChat, setActiveChat] = useState('village') // 'village' ou 'wolf'
+    const activeChatRef = useRef('village') // 🔄 Ref pour éviter stale closure dans listeners
     const [messageInput, setMessageInput] = useState('')
     const [showWitchModal, setShowWitchModal] = useState(false)
     const [witchAction, setWitchAction] = useState(null) // 'heal' ou 'poison'
@@ -71,6 +72,11 @@ function Game() {
     const [reactions, setReactions] = useState({}) // { playerId: { emoji, timestamp } }
     const [showReactionPicker, setShowReactionPicker] = useState(false)
     const reactionEmojis = ['👍', '👎', '🤔', '😱', '😂', '❤️']
+
+    // 🔄 Synchroniser activeChat avec la ref pour les listeners
+    useEffect(() => {
+        activeChatRef.current = activeChat
+    }, [activeChat])
 
     // Fermer le picker emoji si on clique ailleurs
     useEffect(() => {
@@ -421,8 +427,8 @@ function Game() {
                 ttsManager.speak(data.message, data.playerName)
             }
 
-            // 💬 Si chat loup pas visible, incrémenter badge non lus
-            if (activeChat !== 'wolf' && data.playerId !== localStorage.getItem('playerId')) {
+            // 💬 Si chat loup pas visible, incrémenter badge non lus (utiliser ref au lieu de state)
+            if (activeChatRef.current !== 'wolf' && data.playerId !== localStorage.getItem('playerId')) {
                 setUnreadWolfMessages(prev => prev + 1)
             }
         })
