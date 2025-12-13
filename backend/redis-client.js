@@ -7,13 +7,22 @@ try {
     console.log('⚠️ dotenv non disponible');
 }
 
+// 🔧 Validation des variables d'environnement
+if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    console.error('❌ ERREUR: Variables Redis manquantes!');
+    console.error('UPSTASH_REDIS_REST_URL:', process.env.UPSTASH_REDIS_REST_URL ? '✅ Définie' : '❌ MANQUANTE');
+    console.error('UPSTASH_REDIS_REST_TOKEN:', process.env.UPSTASH_REDIS_REST_TOKEN ? '✅ Définie' : '❌ MANQUANTE');
+    throw new Error('Variables d\'environnement Redis manquantes - vérifiez Railway');
+}
+
 // 🔧 Configuration Redis (Upstash)
 const redis = new Redis({
     url: process.env.UPSTASH_REDIS_REST_URL,
     token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
-console.log('✅ Redis client initialisé');
+console.log('✅ Redis client initialisé avec succès');
+console.log('📡 URL Redis:', process.env.UPSTASH_REDIS_REST_URL.substring(0, 30) + '...');
 
 // 🔄 Helper pour sauvegarder une room
 async function saveRoom(roomCode, room) {
