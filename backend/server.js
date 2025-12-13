@@ -3,6 +3,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
+const { saveRoom, loadRoom, deleteRoom, roomExists } = require('./redis-client');
 
 // Charger les variables d'environnement (optionnel en production)
 try {
@@ -27,25 +28,18 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.ORIGINES_AUTO
 // 🔧 CORS plus permissif pour éviter les erreurs de reconnexion
 const io = socketIo(server, {
     cors: {
-        origin: (origin, callback) => {
-            // Autoriser tous les domaines Vercel + localhost
-            if (!origin ||
-                origin.includes('localhost') ||
-                origin.includes('vercel.app') ||
-                allowedOrigins.includes(origin)) {
-                callback(null, true);
-            } else {
-                callback(null, true); // 🔓 Autoriser tous en production pour éviter les bugs
-            }
-        },
+        origin: '*', // ✅ AUTORISER TOUS pour éviter CORS sur polling fallback
         methods: ['GET', 'POST'],
         credentials: true,
         allowedHeaders: ['*']
     },
-    // 🔧 Timeouts très élevés pour éviter les déconnexions prématurées
-    pingTimeout: 120000,  // 2 minutes (contre micro-lags)
-    pingInterval: 25000,  // 25 secondes
-    transports: ['websocket', 'polling']
+    // 🔧 Timeouts TRÈS élevés pour Railway/Vercel (contre redémarrages intempestifs)
+    pingTimeout: 300000,  // 5 minutes (Railway peut être lent)
+    pingInterval: 15000,  // 15 secondes (plus fréquent = meilleure détection)
+    connectTimeout: 60000, // 60 secondes pour établir connexion
+    transports: ['websocket'], // ✅ WEBSOCKET ONLY - Pas de fallback polling
+    allowUpgrades: false, // ✅ Désactiver upgrade (on reste en websocket)
+    perMessageDeflate: false // Désactiver compression pour éviter timeouts
 });
 
 // Route de santé pour Railway
@@ -97,6 +91,33 @@ app.get('/api/rooms', (req, res) => {
 
 // Structure des salles de jeu
 const rooms = new Map();
+
+// 🔄 Fonction pour récupérer une room (charge depuis Redis si nécessaire)
+async function getRoom(roomCode) {
+    if (rooms.has(roomCode)) {
+        return rooms.get(roomCode);
+    }
+
+    // Charger depuis Redis
+    const roomData = await loadRoom(roomCode);
+    if (roomData) {
+        // Recréer les objets GameRoom avec leurs méthodes
+        const room = Object.assign(new GameRoom(roomData.code, roomData.hostId, '', '', roomData.rapidMode), roomData);
+        rooms.set(roomCode, room);
+        return room;
+    }
+
+    return null;
+}
+
+// 💾 Sauvegarder toutes les rooms actives dans Redis toutes les 5 secondes
+setInterval(() => {
+    for (const [code, room] of rooms.entries()) {
+        saveRoom(code, room).catch(err =>
+            console.error(`❌ Erreur sauvegarde ${code}:`, err)
+        );
+    }
+}, 5000);
 
 // 🤖 Classe Bot pour joueurs IA
 class BotPlayer {
@@ -155,28 +176,31 @@ class BotPlayer {
 
         // Actions selon le rôle
         if (role === 'loup') {
-            this.room.gameState.nightActions[botId] = { action: 'kill', target: target.id };
+            this.room.gameState.nightActions[botId] = { action: 'kill', targetId: target.id };
         } else if (role === 'voyante') {
-            this.room.gameState.nightActions[botId] = { action: 'see', target: target.id };
+            this.room.gameState.nightActions[botId] = { action: 'see', targetId: target.id };
         } else if (role === 'livreur') {
-            this.room.gameState.nightActions[botId] = { action: 'protect', target: target.id };
+            this.room.gameState.nightActions[botId] = { action: 'protect', targetId: target.id };
         } else if (role === 'cupidon' && this.room.nightNumber === 1) {
             // Choisir 2 joueurs au hasard pour le couple
             const shuffled = [...alivePlayers].sort(() => Math.random() - 0.5);
             if (shuffled.length >= 2) {
-                this.room.gameState.nightActions[botId] = {
-                    action: 'love',
-                    target1: shuffled[0].id,
-                    target2: shuffled[1].id
-                };
+                // ✅ IMPORTANT : Envoyer 2 actions séparées pour Cupidon (comme un vrai joueur)
+                this.room.gameState.nightActions[botId] = [
+                    { action: 'couple', targetId: shuffled[0].id },
+                    { action: 'couple', targetId: shuffled[1].id }
+                ];
             }
         }
         // Sorcière : logique simple (50% chance de heal/poison)
         else if (role === 'sorciere') {
+            // ✅ SEULEMENT heal si quelqu'un EST VRAIMENT TUÉ
             if (this.room.gameState.killedTonight && !this.room.gameState.witchHealUsed && Math.random() > 0.5) {
                 this.room.gameState.nightActions[botId] = { action: 'heal' };
-            } else if (!this.room.gameState.witchPoisonUsed && Math.random() > 0.7) {
-                this.room.gameState.nightActions[botId] = { action: 'poison', target: target.id };
+            }
+            // ✅ Poison sur une cible vivante
+            else if (!this.room.gameState.witchPoisonUsed && Math.random() > 0.7) {
+                this.room.gameState.nightActions[botId] = { action: 'poison', targetId: target.id };
             }
         }
 
@@ -204,36 +228,43 @@ class BotPlayer {
     }
 }
 
-// 🧹 NETTOYAGE SIMPLIFIÉ : Seulement pour parties terminées
-// Parties en cours : seul l'hôte peut les arrêter via le bouton "Arrêter"
-setInterval(() => {
-    let cleaned = 0;
+// 🧹 NETTOYAGE AUTOMATIQUE DÉSACTIVÉ (pour éviter "partie introuvable")
+// ⚠️ EN PRODUCTION : Réactiver avec une base de données (Redis/PostgreSQL)
+// Pour l'instant, seul l'hôte peut arrêter une partie via le bouton "Arrêter"
+const AUTO_CLEANUP_ENABLED = false; // ⚠️ Mettre à true uniquement si base de données
 
-    for (const [code, room] of rooms.entries()) {
-        // ✅ Nettoyer uniquement les parties TERMINÉES après 10 minutes
-        if (room.gameEnded) {
-            const now = Date.now();
-            if (!room.endTime) {
-                room.endTime = now;
-            }
+if (AUTO_CLEANUP_ENABLED) {
+    setInterval(() => {
+        let cleaned = 0;
 
-            const timeSinceEnd = now - room.endTime;
-            if (timeSinceEnd > 10 * 60 * 1000) { // 10 minutes après la fin
-                if (room.phaseTimer) {
-                    clearInterval(room.phaseTimer);
-                    room.phaseTimer = null;
+        for (const [code, room] of rooms.entries()) {
+            // ✅ Nettoyer uniquement les parties TERMINÉES après 10 minutes
+            if (room.gameEnded) {
+                const now = Date.now();
+                if (!room.endTime) {
+                    room.endTime = now;
                 }
-                console.log(`🗑️ SUPPRESSION ROOM ${code} (partie terminée depuis 10min)`);
-                rooms.delete(code);
-                cleaned++;
+
+                const timeSinceEnd = now - room.endTime;
+                if (timeSinceEnd > 10 * 60 * 1000) { // 10 minutes après la fin
+                    if (room.phaseTimer) {
+                        clearInterval(room.phaseTimer);
+                        room.phaseTimer = null;
+                    }
+                    console.log(`🗑️ SUPPRESSION ROOM ${code} (partie terminée depuis 10min)`);
+                    rooms.delete(code);
+                    cleaned++;
+                }
             }
         }
-    }
 
-    if (cleaned > 0) {
-        console.log(`🧹 Nettoyage: ${cleaned} salle(s) supprimée(s). Total: ${rooms.size}`);
-    }
-}, 5 * 60 * 1000); // Toutes les 5 minutes
+        if (cleaned > 0) {
+            console.log(`🧹 Nettoyage: ${cleaned} salle(s) supprimée(s). Total: ${rooms.size}`);
+        }
+    }, 5 * 60 * 1000); // Toutes les 5 minutes
+} else {
+    console.log('⚠️ NETTOYAGE AUTOMATIQUE DÉSACTIVÉ - Les rooms restent en mémoire');
+}
 
 // Classe pour gérer une salle
 class GameRoom {
@@ -430,12 +461,23 @@ function generateRoomCode() {
     return rooms.has(code) ? generateRoomCode() : code;
 }
 
+// 🔄 Keep-alive automatique toutes les 10 secondes (pour éviter timeouts Railway)
+setInterval(() => {
+    io.emit('ping', { timestamp: Date.now() });
+}, 10000);
+
 // WebSocket - Gestion des connexions
 io.on('connection', (socket) => {
     console.log('Nouveau joueur connecté:', socket.id);
 
+    // ✅ Envoyer immédiatement un message de bienvenue pour confirmer la connexion
+    socket.emit('connected', {
+        message: 'Connexion établie au serveur',
+        timestamp: Date.now()
+    });
+
     // Créer une salle
-    socket.on('createRoom', (data) => {
+    socket.on('createRoom', async (data) => {
         const { playerName, avatar, rapidMode } = data;
         const playerId = uuidv4();
         const roomCode = generateRoomCode();
@@ -443,6 +485,7 @@ io.on('connection', (socket) => {
         const room = new GameRoom(roomCode, playerId, playerName, avatar || '😊', rapidMode || false);
         room.players.get(playerId).socketId = socket.id;
         rooms.set(roomCode, room);
+        await saveRoom(roomCode, room); // 💾 Sauvegarder dans Redis
 
         socket.join(roomCode);
         socket.playerId = playerId;
@@ -458,9 +501,9 @@ io.on('connection', (socket) => {
     });
 
     // Rejoindre une salle
-    socket.on('joinRoom', (data) => {
+    socket.on('joinRoom', async (data) => {
         const { roomCode, playerName, avatar } = data;
-        const room = rooms.get(roomCode);
+        const room = await getRoom(roomCode); // 🔄 Charger depuis Redis si nécessaire
 
         if (!room) {
             socket.emit('error', { message: 'Salle introuvable' });
@@ -682,23 +725,38 @@ io.on('connection', (socket) => {
     });
 
     // Reconnexion unifiée à une partie (lobby ou game)
-    socket.on('reconnectToGame', (data) => {
+    socket.on('reconnectToGame', async (data) => {
         const { roomCode, playerId } = data;
-        const room = rooms.get(roomCode);
+        const room = await getRoom(roomCode); // 🔄 Charger depuis Redis
 
+        // CAS 1 : La room n'existe plus (redémarrage serveur, suppression auto, etc.)
         if (!room) {
-            console.error(`❌ Room ${roomCode} introuvable`);
-            socket.emit('error', { message: 'Partie introuvable' });
+            console.error(`❌ Room ${roomCode} introuvable (probablement supprimée ou serveur redémarré)`);
+            socket.emit('roomNotFound', {
+                message: 'Cette partie n\'existe plus sur le serveur',
+                reason: 'room_deleted_or_server_restarted'
+            });
             return;
         }
 
+        // CAS 2 : La room existe, mais le joueur n'est plus reconnu
         const player = room.players.get(playerId);
         if (!player) {
-            console.error(`❌ Player ${playerId} introuvable dans ${roomCode}`);
-            socket.emit('error', { message: 'Joueur introuvable dans cette partie' });
+            console.error(`⚠️ Player ${playerId} introuvable dans ${roomCode} (peut-être supprimé lors d'une déconnexion)`);
+
+            // Renvoyer des infos pour permettre au client de recréer son joueur
+            socket.emit('playerNotFoundInRoom', {
+                message: 'Votre joueur n\'est plus dans cette partie',
+                roomCode: roomCode,
+                roomExists: true,
+                gameStarted: room.gameStarted,
+                canRejoin: !room.gameStarted, // On peut rejoindre seulement si la partie n'a pas démarré
+                players: room.getPlayersList()
+            });
             return;
         }
 
+        // CAS 3 : Tout est OK, reconnexion réussie
         // Mettre à jour le socketId du joueur
         player.socketId = socket.id;
         socket.join(roomCode);
@@ -725,6 +783,12 @@ io.on('connection', (socket) => {
             });
             console.log(`✅ ${player.name} reconnecté au lobby ${roomCode}`);
         }
+
+        // Notifier les autres joueurs de la reconnexion
+        socket.to(roomCode).emit('playerReconnected', {
+            playerId: player.id,
+            playerName: player.name
+        });
     });
 
 
@@ -806,7 +870,7 @@ io.on('connection', (socket) => {
         }
 
         // Enregistrer l'action
-        // 💘 Cupidon peut agir plusieurs fois la nuit 1, stocker dans un array
+        // 💘 Cupidon peut agir plusieurs fois la nuit 1, stocker dans un array TOUJOURS
         if (action === 'couple' && room.nightNumber === 1) {
             if (!room.gameState.nightActions[socket.playerId]) {
                 room.gameState.nightActions[socket.playerId] = [];
@@ -824,6 +888,9 @@ io.on('connection', (socket) => {
                     }
 
                     room.gameState.nightActions[socket.playerId].push({ action, targetId });
+
+                    // ✅ Ajouter immédiatement au couple pour validation cohérente
+                    room.gameState.couple.push(targetId);
                 } else {
                     socket.emit('error', { message: 'Vous avez déjà choisi 2 personnes pour le couple' });
                     return;
@@ -836,34 +903,35 @@ io.on('connection', (socket) => {
         // Notifier le joueur que son action est enregistrée
         socket.emit('actionConfirmed');
 
-        // Vérifier si tous les joueurs avec des actions nocturnes ont agi
+        // ✅ Vérifier si tous les joueurs avec des actions nocturnes ont agi
         const rolesWithNightActions = ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon', 'chasseur'];
         const playersWithActions = Array.from(room.players.values()).filter(p =>
             p.alive && rolesWithNightActions.includes(p.role)
         );
 
-        // 💘 Cupidon doit agir DEUX fois la nuit 1
-        let expectedActions = playersWithActions.length;
-        if (room.nightNumber === 1) {
-            const cupidonPlayer = Array.from(room.players.values()).find(p => p.alive && p.role === 'cupidon');
-            if (cupidonPlayer) {
-                // Compter combien de fois Cupidon a agi
-                const cupidonActions = Object.entries(room.gameState.nightActions)
-                    .filter(([playerId, action]) => playerId === cupidonPlayer.id && action.action === 'couple')
-                    .length;
+        // ✅ Vérifier PROPREMENT chaque rôle
+        let allActed = true;
+        for (const player of playersWithActions) {
+            const playerAction = room.gameState.nightActions[player.id];
 
-                // Si Cupidon n'a pas fini (moins de 2 choix ET couple pas complet)
-                if (cupidonActions < 2 && room.gameState.couple.length < 2) {
-                    expectedActions++; // Il doit agir une 2e fois
+            if (!playerAction) {
+                allActed = false;
+                break;
+            }
+
+            // 💘 Cupidon nuit 1 : doit avoir un array de 2 actions
+            if (player.role === 'cupidon' && room.nightNumber === 1) {
+                if (!Array.isArray(playerAction) || playerAction.length < 2) {
+                    allActed = false;
+                    break;
                 }
             }
         }
 
         const actedPlayers = Object.keys(room.gameState.nightActions).length;
+        console.log(`🌙 Actions: ${actedPlayers}/${playersWithActions.length} joueurs ont agi`);
 
-        console.log(`🌙 Actions: ${actedPlayers}/${expectedActions} joueurs ont agi`);
-
-        if (actedPlayers >= expectedActions && !room.processingPhase) {
+        if (allActed && !room.processingPhase) {
             // Tous les joueurs avec actions ont agi, passer au jour
             room.processingPhase = true; // 🔒 Verrouiller pour éviter double traitement
             // Notifier les clients que le serveur est en phase de traitement
@@ -892,6 +960,12 @@ io.on('connection', (socket) => {
 
         if (room.phase !== 'vote') {
             socket.emit('error', { message: 'Ce n\'est pas l\'heure de voter' });
+            return;
+        }
+
+        // ✅ Empêcher double vote
+        if (room.gameState.votes[socket.playerId]) {
+            socket.emit('error', { message: 'Vous avez déjà voté !' });
             return;
         }
 
@@ -1041,11 +1115,11 @@ io.on('connection', (socket) => {
 
         console.log(`🛑 Partie ${socket.roomCode} arrêtée par l'hôte ${player.name}`);
 
-        // Supprimer la room après 5 secondes
-        setTimeout(() => {
-            console.log(`🗑️ SUPPRESSION ROOM ${socket.roomCode} (arrêt manuel par hôte)`);
-            rooms.delete(socket.roomCode);
-        }, 5000);
+        // ⚠️ NE PAS SUPPRIMER IMMÉDIATEMENT - Garder pour consultation résultats
+        // La suppression automatique s'occupera du nettoyage après 10min (si activée)
+        if (!AUTO_CLEANUP_ENABLED) {
+            console.log(`� Room ${socket.roomCode} conservée en mémoire (nettoyage auto désactivé)`);
+        }
     });
 
     // Déconnexion
@@ -1055,24 +1129,29 @@ io.on('connection', (socket) => {
         if (socket.roomCode) {
             const room = rooms.get(socket.roomCode);
             if (room) {
-                // Si la partie n'a pas commencé, on retire le joueur
+                // Si la partie n'a pas commencé, on GARDE le joueur pour permettre reconnexion
                 if (!room.gameStarted) {
-                    room.removePlayer(socket.playerId);
+                    const player = room.players.get(socket.playerId);
+                    if (player) {
+                        player.socketId = null; // Marquer comme déconnecté
+                        console.log(`⚠️ ${player.name} déconnecté du lobby ${socket.roomCode} (peut se reconnecter)`);
 
-                    if (room.players.size === 0) {
-                        // Nettoyer le timer avant suppression
+                        // Notifier les autres joueurs de la déconnexion
+                        io.to(socket.roomCode).emit('playerDisconnected', {
+                            playerId: player.id,
+                            playerName: player.name
+                        });
+                    }
+
+                    // ⚠️ NETTOYAGE DÉSACTIVÉ : On garde les rooms vides pour permettre reconnexion
+                    // En production avec base de données, réactiver ce nettoyage
+                    if (AUTO_CLEANUP_ENABLED && room.players.size === 0) {
                         if (room.phaseTimer) {
                             clearInterval(room.phaseTimer);
                             room.phaseTimer = null;
                         }
-                        // Supprimer la salle si vide
                         console.log(`🗑️ SUPPRESSION ROOM ${socket.roomCode} (vide, lobby)`);
                         rooms.delete(socket.roomCode);
-                    } else {
-                        // Notifier les autres joueurs
-                        io.to(socket.roomCode).emit('playerLeft', {
-                            players: room.getPlayersList()
-                        });
                     }
                 } else {
                     // Partie en cours : garder le joueur mais marquer socketId comme null
@@ -1129,7 +1208,12 @@ function startPhaseTimer(room, phaseDuration = 60) {
         bots.forEach((bot, index) => {
             // Délai progressif pour chaque bot (2s, 3s, 4s...)
             const delay = 2000 + (index * 1000);
-            botManager.performNightAction(bot.id, delay);
+            setTimeout(() => {
+                // ✅ Vérifier que le jeu n'est pas terminé avant d'agir
+                if (!room.gameEnded && room.phase === 'night') {
+                    botManager.performNightAction(bot.id, 0);
+                }
+            }, delay);
         });
     } else if (room.phase === 'vote') {
         const botManager = new BotPlayer(room);
@@ -1137,7 +1221,12 @@ function startPhaseTimer(room, phaseDuration = 60) {
 
         bots.forEach((bot, index) => {
             const delay = 2000 + (index * 1000);
-            botManager.performVote(bot.id, delay);
+            setTimeout(() => {
+                // ✅ Vérifier que le jeu n'est pas terminé avant de voter
+                if (!room.gameEnded && room.phase === 'vote') {
+                    botManager.performVote(bot.id, 0);
+                }
+            }, delay);
         });
     }
 
@@ -1153,6 +1242,12 @@ function startPhaseTimer(room, phaseDuration = 60) {
         // Quand le timer atteint 0, passer à la phase suivante
         if (room.phaseTimeRemaining <= 0) {
             clearInterval(room.phaseTimer);
+
+            // ✅ Vérifier que le jeu n'est pas terminé avant toute action
+            if (room.gameEnded) {
+                console.log(`⚠️ Timer expiré mais jeu déjà terminé (room ${room.code})`);
+                return;
+            }
 
             if (room.phase === 'night' && !room.processingPhase) {
                 room.processingPhase = true; // 🔒 Verrouiller
@@ -1260,9 +1355,11 @@ function processNightActions(room) {
 
             // Cupidon - Créer un couple (seulement première nuit)
             if (player.role === 'cupidon' && action.action === 'couple' && room.nightNumber === 1) {
-                // La validation a déjà été faite, on ajoute directement
-                room.gameState.couple.push(action.targetId);
-                console.log(`💘 Cupidon a choisi ${action.targetId} pour le couple (${room.gameState.couple.length}/2)`);
+                // ✅ Ne pas re-ajouter si déjà dans le couple (éviter doublons)
+                if (!room.gameState.couple.includes(action.targetId)) {
+                    room.gameState.couple.push(action.targetId);
+                    console.log(`💘 Cupidon a choisi ${action.targetId} pour le couple (${room.gameState.couple.length}/2)`);
+                }
             }
         }
     }
@@ -1295,12 +1392,15 @@ function processNightActions(room) {
 
         for (const action of actionsArray) {
             if (player.role === 'sorciere') {
-                if (action.action === 'heal' && !room.gameState.witchHealUsed) {
+                // ✅ Heal UNIQUEMENT si quelqu'un a vraiment été tué
+                if (action.action === 'heal' && !room.gameState.witchHealUsed && room.gameState.killedTonight) {
                     killedPlayers = killedPlayers.filter(id => id !== room.gameState.killedTonight);
                     room.gameState.witchHealUsed = true;
+                    console.log(`🧪 Sorcière heal ${room.gameState.killedTonight}`);
                 } else if (action.action === 'poison' && !room.gameState.witchPoisonUsed) {
                     killedPlayers.push(action.targetId);
                     room.gameState.witchPoisonUsed = true;
+                    console.log(`🧪 Sorcière poison ${action.targetId}`);
                 }
             }
         }
@@ -1450,8 +1550,8 @@ function processVotes(room) {
 
             // Attendre 30s pour le tir du chasseur
             setTimeout(() => {
-                // Si le chasseur n'a pas tiré, continuer
-                if (room.phase === 'hunter') {
+                // ✅ Vérifier que le jeu n'est pas terminé avant timeout
+                if (!room.gameEnded && room.phase === 'hunter') {
                     console.log('⏰ Chasseur n\'a pas tiré, on continue');
                     room.phase = 'ending_hunter'; // Marquer pour éviter double traitement
                     continueAfterVote(room);
@@ -1474,10 +1574,17 @@ function continueAfterVote(room) {
     if (!checkWinCondition(room)) {
         // Passer à la nuit suivante
         setTimeout(() => {
+            // ✅ Double check que le jeu n'est pas terminé avant transition
+            if (room.gameEnded) {
+                console.log(`⚠️ Jeu terminé pendant le timeout, on annule la transition vers nuit`);
+                return;
+            }
+
             room.phase = 'night';
             room.nightNumber++;
             room.gameState.killedTonight = null; // Reset pour la nouvelle nuit
             room.gameState.nightActions = {}; // ✅ Reset actions de nuit
+            room.gameState.couple = []; // ✅ Reset couple si ce n'est pas nuit 1
 
             // 📊 Incrémenter nightsAlive pour tous les joueurs vivants
             Array.from(room.players.values()).forEach(p => {
