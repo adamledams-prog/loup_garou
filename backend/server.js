@@ -359,6 +359,7 @@ class GameRoom {
         this.phase = 'night';
         this.nightNumber = 1;
         this.processingPhase = false; // ✅ Reset du flag de traitement
+        this.processingVotes = false; // ✅ Reset du flag de votes
 
         // ✅ Réinitialiser l'état du jeu pour une nouvelle partie
         this.gameState.witchHealUsed = false;
@@ -1064,6 +1065,7 @@ io.on('connection', (socket) => {
 
         // ✅ Continuer le jeu avec vérification de victoire
         setTimeout(() => {
+            room.processingVotes = false; // 🔓 Déverrouiller avant continueAfterVote
             continueAfterVote(room);
         }, 3000);
     });
@@ -1107,6 +1109,10 @@ io.on('connection', (socket) => {
             clearInterval(room.phaseTimer);
             room.phaseTimer = null;
         }
+
+        // 🔓 Réinitialiser les verrous
+        room.processingPhase = false;
+        room.processingVotes = false;
 
         // Marquer la partie comme terminée
         room.gameEnded = true;
@@ -1541,11 +1547,13 @@ function processVotes(room) {
         // Si le chasseur meurt, il peut tirer
         if (player.role === 'chasseur') {
             room.phase = 'hunter';
+            // ⚠️ NE PAS déverrouiller processingVotes ici car on continue le traitement du vote
 
             // 🎯 Vérifier si le chasseur est connecté
             if (!player.socketId) {
                 console.log('⚠️ Chasseur déconnecté, on skip sa vengeance');
                 room.phase = 'ending_hunter';
+                room.processingVotes = false; // 🔓 Déverrouiller avant continueAfterVote
                 continueAfterVote(room);
                 return;
             }
@@ -1563,6 +1571,7 @@ function processVotes(room) {
                 if (!room.gameEnded && room.phase === 'hunter') {
                     console.log('⏰ Chasseur n\'a pas tiré, on continue');
                     room.phase = 'ending_hunter'; // Marquer pour éviter double traitement
+                    room.processingVotes = false; // 🔓 Déverrouiller avant continueAfterVote
                     continueAfterVote(room);
                 }
             }, 30000);
@@ -1596,6 +1605,7 @@ function continueAfterVote(room) {
             room.nightNumber++;
             room.gameState.killedTonight = null; // Reset pour la nouvelle nuit
             room.gameState.nightActions = {}; // ✅ Reset actions de nuit
+            room.processingVotes = false; // ✅ Reset verrou votes pour nouvelle nuit
             // ⚠️ NE JAMAIS réinitialiser couple (les amoureux restent amoureux toute la partie)
 
             // 📊 Incrémenter nightsAlive pour tous les joueurs vivants
@@ -1673,7 +1683,11 @@ function checkWinCondition(room) {
             room.phaseTimer = null;
         }
 
-        // 📊 Calculer les stats
+        // � Réinitialiser les verrous
+        room.processingPhase = false;
+        room.processingVotes = false;
+
+        // �📊 Calculer les stats
         const stats = calculateGameStats(room);
 
         io.to(room.code).emit('gameOver', {
@@ -1704,7 +1718,11 @@ function checkWinCondition(room) {
             room.phaseTimer = null;
         }
 
-        // 📊 Calculer les stats
+        // � Réinitialiser les verrous
+        room.processingPhase = false;
+        room.processingVotes = false;
+
+        // �📊 Calculer les stats
         const stats = calculateGameStats(room);
 
         io.to(room.code).emit('gameOver', {
