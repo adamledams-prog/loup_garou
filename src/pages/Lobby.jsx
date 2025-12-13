@@ -489,26 +489,54 @@ function Lobby() {
 
                 {/* Menu principal */}
                 {view === 'menu' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 animate-slideUp">
-                        <div className="card-glow">
-                            <h2 className="text-2xl font-bold mb-4 text-center text-blood">Rejoignez ou créez une partie</h2>
+                    <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-8 animate-slideUp">
+                        {/* Carte d'aperçu À GAUCHE (devient prioritaire visuellement) */}
+                        <div className="order-2 lg:order-1 flex flex-col items-center justify-center card bg-gradient-to-br from-night-800 via-blood-900/30 to-night-800 border-2 border-blood-600 shadow-neon-red-lg relative overflow-hidden">
+                            {/* Effet de lumière animé en fond */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blood-500/10 to-transparent animate-shimmer"></div>
+                            
+                            <div className="relative z-10">
+                                <div className="relative text-9xl mb-6 animate-float drop-shadow-2xl">
+                                    {selectedAvatar}
+                                    {selectedAccessory && (
+                                        <div className="absolute -top-4 -right-4 text-6xl animate-bounce-in">
+                                            {accessoryList.find(acc => acc.id === selectedAccessory)?.emoji}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-3xl font-black text-white mb-2 drop-shadow-lg">
+                                        {playerName || 'Ton nom'}
+                                    </p>
+                                    <p className="text-sm text-gray-400 italic">Prêt pour l'aventure ?</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Formulaire À DROITE */}
+                        <div className="order-1 lg:order-2 card-glow">
+                            <h2 className="text-3xl font-black mb-6 text-center">
+                                <span className="text-blood bg-gradient-to-r from-blood-400 via-blood-600 to-blood-800 bg-clip-text text-transparent">
+                                    Rejoignez ou créez une partie
+                                </span>
+                            </h2>
                             
                             <input
                                 type="text"
                                 placeholder="Votre nom"
                                 value={playerName}
                                 onChange={(e) => setPlayerName(e.target.value)}
-                                className="input-primary mb-4"
+                                className="input-primary mb-6"
                             />
 
                             {/* Sélecteur d'avatar et accessoires */}
                             <div className="mb-6">
-                                {/* Avatars - 2 lignes */}
+                                {/* Avatars - Grille améliorée */}
                                 <div className="mb-6">
-                                    <label className="block text-sm font-bold text-gray-300 mb-3">
-                                        🎨 Choisis ton avatar
+                                    <label className="block text-lg font-black text-center mb-4">
+                                        <span className="text-blood-400">🎨</span> Choisis ton avatar
                                     </label>
-                                    <div className="grid grid-cols-5 gap-3">
+                                    <div className="grid grid-cols-5 gap-2">
                                         {avatarList.map((avatar, index) => (
                                             <button
                                                 key={avatar}
@@ -518,18 +546,23 @@ function Lobby() {
                                                     audioManager.playAvatarChoice()
                                                     vibrate.tap()
                                                 }}
-                                                className={`text-3xl p-3 rounded-lg transition-all hover:scale-110 scale-hover bounce-in ${
+                                                className={`text-4xl p-3 rounded-xl transition-all hover:scale-125 active:scale-95 bounce-in relative ${
                                                     selectedAvatar === avatar
-                                                        ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
-                                                        : 'bg-night-800 hover:bg-night-700'
+                                                        ? 'bg-gradient-to-br from-blood-600 to-blood-700 ring-4 ring-blood-400 scale-110 shadow-neon-red'
+                                                        : 'bg-night-800 hover:bg-night-700 hover:shadow-lg'
                                                 }`}
                                                 style={{
                                                     animationDelay: `${index * 0.03}s`,
-                                                    minHeight: '60px',
-                                                    minWidth: '60px'
+                                                    minHeight: '70px',
+                                                    minWidth: '70px'
                                                 }}
                                             >
                                                 {avatar}
+                                                {selectedAvatar === avatar && (
+                                                    <div className="absolute -top-1 -right-1 text-xs bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center animate-bounce">
+                                                        ✓
+                                                    </div>
+                                                )}
                                             </button>
                                         ))}
                                     </div>
@@ -537,8 +570,8 @@ function Lobby() {
 
                                 {/* Accessoires */}
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-300 mb-2">
-                                        ✨ Accessoires
+                                    <label className="block text-lg font-black text-center mb-3">
+                                        <span className="text-yellow-400">✨</span> Accessoires
                                     </label>
                                     <div className="grid grid-cols-9 gap-2">
                                         <button
@@ -547,15 +580,16 @@ function Lobby() {
                                                 audioManager.beep(440, 0.05, 0.3)
                                                 vibrate.tap()
                                             }}
-                                            className={`text-lg p-2 rounded-lg transition-all hover:scale-110 ${
+                                            className={`text-xl p-2 rounded-xl transition-all hover:scale-125 active:scale-95 relative ${
                                                 selectedAccessory === null
-                                                    ? 'bg-blood-600 ring-2 ring-blood-400'
+                                                    ? 'bg-gradient-to-br from-blood-600 to-blood-700 ring-2 ring-blood-400 shadow-neon-red'
                                                     : 'bg-night-800 hover:bg-night-700'
                                             }`}
                                             style={{
-                                                minHeight: '45px',
-                                                minWidth: '45px'
+                                                minHeight: '50px',
+                                                minWidth: '50px'
                                             }}
+                                            title="Aucun accessoire"
                                         >
                                             ❌
                                         </button>
@@ -567,57 +601,51 @@ function Lobby() {
                                                     audioManager.beep(520, 0.05, 0.3)
                                                     vibrate.tap()
                                                 }}
-                                                className={`text-2xl p-2 rounded-lg transition-all hover:scale-110 bounce-in ${
+                                                className={`text-2xl p-2 rounded-xl transition-all hover:scale-125 active:scale-95 bounce-in relative ${
                                                     selectedAccessory === acc.id
-                                                        ? 'bg-blood-600 ring-2 ring-blood-400'
+                                                        ? 'bg-gradient-to-br from-yellow-600 to-orange-600 ring-2 ring-yellow-400 shadow-lg shadow-yellow-500/50'
                                                         : 'bg-night-800 hover:bg-night-700'
                                                 }`}
                                                 title={acc.name}
                                                 style={{
                                                     animationDelay: `${index * 0.03}s`,
-                                                    minHeight: '45px',
-                                                    minWidth: '45px'
+                                                    minHeight: '50px',
+                                                    minWidth: '50px'
                                                 }}
                                             >
                                                 {acc.emoji}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Deux boutons côte à côte */}
+                                                {selectedAccessory === acc.id && (
+                                                    <div className="absolute -top-1 -right-1 text-xs bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center animate-bounce">
+                                                        ✓
+                                                    </div>
+                                                )}
+                            {/* Deux boutons côte à côte - Style amélioré */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <button
-                                    className="btn-primary ripple-container py-4"
+                                    className="btn-primary ripple-container py-5 text-lg font-black relative overflow-hidden group"
                                     onClick={handleCreateRoom}
                                     disabled={isLoading}
                                 >
-                                    {isLoading ? '⏳ Création...' : '🎮 Créer une partie'}
+                                    <span className="relative z-10">
+                                        {isLoading ? '⏳ Création...' : '🎮 Créer une partie'}
+                                    </span>
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
                                 </button>
                                 
                                 <button
-                                    className="btn-secondary ripple-container py-4"
+                                    className="btn-secondary ripple-container py-5 text-lg font-black relative overflow-hidden group"
                                     onClick={() => setView('join')}
                                     disabled={isLoading}
                                 >
-                                    🚪 Rejoindre une partie
+                                    <span className="relative z-10">
+                                        🚪 Rejoindre une partie
+                                    </span>
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
                                 </button>
                             </div>
                         </div>
-
-                        {/* Carte d'aperçu à droite */}
-                        <div className="hidden lg:flex flex-col items-center justify-center card bg-night-800 border-2 border-blood-600 shadow-neon-red">
-                            <div className="relative text-9xl mb-4 animate-bounce-in drop-shadow-2xl">
-                                {selectedAvatar}
-                                {selectedAccessory && (
-                                    <div className="absolute -top-2 -right-2 text-5xl animate-bounce-in">
-                                        {accessoryList.find(acc => acc.id === selectedAccessory)?.emoji}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="text-center">
-                                <p className="text-2xl font-bold text-white">
+                    </div>
+                )}              <p className="text-2xl font-bold text-white">
                                     {playerName || 'Ton nom'}
                                 </p>
                             </div>
