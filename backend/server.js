@@ -16,6 +16,9 @@ try {
 const AIBotManager = require('./ai-bot-manager');
 const aiBotManager = new AIBotManager();
 
+// 🐺 Wolf Chat Manager
+const wolfChatManager = require('./wolf-chat-manager');
+
 const app = express();
 const server = http.createServer(app);
 
@@ -183,8 +186,33 @@ class BotPlayer {
             targetId = target.id;
         }
 
-        // Actions selon le rôle
+        // 🐺 Pour les loups : tenir compte des suggestions du chat
         if (role === 'loup') {
+            const wolfChatManager = require('./wolf-chat-manager');
+            const suggestedTargets = alivePlayers.filter(p => {
+                const weight = wolfChatManager.getTargetWeight(this.room.code, p.name);
+                return weight > 0;
+            });
+
+            if (suggestedTargets.length > 0) {
+                // Calculer les probabilités pondérées
+                const weights = suggestedTargets.map(p => 
+                    1 + wolfChatManager.getTargetWeight(this.room.code, p.name)
+                );
+                const totalWeight = weights.reduce((a, b) => a + b, 0);
+                
+                // Sélection pondérée
+                let random = Math.random() * totalWeight;
+                for (let i = 0; i < suggestedTargets.length; i++) {
+                    random -= weights[i];
+                    if (random <= 0) {
+                        targetId = suggestedTargets[i].id;
+                        console.log(`🎯 Bot ${bot.name} choisit ${suggestedTargets[i].name} (suggestion du chat)`);
+                        break;
+                    }
+                }
+            }
+
             this.room.gameState.nightActions[botId] = { action: 'kill', targetId: targetId };
         } else if (role === 'voyante') {
             this.room.gameState.nightActions[botId] = { action: 'see', targetId: targetId };
@@ -1196,6 +1224,24 @@ io.on('connection', (socket) => {
             player.stats.messagesCount++;
         }
 
+        // 🎯 Détecter les suggestions de cibles
+        const message = data.message.toLowerCase();
+        const playerNames = Array.from(room.players.values())
+            .filter(p => p.alive && p.role !== 'loup')
+            .map(p => p.name);
+
+        for (const targetName of playerNames) {
+            if (message.includes(targetName.toLowerCase())) {
+                const isKill = message.includes('tue') || message.includes('kill') || message.includes('attaque');
+                const isVote = message.includes('vote') || message.includes('élimine');
+                
+                if (isKill || isVote) {
+                    wolfChatManager.processSuggestion(room, player.name, targetName, isKill);
+                    wolfChatManager.sendBotReactions(io, room, targetName, isKill);
+                }
+            }
+        }
+
         // 🐺 Envoyer SEULEMENT aux loups vivants ou morts (pour suivre la partie)
         const wolves = Array.from(room.players.values()).filter(p => p.role === 'loup');
 
@@ -1879,6 +1925,13 @@ function continueAfterVote(room) {
                 killedTonight: room.gameState.killedTonight,
                 playWolfHowl: true // 🐺 Déclencher le hurlement de loup côté client
             });
+
+            // 🐺 Messages automatiques des loups bots
+            if (room.nightNumber === 1) {
+                wolfChatManager.sendGreetingMessages(io, room);
+            } else {
+                wolfChatManager.sendSituationSummary(io, room);
+            }
 
             // Démarrer le timer pour la nuit
             startPhaseTimer(room, getPhaseDuration(room, 'night'));
