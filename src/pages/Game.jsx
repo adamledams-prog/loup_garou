@@ -60,6 +60,10 @@ function Game() {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false)
     const quickEmojis = ['😂', '❤️', '😱', '🤔', '👍', '👎']
 
+    // 🎥 Upload vidéo
+    const videoInputRef = useRef(null)
+    const [uploadingVideo, setUploadingVideo] = useState(false)
+
     // 💀 Animation de mort
     const [dyingPlayers, setDyingPlayers] = useState([]) // IDs des joueurs en train de mourir
 
@@ -782,10 +786,6 @@ function Game() {
         // 🔒 Bloquer immédiatement
         setHasActed(true)
 
-        socket.emit('hunterShoot', { targetId: selectedPlayer })
-        setSelectedPlayer(null)
-    }
-
     const sendMessage = () => {
         if (!messageInput.trim() || !socket) return
 
@@ -799,6 +799,69 @@ function Game() {
         setMessageInput('')
     }
 
+    const insertEmoji = (emoji) => {
+        setMessageInput(prev => prev + emoji)
+        setShowEmojiPicker(false)
+    }
+
+    // 🎥 Gérer l'upload de vidéo
+    const handleVideoUpload = async (e) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        // Vérifier la taille (max 50MB)
+        if (file.size > 50 * 1024 * 1024) {
+            setError('Vidéo trop volumineuse (max 50MB)')
+            setTimeout(() => setError(null), 3000)
+            return
+        }
+
+        // Vérifier le type
+        if (!file.type.startsWith('video/')) {
+            setError('Format vidéo non supporté')
+            setTimeout(() => setError(null), 3000)
+            return
+        }
+
+        setUploadingVideo(true)
+
+        try {
+            // Convertir en base64 pour envoi
+            const reader = new FileReader()
+            reader.onload = (event) => {
+                const videoData = event.target.result
+
+                // Envoyer au serveur
+                if (activeChat === 'wolf' && myRole === 'loup') {
+                    socket.emit('wolfChatMessage', { 
+                        message: '🎥 Vidéo partagée',
+                        videoUrl: videoData
+                    })
+                } else {
+                    socket.emit('chatMessage', { 
+                        message: '🎥 Vidéo partagée',
+                        videoUrl: videoData
+                    })
+                }
+
+                setUploadingVideo(false)
+                audioManager.beep(660, 0.15, 0.4)
+            }
+
+            reader.onerror = () => {
+                setError('Erreur lors de la lecture de la vidéo')
+                setTimeout(() => setError(null), 3000)
+                setUploadingVideo(false)
+            }
+
+            reader.readAsDataURL(file)
+        } catch (error) {
+            console.error('Erreur upload vidéo:', error)
+            setError('Erreur lors de l\'envoi de la vidéo')
+            setTimeout(() => setError(null), 3000)
+            setUploadingVideo(false)
+        }
+    }
     const insertEmoji = (emoji) => {
         setMessageInput(prev => prev + emoji)
         setShowEmojiPicker(false)
@@ -1798,6 +1861,19 @@ function Game() {
                                                                 <div className={`text-sm ${isMyMessage ? 'text-gray-200' : 'text-gray-300'}`}>
                                                                     {msg.message}
                                                                 </div>
+                                                                {/* Afficher la vidéo si présente */}
+                                                                {msg.videoUrl && (
+                                                                    <div className="mt-2 rounded-lg overflow-hidden">
+                                                                        <video 
+                                                                            controls 
+                                                                            className="w-full max-w-xs rounded-lg"
+                                                                            preload="metadata"
+                                                                        >
+                                                                            <source src={msg.videoUrl} type="video/mp4" />
+                                                                            Votre navigateur ne supporte pas la lecture vidéo.
+                                                                        </video>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     )
@@ -1806,6 +1882,15 @@ function Game() {
                                         )}
                                     </div>
                                     <div className="flex gap-2 relative emoji-picker-container">
+                                        {/* Input caché pour upload vidéo */}
+                                        <input
+                                            ref={videoInputRef}
+                                            type="file"
+                                            accept="video/*"
+                                            onChange={handleVideoUpload}
+                                            className="hidden"
+                                        />
+
                                         <input
                                             type="text"
                                             placeholder={
@@ -1822,6 +1907,38 @@ function Game() {
                                                     : 'border-night-600 focus:border-blood-600'
                                             } focus:ring-2 focus:ring-blood-500/20 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 transition-all outline-none shadow-lg hover:shadow-xl transform focus:scale-102`}
                                         />
+
+                                        {/* Bouton Vidéo Intro "Mais qui est le loup ?" */}
+                                        <button
+                                            onClick={() => {
+                                                const videoUrl = '/videos/intro.mp4'
+                                                if (activeChat === 'wolf' && myRole === 'loup') {
+                                                    socket.emit('wolfChatMessage', { 
+                                                        message: '🐺 Mais qui est le loup ?',
+                                                        videoUrl: videoUrl
+                                                    })
+                                                } else {
+                                                    socket.emit('chatMessage', { 
+                                                        message: '🐺 Mais qui est le loup ?',
+                                                        videoUrl: videoUrl
+                                                    })
+                                                }
+                                                audioManager.beep(660, 0.15, 0.4)
+                                            }}
+                                            className="bg-gradient-to-br from-red-700 to-red-800 hover:from-red-600 hover:to-red-700 px-4 py-3 rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+                                            title="Envoyer 'Mais qui est le loup ?'"
+                                        >
+                                            <span className="text-xl">🐺</span>
+                                        </button>
+
+                                        {/* Bouton Upload Vidéo */}
+                                        <button
+                                            onClick={() => videoInputRef.current?.click()}
+                                            className="bg-gradient-to-br from-purple-700 to-purple-800 hover:from-purple-600 hover:to-purple-700 px-4 py-3 rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+                                            title="Envoyer une vidéo"
+                                        >
+                                            <span className="text-xl">🎥</span>
+                                        </button>
 
                                         {/* Bouton Emoji Picker */}
                                         <button

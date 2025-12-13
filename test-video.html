@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Vidéo - Loup-Garou</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: white;
+        }
+        h1 {
+            color: #dc2626;
+        }
+        .container {
+            background: #16213e;
+            padding: 30px;
+            border-radius: 10px;
+            border: 2px solid #dc2626;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .upload-btn {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+        .upload-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(220, 38, 38, 0.5);
+        }
+        video {
+            width: 100%;
+            max-width: 500px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border: 2px solid #dc2626;
+        }
+        .info {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            border-left: 4px solid #dc2626;
+        }
+        .success {
+            background: #0f6040;
+            border-left-color: #10b981;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 Test Upload Vidéo - Loup-Garou</h1>
+        
+        <p>Ce fichier te permet de tester l'upload de vidéos avant de l'intégrer dans le jeu.</p>
+        
+        <input type="file" id="videoInput" accept="video/*">
+        <button class="upload-btn" onclick="document.getElementById('videoInput').click()">
+            🎥 Choisir une vidéo
+        </button>
+        
+        <div id="videoPreview"></div>
+        <div id="info"></div>
+    </div>
+
+    <script>
+        const videoInput = document.getElementById('videoInput');
+        const videoPreview = document.getElementById('videoPreview');
+        const info = document.getElementById('info');
+
+        videoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Vérifier le type
+            if (!file.type.startsWith('video/')) {
+                info.innerHTML = '<div class="info">❌ Ce n\'est pas une vidéo valide</div>';
+                return;
+            }
+
+            // Vérifier la taille
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            if (file.size > 50 * 1024 * 1024) {
+                info.innerHTML = `<div class="info">❌ Vidéo trop volumineuse (${sizeMB}MB). Maximum: 50MB</div>`;
+                return;
+            }
+
+            // Créer un URL pour prévisualiser
+            const videoUrl = URL.createObjectURL(file);
+            
+            videoPreview.innerHTML = `
+                <video controls autoplay>
+                    <source src="${videoUrl}" type="${file.type}">
+                    Votre navigateur ne supporte pas la lecture vidéo.
+                </video>
+            `;
+
+            info.innerHTML = `
+                <div class="info success">
+                    ✅ Vidéo chargée avec succès !<br>
+                    📁 Nom: ${file.name}<br>
+                    📊 Taille: ${sizeMB} MB<br>
+                    🎬 Type: ${file.type}<br>
+                    ⏱️ Durée: Lecture en cours...
+                </div>
+            `;
+
+            // Obtenir la durée de la vidéo
+            const video = videoPreview.querySelector('video');
+            video.addEventListener('loadedmetadata', () => {
+                const duration = Math.floor(video.duration);
+                const minutes = Math.floor(duration / 60);
+                const seconds = duration % 60;
+                info.innerHTML = info.innerHTML.replace('Lecture en cours...', 
+                    `${minutes}:${seconds.toString().padStart(2, '0')}`);
+            });
+        });
+    </script>
+</body>
+</html>

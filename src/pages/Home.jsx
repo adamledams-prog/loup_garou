@@ -19,6 +19,8 @@ function Home() {
     const [showInstallPrompt, setShowInstallPrompt] = useState(false)
     const [scrollY, setScrollY] = useState(0) // ✨ Pour effet parallaxe
     const [moonY, setMoonY] = useState(0) // 🌙 Position de la lune
+    const [showIntroVideo, setShowIntroVideo] = useState(true) // 🎬 Vidéo d'intro
+    const videoRef = useRef(null)
 
     // 🎉 Easter Eggs
     const wolfEasterEgg = useMultiTap(wolfLogoRef, 10, 3000)

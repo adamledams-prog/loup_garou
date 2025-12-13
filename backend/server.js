@@ -1201,6 +1201,7 @@ io.on('connection', (socket) => {
             playerId: player.id,
             playerName: player.name,
             message: data.message,
+            videoUrl: data.videoUrl || null, // 🎥 Inclure la vidéo si présente
             timestamp: Date.now()
         });
     });
@@ -1251,6 +1252,7 @@ io.on('connection', (socket) => {
                     playerId: player.id,
                     playerName: player.name,
                     message: data.message,
+                    videoUrl: data.videoUrl || null, // 🎥 Inclure la vidéo si présente
                     timestamp: Date.now(),
                     isBot: player.isBot || false
                 });

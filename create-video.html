@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Créer Vidéo "Mais qui est le loup ?"</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(22, 33, 62, 0.8);
+            padding: 30px;
+            border-radius: 15px;
+            border: 2px solid #dc2626;
+            box-shadow: 0 0 30px rgba(220, 38, 38, 0.3);
+        }
+        h1 {
+            color: #dc2626;
+            text-align: center;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            max-width: 600px;
+            margin: 20px auto;
+            border: 3px solid #dc2626;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(220, 38, 38, 0.5);
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        button {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(220, 38, 38, 0.6);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .info {
+            background: rgba(15, 52, 96, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #3b82f6;
+        }
+        .success {
+            background: rgba(15, 96, 64, 0.5);
+            border-left-color: #10b981;
+        }
+        .warning {
+            background: rgba(96, 64, 15, 0.5);
+            border-left-color: #f59e0b;
+        }
+        #preview {
+            display: none;
+            margin-top: 20px;
+        }
+        video {
+            width: 100%;
+            max-width: 600px;
+            border-radius: 10px;
+            border: 3px solid #10b981;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Créateur de Vidéo "Mais qui est le loup ?"</h1>
+        
+        <div class="info">
+            📋 <strong>Instructions :</strong><br>
+            1. Clique sur "Générer la vidéo"<br>
+            2. Attends 3 secondes (animation)<br>
+            3. Télécharge la vidéo générée<br>
+            4. Envoie-la moi pour validation !
+        </div>
+        
+        <div class="warning">
+            ⚠️ <strong>Note sur l'audio :</strong><br>
+            La synthèse vocale du navigateur ne peut pas être enregistrée directement.<br>
+            Options : 1) Utiliser un fond sonore inquiétant (actuel) ou 2) Utiliser une API TTS externe (ElevenLabs, Google TTS)
+        </div>
+
+        <canvas id="canvas" width="800" height="450"></canvas>
+
+        <div class="controls">
+            <button id="generateBtn" onclick="generateVideo()">🎥 Générer la Vidéo</button>
+            <button id="downloadBtn" onclick="downloadVideo()" disabled>💾 Télécharger MP4</button>
+        </div>
+
+        <div id="status"></div>
+        <div id="preview"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const generateBtn = document.getElementById('generateBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const status = document.getElementById('status');
+        const preview = document.getElementById('preview');
+
+        let mediaRecorder;
+        let recordedChunks = [];
+        let currentFrame = 0;
+        const totalFrames = 90; // 3 secondes à 30fps
+        let audioContext;
+        let audioDestination;
+
+        // Dessiner un frame de l'animation
+        function drawFrame(frame) {
+            // Fond dégradé noir vers rouge
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#0f0f1a');
+            gradient.addColorStop(1, '#450a0a');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Effet de particules (étoiles)
+            for (let i = 0; i < 50; i++) {
+                const x = (i * 137.5 + frame * 2) % canvas.width;
+                const y = (i * 97 + frame) % canvas.height;
+                const size = (Math.sin(frame * 0.1 + i) + 1) * 2;
+                ctx.fillStyle = 'rgba(220, 38, 38, 0.5)';
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Texte principal avec animation
+            const progress = frame / totalFrames;
+            const scale = 0.8 + Math.sin(progress * Math.PI) * 0.2;
+            const opacity = Math.min(progress * 3, 1);
+
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2 - 50);
+            ctx.scale(scale, scale);
+
+            // Ombre du texte
+            ctx.shadowColor = 'rgba(220, 38, 38, 0.8)';
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+
+            // Texte
+            ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+            ctx.font = 'bold 60px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Mais qui est', 0, -20);
+            
+            ctx.fillStyle = `rgba(220, 38, 38, ${opacity})`;
+            ctx.font = 'bold 80px Arial';
+            ctx.fillText('LE LOUP ? 🐺', 0, 60);
+
+            ctx.restore();
+
+            // Sous-titre
+            if (progress > 0.3) {
+                ctx.fillStyle = `rgba(156, 163, 175, ${(progress - 0.3) * 2})`;
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Une production Loup-Garou Online', canvas.width / 2, canvas.height - 40);
+            }
+        }
+
+        // Générer la vidéo
+        async function generateVideo() {
+            generateBtn.disabled = true;
+            status.innerHTML = '<div class="info">⏳ Génération en cours (avec voix) ...</div>';
+            recordedChunks = [];
+            currentFrame = 0;
+
+            // Créer le contexte audio
+            audioContext = new AudioContext();
+            audioDestination = audioContext.createMediaStreamDestination();
+
+            // Créer un élément audio pour capturer la synthèse vocale
+            const audioElement = new Audio();
+            const mediaSource = audioContext.createMediaElementSource(audioElement);
+            
+            // Ajouter un fond sonore grave inquiétant
+            const bass = audioContext.createOscillator();
+            const bassGain = audioContext.createGain();
+            bass.type = 'sine';
+            bass.frequency.value = 40;
+            bassGain.gain.setValueAtTime(0.2, audioContext.currentTime);
+            bassGain.gain.exponentialRampToValueAtTime(0.05, audioContext.currentTime + 3);
+            bass.connect(bassGain);
+            bassGain.connect(audioDestination);
+            bass.start();
+            bass.stop(audioContext.currentTime + 3);
+            
+            // Connecter la source audio au destination
+            mediaSource.connect(audioDestination);
+            
+            // Préparer la synthèse vocale
+            const utterance = new SpeechSynthesisUtterance('Mais... qui est... le loup ?');
+            utterance.lang = 'fr-FR';
+            utterance.rate = 0.7;
+            utterance.pitch = 0.6;
+            utterance.volume = 1.0;
+
+            // Attendre les voix
+            await new Promise(resolve => {
+                if (speechSynthesis.getVoices().length > 0) {
+                    resolve();
+                } else {
+                    speechSynthesis.onvoiceschanged = resolve;
+                }
+            });
+
+            const voices = speechSynthesis.getVoices();
+            const frenchVoice = voices.find(v => v.lang.startsWith('fr') && v.name.includes('Male')) 
+                || voices.find(v => v.lang.startsWith('fr')) 
+                || voices[0];
+            utterance.voice = frenchVoice;
+
+            // Créer un stream à partir du canvas
+            const videoStream = canvas.captureStream(30); // 30 FPS
+            
+            // Combiner vidéo + audio
+            const combinedStream = new MediaStream([
+                ...videoStream.getVideoTracks(),
+                ...audioDestination.stream.getAudioTracks()
+            ]);
+            
+            // Créer le MediaRecorder avec audio
+            mediaRecorder = new MediaRecorder(combinedStream, {
+                mimeType: 'video/webm;codecs=vp9,opus',
+                videoBitsPerSecond: 2500000,
+                audioBitsPerSecond: 128000
+            });
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                
+                preview.innerHTML = `
+                    <div class="info success">
+                        ✅ Vidéo générée avec succès (AVEC SON INQUIÉTANT 🔊) !<br>
+                        📊 Taille: ${(blob.size / 1024).toFixed(2)} KB<br>
+                        ⏱️ Durée: 3 secondes<br>
+                        🎵 Audio: Sons synthétisés + effets de réverbération
+                    </div>
+                    <video controls autoplay loop>
+                        <source src="${url}" type="video/webm">
+                    </video>
+                `;
+                preview.style.display = 'block';
+                
+                downloadBtn.disabled = false;
+                generateBtn.disabled = false;
+                status.innerHTML = '<div class="info success">🎉 Vidéo avec son inquiétant prête ! 🔊🐺</div>';
+            };
+
+            // Démarrer l'enregistrement
+            mediaRecorder.start();
+            
+            // Jouer la voix immédiatement
+            setTimeout(() => {
+                speechSynthesis.speak(utterance);
+            }, 200);
+
+            // Animer et enregistrer
+            function animate() {
+                if (currentFrame < totalFrames) {
+                    drawFrame(currentFrame);
+                    currentFrame++;
+                    setTimeout(animate, 1000 / 30); // 30 FPS
+                } else {
+                    setTimeout(() => {
+                        mediaRecorder.stop();
+                        speechSynthesis.cancel();
+                        if (audioContext) audioContext.close();
+                    }, 500); // Attendre un peu pour capturer la fin de la voix
+                }
+            }
+
+            animate();
+        }
+
+        // Télécharger la vidéo
+        function downloadVideo() {
+            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'mais-qui-est-le-loup.webm';
+            a.click();
+            
+            status.innerHTML = '<div class="info success">💾 Téléchargement lancé ! Envoie-moi ce fichier.</div>';
+        }
+
+        // Afficher le premier frame au chargement
+        drawFrame(0);
+    </script>
+</body>
+</html>
