@@ -217,53 +217,60 @@ class SoundManager {
   }
 
   /**
-   * Hurlement de loup 🐺
+   * Hurlement de loup 🐺 - VERSION SIMPLE ET AUDIBLE
    */
   playWolfHowl() {
     console.log('🐺 playWolfHowl appelé - enabled:', this.enabled, 'initialized:', this.initialized)
     if (!this.enabled || !this.initialized) return
 
     try {
-      console.log('🐺 Création oscillateur loup...')
+      console.log('🐺 Création hurlement de loup FORT...')
       const osc = this.audioContext.createOscillator()
       const gain = this.audioContext.createGain()
 
       osc.connect(gain)
       gain.connect(this.audioContext.destination)
 
-      osc.type = 'sawtooth'
+      osc.type = 'sawtooth' // Son rauque type loup
 
       const now = this.audioContext.currentTime
 
-      // Montée du hurlement (0.5s)
-      osc.frequency.setValueAtTime(200, now)
-      osc.frequency.linearRampToValueAtTime(400, now + 0.5)
+      // 🐺 Hurlement plus long et BEAUCOUP plus audible
+      // Montée du hurlement (0.8s)
+      osc.frequency.setValueAtTime(180, now)
+      osc.frequency.linearRampToValueAtTime(450, now + 0.8)
 
-      // Tenue haute (0.8s)
-      osc.frequency.linearRampToValueAtTime(420, now + 1.3)
+      // Tenue haute avec vibrato (1.5s)
+      osc.frequency.linearRampToValueAtTime(480, now + 1.5)
+      osc.frequency.linearRampToValueAtTime(450, now + 2.0)
 
-      // Descente (0.7s)
-      osc.frequency.linearRampToValueAtTime(180, now + 2.0)
+      // Descente dramatique (1s)
+      osc.frequency.exponentialRampToValueAtTime(150, now + 3.0)
 
-      // Envelope - Volume beaucoup plus fort
+      // Envelope - VOLUME FORT et audible (0.6 au lieu de 0.4)
       gain.gain.setValueAtTime(0, now)
-      gain.gain.linearRampToValueAtTime(this.volume * 0.8, now + 0.3) // 0.3 → 0.8
-      gain.gain.setValueAtTime(this.volume * 0.8, now + 1.5)
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 2.0)
+      gain.gain.linearRampToValueAtTime(0.6, now + 0.4) // Volume FORT
+      gain.gain.setValueAtTime(0.6, now + 2.2) // Maintenu
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 3.0)
 
       osc.start(now)
-      osc.stop(now + 2.0)
-      console.log('🐺 Hurlement lancé avec succès, volume:', this.volume * 0.8)
+      osc.stop(now + 3.0) // 3 secondes au lieu de 2
+
+      console.log('🐺 Hurlement lancé - 3 secondes, volume: 0.6')
     } catch (e) {
       console.error('❌ Error playing wolf howl', e)
     }
   }
 
   /**
-   * Ambiance forêt nocturne avec grillons et vent 🌲🌙
+   * Ambiance forêt nocturne - SIMPLIFIÉE (grillons seulement, pas de vent)
    */
   playForestAmbience() {
     console.log('🌲 playForestAmbience appelé - enabled:', this.enabled, 'initialized:', this.initialized, 'déjà actif:', !!this.forestAmbience)
+    // ⚠️ DÉSACTIVÉ temporairement - trop complexe et bugs
+    return
+
+    /* DÉSACTIVÉ - Code conservé pour référence future
     if (!this.enabled || !this.initialized || this.forestAmbience) return
 
     try {
@@ -349,27 +356,17 @@ class SoundManager {
       console.log('🌲 Ambiance forêt lancée avec succès')
 
     } catch (e) {
-      console.error('❌ Error playing forest ambience', e)
+      console.error('Error playing forest ambience', e)
     }
+    */ // FIN CODE DÉSACTIVÉ
   }
 
   /**
-   * Arrête l'ambiance de forêt
+   * Stop ambiance forêt - DÉSACTIVÉ
    */
   stopForestAmbience() {
-    if (this.forestAmbience) {
-      clearInterval(this.forestAmbience)
-      this.forestAmbience = null
-    }
-    if (this.forestAmbienceNodes) {
-      try {
-        this.forestAmbienceNodes.windOsc.stop()
-        this.forestAmbienceNodes.windLFO.stop()
-      } catch (e) {
-        // Déjà arrêté
-      }
-      this.forestAmbienceNodes = null
-    }
+    // Ambiance désactivée - rien à faire
+    console.log('🌲 stopForestAmbience appelé (ambiance désactivée)')
   }
 
   /**

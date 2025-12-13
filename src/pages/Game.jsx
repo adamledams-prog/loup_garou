@@ -191,15 +191,15 @@ function Game() {
             // 🔊 Son transition nuit
             soundManager.playPhaseChange('night')
 
-            // 🌲 Lancer l'ambiance de forêt nocturne
-            soundManager.playForestAmbience()
+            // 🐺 Hurlement immédiat au début de la nuit
+            setTimeout(() => {
+                soundManager.playWolfHowl()
+            }, 1500) // 1.5s après le début de la nuit
 
-            // 🐺 Hurlement de loup aléatoire pendant la nuit
+            // 🐺 Hurlements fréquents pendant la nuit (plus d'ambiance)
             const howlInterval = setInterval(() => {
-                if (Math.random() > 0.5) {
-                    soundManager.playWolfHowl()
-                }
-            }, 45000 + Math.random() * 30000) // Entre 45s et 75s
+                soundManager.playWolfHowl() // Toujours jouer, pas de random
+            }, 15000) // Toutes les 15 secondes
 
             // Sauvegarder l'interval pour cleanup
             window.nightHowlInterval = howlInterval
