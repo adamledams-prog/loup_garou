@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRipple } from '../hooks/useRipple'
-import { soundManager } from '../utils/sound'
+import { audioManager } from '../utils/audioManager'
 import { useMultiTap, useKonamiCode } from '../hooks/useEasterEggs'
 import { getNetworkQuality, isPWAInstalled, setupPWAInstall, promptPWAInstall } from '../utils/mobile'
 
@@ -12,7 +12,7 @@ function Home() {
     const wolfLogoRef = useRef(null)
     const [stars, setStars] = useState([])
     const [particles, setParticles] = useState([])
-    const [soundEnabled, setSoundEnabled] = useState(soundManager.enabled)
+    const [soundEnabled, setSoundEnabled] = useState(audioManager.enabled)
     const [networkInfo, setNetworkInfo] = useState(null)
     const [showInstallPrompt, setShowInstallPrompt] = useState(false)
     const [scrollY, setScrollY] = useState(0) // ✨ Pour effet parallaxe
@@ -42,19 +42,13 @@ function Home() {
     useEffect(() => {
         const initSound = () => {
             console.log('🔊 Initialisation du son...')
-            soundManager.init()
-            soundManager.playClick()
+            audioManager.beep(440, 0.05, 0.3) // Click audio
 
-            // 🐺 Hurlement de loup d'accueil + ambiance forêt
+            // 🐺 Hurlement de loup d'accueil
             setTimeout(() => {
                 console.log('🐺 Tentative de hurlement de loup...')
-                soundManager.playWolfHowl()
+                audioManager.playWolfHowl()
             }, 500)
-
-            setTimeout(() => {
-                console.log('🌲 Tentative d\'ambiance forêt...')
-                soundManager.playForestAmbience()
-            }, 3000)
 
             document.removeEventListener('click', initSound)
         }
@@ -62,8 +56,6 @@ function Home() {
 
         return () => {
             document.removeEventListener('click', initSound)
-            // Nettoyer l'ambiance quand on quitte la page
-            soundManager.stopForestAmbience()
         }
     }, [])
 
@@ -381,7 +373,7 @@ function Home() {
                         <button
                             ref={rulesButtonRef}
                             onClick={() => {
-                                soundManager.playClick()
+                                audioManager.beep(440, 0.05, 0.3)
                                 navigate('/regles')
                             }}
                             className="btn-secondary px-8 py-4 text-lg font-bold transform hover:scale-110 transition-all duration-300 ripple-container"
@@ -392,9 +384,9 @@ function Home() {
                         {/* Toggle Son */}
                         <button
                             onClick={() => {
-                                const enabled = soundManager.toggle()
+                                const enabled = audioManager.toggle()
                                 setSoundEnabled(enabled)
-                                if (enabled) soundManager.playSuccess()
+                                if (enabled) audioManager.beep(880, 0.1, 0.4)
                             }}
                             className={`p-4 rounded-full text-2xl transform hover:scale-110 transition-all duration-300 ${
                                 soundEnabled

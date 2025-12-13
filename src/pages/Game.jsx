@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import io from 'socket.io-client'
 import config from '../config'
 import { useParticleSystem } from '../utils/particles'
-import { soundManager } from '../utils/sound'
+import { audioManager } from '../utils/audioManager'
 import { vibrate, requestWakeLock, releaseWakeLock } from '../utils/mobile'
 import NetworkIndicator from '../components/NetworkIndicator'
 
@@ -189,16 +189,16 @@ function Game() {
             addEvent('night', `Nuit ${data.nightNumber}`, '🌙')
 
             // 🔊 Son transition nuit
-            soundManager.playPhaseChange('night')
+            audioManager.beep(220, 0.3, 0.5) // Low beep for night
 
             // 🐺 Hurlement immédiat au début de la nuit
             setTimeout(() => {
-                soundManager.playWolfHowl()
+                audioManager.playWolfHowl()
             }, 1500) // 1.5s après le début de la nuit
 
             // 🐺 Hurlements fréquents pendant la nuit (plus d'ambiance)
             const howlInterval = setInterval(() => {
-                soundManager.playWolfHowl() // Toujours jouer, pas de random
+                audioManager.playWolfHowl() // Toujours jouer, pas de random
             }, 15000) // Toutes les 15 secondes
 
             // Sauvegarder l'interval pour cleanup
@@ -228,10 +228,9 @@ function Game() {
             addEvent('day', 'Le village se réveille', '☀️')
 
             // 🔊 Son transition jour
-            soundManager.playPhaseChange('day')
+            audioManager.beep(440, 0.3, 0.5) // Higher beep for day
 
-            // 🌅 Arrêter l'ambiance de forêt et les hurlements
-            soundManager.stopForestAmbience()
+            // 🌅 Arrêter les hurlements
             if (window.nightHowlInterval) {
                 clearInterval(window.nightHowlInterval)
                 window.nightHowlInterval = null
@@ -251,7 +250,7 @@ function Game() {
                 }
 
                 // 🔊 Son mort + 📳 Vibration
-                soundManager.playDeath()
+                audioManager.beep(110, 0.8, 0.6) // Low long beep for death
                 vibrate.death()
             }
         })
@@ -288,9 +287,11 @@ function Game() {
 
             // 🔊 Son victoire/défaite
             if (data.winner === 'villageois') {
-                soundManager.playVictory()
+                audioManager.beep(660, 0.2, 0.6) // Victory beep
+                setTimeout(() => audioManager.beep(880, 0.3, 0.6), 150)
             } else {
-                soundManager.playDefeat()
+                audioManager.beep(220, 0.5, 0.6) // Defeat beep
+                setTimeout(() => audioManager.beep(165, 0.5, 0.6), 200)
             }
         })
 
@@ -300,10 +301,10 @@ function Game() {
 
             // 🔊 Son timer critique + 📳 Vibration
             if (data.timeRemaining === 10) {
-                soundManager.playTimerCritical()
+                audioManager.beep(880, 0.1, 0.5) // Critical timer beep
                 vibrate.critical()
             } else if (data.timeRemaining === 0) {
-                soundManager.playTimerEnd()
+                audioManager.beep(440, 0.2, 0.5) // Timer end beep
             }
         })
 
@@ -312,7 +313,7 @@ function Game() {
             setMessages(prev => [...prev, data])
 
             // 🔊 Son message
-            soundManager.playMessage()
+            audioManager.beep(660, 0.05, 0.3)
 
             // Si c'est un message loup et que je suis loup et que le chat n'est pas visible, incrémenter
             if (phase === 'night' && myRole === 'loup' && data.playerId !== localStorage.getItem('playerId') && !chatVisible) {
@@ -448,8 +449,7 @@ function Game() {
             newSocket.close()
             // 💤 Libérer le Wake Lock quand on quitte
             releaseWakeLock()
-            // 🌲 Arrêter l'ambiance de forêt
-            soundManager.stopForestAmbience()
+            // Arrêter les hurlements
             if (window.nightHowlInterval) {
                 clearInterval(window.nightHowlInterval)
                 window.nightHowlInterval = null
@@ -553,7 +553,7 @@ function Game() {
         socket.emit('sendReaction', { emoji })
         setShowReactionPicker(false)
         vibrate.tap()
-        soundManager.playClick()
+        audioManager.beep(440, 0.05, 0.3)
 
         // Afficher ma propre réaction localement aussi
         const myId = localStorage.getItem('playerId')
@@ -595,7 +595,7 @@ function Game() {
         }
 
         // 🔊 Son vote + 📳 Vibration
-        soundManager.playVote()
+        audioManager.beep(550, 0.15, 0.4)
         vibrate.vote()
     }
 

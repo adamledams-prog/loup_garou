@@ -4,7 +4,7 @@ import io from 'socket.io-client'
 import { QRCodeSVG } from 'qrcode.react'
 import config from '../config'
 import { useParticleSystem } from '../utils/particles'
-import { soundManager } from '../utils/sound'
+import { audioManager } from '../utils/audioManager'
 import { vibrate, shareRoomCode } from '../utils/mobile'
 
 function Lobby() {
@@ -298,7 +298,7 @@ function Lobby() {
                     const y = Math.random() * (window.innerHeight / 2) + 100
                     triggerConfetti(x, y, 50)
                     // 🔊 Son ready
-                    soundManager.playReady()
+                    audioManager.beep(660, 0.15, 0.5)
                     // 📳 Vibration ready
                     vibrate.ready()
                 }
@@ -610,7 +610,7 @@ function Lobby() {
                                     onClick={() => {
                                         setShowQRCode(true)
                                         vibrate.tap()
-                                        soundManager.playClick()
+                                        audioManager.beep(440, 0.05, 0.3)
                                     }}
                                     className="btn-secondary text-sm px-4 py-2 hover:scale-110 transition-transform flex items-center gap-2"
                                 >
@@ -791,7 +791,7 @@ function Lobby() {
                                                 onClick={() => {
                                                     setShowRolesModal(true)
                                                     vibrate.tap()
-                                                    soundManager.playClick()
+                                                    audioManager.beep(440, 0.05, 0.3)
                                                 }}
                                                 className="bg-purple-600 hover:bg-purple-700 text-white text-sm px-3 py-2 rounded-lg font-bold transition-all flex items-center gap-2"
                                             >
@@ -1017,7 +1017,7 @@ function Lobby() {
                                 onClick={() => {
                                     navigator.clipboard.writeText(`${window.location.origin}/lobby?join=${roomCode}`)
                                     vibrate.success()
-                                    soundManager.playClick()
+                                    audioManager.beep(440, 0.05, 0.3)
                                 }}
                                 className="btn-secondary flex-1"
                             >
