@@ -771,7 +771,11 @@ io.on('connection', (socket) => {
                 nightNumber: room.nightNumber,
                 players: room.getPlayersForClient(playerId),
                 phaseTimeRemaining: room.phaseTimeRemaining,
-                killedTonight: room.gameState.killedTonight
+                killedTonight: room.gameState.killedTonight,
+                deadPlayers: room.gameState.deadPlayers || [], // ✅ Envoyer la liste des morts
+                couple: room.gameState.couple || [], // ✅ Envoyer le couple si formé
+                witchHealUsed: room.gameState.witchHealUsed || false,
+                witchPoisonUsed: room.gameState.witchPoisonUsed || false
             });
             console.log(`✅ ${player.name} reconnecté à la partie ${roomCode}`);
         } else {
