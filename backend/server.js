@@ -725,7 +725,8 @@ io.on('connection', (socket) => {
                 role: p.role,
                 players: room.getPlayersForClient(p.id),
                 phase: 'night',
-                nightNumber: 1
+                nightNumber: 1,
+                playWolfHowl: true // 🐺 Déclencher le hurlement de loup pour la 1ère nuit
             });
         }
 
@@ -994,6 +995,12 @@ io.on('connection', (socket) => {
         // ✅ Empêcher double vote
         if (room.gameState.votes[socket.playerId]) {
             socket.emit('error', { message: 'Vous avez déjà voté !' });
+            return;
+        }
+
+        // ❌ Empêcher de voter pour soi-même
+        if (targetId === socket.playerId) {
+            socket.emit('error', { message: 'Vous ne pouvez pas voter pour vous-même !' });
             return;
         }
 
@@ -1681,7 +1688,8 @@ function continueAfterVote(room) {
                     name: p.name,
                     alive: p.alive
                 })),
-                killedTonight: room.gameState.killedTonight
+                killedTonight: room.gameState.killedTonight,
+                playWolfHowl: true // 🐺 Déclencher le hurlement de loup côté client
             });
 
             // Démarrer le timer pour la nuit

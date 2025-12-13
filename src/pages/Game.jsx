@@ -181,7 +181,12 @@ function Game() {
             setEventHistory([]) // 📜 Réinitialiser l'historique
             addEvent('start', 'La partie commence !', '🎮')
 
-            // 🔆 Activer Wake Lock pour garder l'écran allumé
+            // � Hurlement de loup au démarrage de la 1ère nuit
+            if (data.playWolfHowl) {
+                audioManager.playWolfHowl()
+            }
+
+            // �🔆 Activer Wake Lock pour garder l'écran allumé
             requestWakeLock()
         })
 
@@ -218,7 +223,12 @@ function Game() {
             // 📜 Log événement
             addEvent('night', `Nuit ${data.nightNumber}`, '🌙')
 
-            // 🔊 Son transition nuit
+            // � Hurlement de loup au début de chaque nuit
+            if (data.playWolfHowl) {
+                audioManager.playWolfHowl()
+            }
+
+            // �🔊 Son transition nuit
             audioManager.beep(220, 0.3, 0.5) // Low beep for night
 
             // 🌲 Ambiance forêt nocturne en boucle
