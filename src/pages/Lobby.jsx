@@ -478,7 +478,7 @@ function Lobby() {
 
                 {/* Menu principal */}
                 {view === 'menu' && (
-                    <div className="space-y-4 animate-slideUp">
+                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 animate-slideUp">
                         <div className="card-glow">
                             <h2 className="text-2xl font-bold mb-4 text-center text-blood">Rejoignez ou créez une partie</h2>
                             
@@ -539,6 +539,18 @@ function Lobby() {
                                 >
                                     🚪 Rejoindre une partie
                                 </button>
+                            </div>
+                        </div>
+
+                        {/* Carte d'aperçu à droite */}
+                        <div className="hidden lg:flex flex-col items-center justify-center card bg-night-800 border-2 border-blood-600 shadow-neon-red">
+                            <div className="text-9xl mb-4 animate-bounce-in drop-shadow-2xl">
+                                {selectedAvatar}
+                            </div>
+                            <div className="text-center">
+                                <p className="text-2xl font-bold text-white">
+                                    {playerName || 'Ton nom'}
+                                </p>
                             </div>
                         </div>
                     </div>

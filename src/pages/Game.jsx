@@ -34,6 +34,7 @@ function Game() {
     const [gameOver, setGameOver] = useState(null) // 🏁 État game over avec infos
     const [isConnected, setIsConnected] = useState(true) // 📡 État de connexion
     const [reconnecting, setReconnecting] = useState(false) // 🔄 Tentative de reconnexion
+    const [revealedRole, setRevealedRole] = useState(null) // 🔮 Rôle révélé par la voyante
 
     // 🎊 Système de particules
     const canvasRef = useRef(null)
@@ -516,7 +517,19 @@ function Game() {
 
         // Voyante : rôle révélé
         newSocket.on('roleRevealed', (data) => {
-            showNotification('info', '🔮', 'Vision de la Voyante', `${data.targetName} est ${data.targetRole}`)
+            // Stocker le rôle révélé pour l'afficher visuellement
+            setRevealedRole({
+                targetId: data.targetId,
+                targetName: data.targetName,
+                targetRole: data.targetRole
+            })
+            
+            // Son + vibration
+            audioManager.beep(600, 0.3, 0.5)
+            vibrate([100, 50, 100])
+            
+            // Masquer après 5 secondes
+            setTimeout(() => setRevealedRole(null), 5000)
         })
 
         // 📢 Narration dramatique
@@ -1254,6 +1267,27 @@ function Game() {
                                     <p className="text-gray-400">
                                         {myRole ? getRoleDescription(myRole) : 'En attente...'}
                                     </p>
+                                    
+                                    {/* Afficher les autres loups si on est loup */}
+                                    {myRole === 'loup' && (() => {
+                                        const otherWolves = players.filter(p => p.role === 'loup' && p.id !== localStorage.getItem('playerId') && p.alive)
+                                        return (
+                                            <div className="mt-4 pt-4 border-t border-blood-600/30">
+                                                <p className="text-sm font-bold text-gray-300 mb-2">🐺 Meute de loups :</p>
+                                                {otherWolves.length > 0 ? (
+                                                    <div className="flex flex-wrap justify-center gap-2">
+                                                        {otherWolves.map(wolf => (
+                                                            <span key={wolf.id} className="inline-flex items-center gap-1 px-3 py-1 bg-blood-900/50 border border-blood-600 rounded-lg text-sm">
+                                                                {wolf.avatar} {wolf.name}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-gray-500 text-sm italic">Personne d'autre</p>
+                                                )}
+                                            </div>
+                                        )
+                                    })()}
                                 </div>
 
                                 {/* Phase actuelle */}
@@ -1392,11 +1426,15 @@ function Game() {
                                             // Vérifier si le joueur actuel est vivant
                                             const currentPlayer = players.find(p => p.id === localStorage.getItem('playerId'))
                                             const amAlive = currentPlayer?.alive !== false
+                                            const isMe = player.id === localStorage.getItem('playerId')
+
+                                            // Empêcher la voyante de se voir elle-même
+                                            const canSeeRole = myRole === 'voyante' && phase === 'night' && !isMe
 
                                             // Déterminer si ce joueur peut être cliqué
                                             const isNightActive = phase === 'night' && ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon'].includes(myRole) && amAlive
                                             const isHunterActive = phase === 'hunter' && myRole === 'chasseur'
-                                            const canClick = player.alive && (isNightActive || isHunterActive || (phase === 'vote' && amAlive))
+                                            const canClick = player.alive && (isNightActive || isHunterActive || (phase === 'vote' && amAlive)) && !(myRole === 'voyante' && isMe)
 
                                             return (
                                                 <div
@@ -1465,6 +1503,22 @@ function Game() {
                                                         <p className="font-black text-lg mb-1 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
                                                             {player.name}
                                                         </p>
+
+                                                        {/* 🔮 Rôle révélé par la voyante */}
+                                                        {revealedRole && revealedRole.targetId === player.id && (
+                                                            <div className={`mb-2 px-3 py-2 rounded-lg font-bold text-sm border-2 animate-pulse ${
+                                                                revealedRole.targetRole === 'loup' 
+                                                                    ? 'bg-red-900/80 text-red-200 border-red-500' 
+                                                                    : 'bg-green-900/80 text-green-200 border-green-500'
+                                                            }`}>
+                                                                <div className="flex items-center justify-center gap-2">
+                                                                    <span className="text-2xl">🔮</span>
+                                                                    <span>
+                                                                        {revealedRole.targetRole === 'loup' ? '🐺 Loup-Garou' : `✨ ${revealedRole.targetRole.charAt(0).toUpperCase() + revealedRole.targetRole.slice(1)}`}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        )}
 
                                                         {/* Statut */}
                                                         <div className={`text-xs font-bold px-3 py-1 rounded-full inline-block ${player.alive ? 'bg-green-900/50 text-green-400 border border-green-700/50' : 'bg-gray-900/50 text-gray-500 border border-gray-700/50'}`}>
