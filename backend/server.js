@@ -210,8 +210,10 @@ setInterval(() => {
     let cleaned = 0;
 
     for (const [code, room] of rooms.entries()) {
-        const allDisconnected = Array.from(room.players.values()).every(p => p.socketId === null);
-        const connectedCount = Array.from(room.players.values()).filter(p => p.socketId !== null).length;
+        // 🤖 Ignorer les bots pour le calcul de déconnexion
+        const humanPlayers = Array.from(room.players.values()).filter(p => !p.isBot);
+        const allDisconnected = humanPlayers.every(p => p.socketId === null);
+        const connectedCount = humanPlayers.filter(p => p.socketId !== null).length;
 
         // 🔍 Logging détaillé pour debug
         console.log(`🔍 Scan room ${code}:`, {
@@ -220,6 +222,8 @@ setInterval(() => {
             allDisconnected,
             connectedPlayers: connectedCount,
             totalPlayers: room.players.size,
+            humanPlayers: humanPlayers.length,
+            bots: room.players.size - humanPlayers.length,
             lastActivity: room.lastActivity ? new Date(room.lastActivity).toISOString() : 'null',
             inactiveMinutes: room.lastActivity ? Math.floor((now - room.lastActivity) / 60000) : 'N/A'
         });
