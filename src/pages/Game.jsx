@@ -18,6 +18,8 @@ function Game() {
     const [nightNumber, setNightNumber] = useState(1)
     const [selectedPlayer, setSelectedPlayer] = useState(null)
     const [messages, setMessages] = useState([])
+    const [wolfMessages, setWolfMessages] = useState([]) // 🐺 Messages du chat loup
+    const [activeChat, setActiveChat] = useState('village') // 'village' ou 'wolf'
     const [messageInput, setMessageInput] = useState('')
     const [showWitchModal, setShowWitchModal] = useState(false)
     const [witchAction, setWitchAction] = useState(null) // 'heal' ou 'poison'
@@ -394,7 +396,7 @@ function Game() {
             }
         })
 
-        // Messages chat
+        // Messages chat village
         newSocket.on('chatMessage', (data) => {
             setMessages(prev => [...prev, data])
 
@@ -405,9 +407,22 @@ function Game() {
             if (data.isBot && data.message) {
                 ttsManager.speak(data.message, data.playerName)
             }
+        })
 
-            // Si c'est un message loup et que je suis loup et que le chat n'est pas visible, incrémenter
-            if (phase === 'night' && myRole === 'loup' && data.playerId !== localStorage.getItem('playerId') && !chatVisible) {
+        // 🐺 Messages chat loup (PRIVÉ)
+        newSocket.on('wolfChatMessage', (data) => {
+            setWolfMessages(prev => [...prev, data])
+
+            // 🔊 Son message loup (plus grave)
+            audioManager.beep(440, 0.05, 0.3)
+
+            // 🎙️ Si c'est un bot loup, lire aussi
+            if (data.isBot && data.message) {
+                ttsManager.speak(data.message, data.playerName)
+            }
+
+            // 💬 Si chat loup pas visible, incrémenter badge non lus
+            if (activeChat !== 'wolf' && data.playerId !== localStorage.getItem('playerId')) {
                 setUnreadWolfMessages(prev => prev + 1)
             }
         })
@@ -755,7 +770,13 @@ function Game() {
     const sendMessage = () => {
         if (!messageInput.trim() || !socket) return
 
-        socket.emit('chatMessage', { message: messageInput })
+        // 🐺 Envoyer au chat loup si actif ET si je suis loup
+        if (activeChat === 'wolf' && myRole === 'loup') {
+            socket.emit('wolfChatMessage', { message: messageInput })
+        } else {
+            socket.emit('chatMessage', { message: messageInput })
+        }
+        
         setMessageInput('')
     }
 

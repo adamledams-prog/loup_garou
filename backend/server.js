@@ -1157,6 +1157,43 @@ io.on('connection', (socket) => {
         });
     });
 
+    // 🐺 Chat privé des loups (SEULEMENT visible par les loups)
+    socket.on('wolfChatMessage', (data) => {
+        const room = rooms.get(socket.roomCode);
+        if (!room) return;
+
+        const player = room.players.get(socket.playerId);
+        if (!player) return;
+
+        // ✅ Vérifier que c'est bien un loup
+        if (player.role !== 'loup') {
+            socket.emit('error', { message: 'Seuls les loups peuvent utiliser ce chat' });
+            return;
+        }
+
+        // 📊 Incrémenter le compteur de messages
+        if (player.stats) {
+            player.stats.messagesCount++;
+        }
+
+        // 🐺 Envoyer SEULEMENT aux loups vivants ou morts (pour suivre la partie)
+        const wolves = Array.from(room.players.values()).filter(p => p.role === 'loup');
+        
+        wolves.forEach(wolf => {
+            if (wolf.socketId) {
+                io.to(wolf.socketId).emit('wolfChatMessage', {
+                    playerId: player.id,
+                    playerName: player.name,
+                    message: data.message,
+                    timestamp: Date.now(),
+                    isBot: player.isBot || false
+                });
+            }
+        });
+
+        console.log(`🐺 Message loup de ${player.name}: "${data.message}"`);
+    });
+
     // 🛑 Arrêter la partie (réservé à l'hôte)
     socket.on('stopGame', () => {
         const room = rooms.get(socket.roomCode);

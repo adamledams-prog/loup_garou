@@ -203,13 +203,13 @@ class AudioManager {
       if (this.enabled) {
         this.playRandomKidsName()
       }
-      // Rejouer entre 45 et 90 secondes (plus espacé que les chauves-souris)
-      const nextDelay = 45000 + Math.random() * 45000
+      // Rejouer entre 15 et 25 secondes (plus fréquent pour entendre les prénoms)
+      const nextDelay = 15000 + Math.random() * 10000
       this.kidsNamesInterval = setTimeout(playRandomName, nextDelay)
     }
 
-    // Premier nom après 20-40 secondes
-    const initialDelay = 20000 + Math.random() * 20000
+    // Premier nom après 5-10 secondes
+    const initialDelay = 5000 + Math.random() * 5000
     this.kidsNamesInterval = setTimeout(playRandomName, initialDelay)
   }
 
