@@ -453,8 +453,11 @@ class GameRoom {
             roles.push('villageois');
         }
 
-        // Mélanger les rôles
-        roles.sort(() => Math.random() - 0.5);
+        // 🎲 Mélanger les rôles avec Fisher-Yates (vraiment aléatoire, sans biais)
+        for (let i = roles.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [roles[i], roles[j]] = [roles[j], roles[i]];
+        }
 
         // Assigner aux joueurs
         let index = 0;
