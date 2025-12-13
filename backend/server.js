@@ -204,94 +204,36 @@ class BotPlayer {
     }
 }
 
-// Nettoyage automatique des salles inactives toutes les 10 minutes
+// 🧹 NETTOYAGE SIMPLIFIÉ : Seulement pour parties terminées
+// Parties en cours : seul l'hôte peut les arrêter via le bouton "Arrêter"
 setInterval(() => {
-    const now = Date.now();
     let cleaned = 0;
 
     for (const [code, room] of rooms.entries()) {
-        // 🤖 Ignorer les bots pour le calcul de déconnexion
-        const humanPlayers = Array.from(room.players.values()).filter(p => !p.isBot);
-        const allDisconnected = humanPlayers.every(p => p.socketId === null);
-        const connectedCount = humanPlayers.filter(p => p.socketId !== null).length;
-
-        // 🔍 Logging détaillé pour debug
-        console.log(`🔍 Scan room ${code}:`, {
-            gameStarted: room.gameStarted,
-            gameEnded: room.gameEnded,
-            allDisconnected,
-            connectedPlayers: connectedCount,
-            totalPlayers: room.players.size,
-            humanPlayers: humanPlayers.length,
-            bots: room.players.size - humanPlayers.length,
-            lastActivity: room.lastActivity ? new Date(room.lastActivity).toISOString() : 'null',
-            inactiveMinutes: room.lastActivity ? Math.floor((now - room.lastActivity) / 60000) : 'N/A'
-        });
-
-        if (allDisconnected) {
-            // 🔐 PROTECTION CRITIQUE : Si partie EN COURS, ne JAMAIS supprimer automatiquement
-            // Seul l'hôte peut arrêter une partie active via le bouton "Arrêter"
-            if (room.gameStarted && !room.gameEnded) {
-                if (!room.lastActivity) {
-                    console.log(`⚠️ SKIP init lastActivity pour partie ACTIVE ${code} (protection anti-race-condition)`);
-                    continue; // Ignorer complètement ce cycle
-                }
-
-                // Si lastActivity existe déjà, vérifier avec timeout ULTRA long (24 heures)
-                // Uniquement pour nettoyer les parties vraiment abandonnées
-                const inactiveTime = now - room.lastActivity;
-                if (inactiveTime > 24 * 60 * 60 * 1000) { // 24 HEURES pour partie active
-                    if (room.phaseTimer) {
-                        clearInterval(room.phaseTimer);
-                        room.phaseTimer = null;
-                    }
-                    console.log(`🗑️ SUPPRESSION ROOM ${code} (partie active abandonnée depuis 24h)`);
-                    rooms.delete(code);
-                    cleaned++;
-                }
-                continue; // Toujours continuer pour parties actives
+        // ✅ Nettoyer uniquement les parties TERMINÉES après 10 minutes
+        if (room.gameEnded) {
+            const now = Date.now();
+            if (!room.endTime) {
+                room.endTime = now;
             }
 
-            // Pour lobby ou partie terminée : logique normale
-            if (!room.lastActivity) {
-                room.lastActivity = now;
-            }
-
-            const inactiveTime = now - room.lastActivity;
-
-            // 🔧 Lobby ou partie terminée : 30 minutes
-            const timeoutDuration = 30 * 60 * 1000; // 30 min
-
-            if (inactiveTime > timeoutDuration) {
+            const timeSinceEnd = now - room.endTime;
+            if (timeSinceEnd > 10 * 60 * 1000) { // 10 minutes après la fin
                 if (room.phaseTimer) {
                     clearInterval(room.phaseTimer);
                     room.phaseTimer = null;
                 }
-                console.log(`🗑️ SUPPRESSION ROOM ${code} (inactivité ${timeoutDuration/60000}min, gameStarted: ${room.gameStarted}, gameEnded: ${room.gameEnded}, players: ${room.players.size})`);
+                console.log(`🗑️ SUPPRESSION ROOM ${code} (partie terminée depuis 10min)`);
                 rooms.delete(code);
                 cleaned++;
             }
-        } else {
-            // Réinitialiser lastActivity si quelqu'un est connecté
-            room.lastActivity = now;
         }
     }
 
     if (cleaned > 0) {
         console.log(`🧹 Nettoyage: ${cleaned} salle(s) supprimée(s). Total: ${rooms.size}`);
     }
-}, 10 * 60 * 1000); // Toutes les 10 minutes (réduit risque de race condition)
-
-// 💓 Heartbeat pour maintenir les parties actives en vie
-setInterval(() => {
-    for (const [code, room] of rooms.entries()) {
-        if (room.gameStarted && !room.gameEnded) {
-            // Mettre à jour lastActivity pour parties actives toutes les 30s
-            room.lastActivity = Date.now();
-            console.log(`💓 Heartbeat room ${code} (active, ${room.players.size} joueurs)`);
-        }
-    }
-}, 30 * 1000); // Toutes les 30 secondes
+}, 5 * 60 * 1000); // Toutes les 5 minutes
 
 // Classe pour gérer une salle
 class GameRoom {
@@ -312,13 +254,13 @@ class GameRoom {
         });
         this.gameStarted = false;
         this.gameEnded = false; // 🎮 Flag pour savoir si le game over a été atteint
+        this.endTime = null; // 🕐 Timestamp de fin de partie (pour nettoyage)
         this.phase = 'lobby'; // lobby, night, day, vote
         this.nightNumber = 1;
         this.currentPlayerTurn = null;
         this.phaseTimer = null; // Timer pour progression automatique
         this.phaseTimeRemaining = 60; // Temps restant en secondes
         this.customRoles = []; // Rôles personnalisés choisis par l'hôte
-        this.lastActivity = Date.now(); // Pour nettoyage automatique
         this.processingPhase = false; // 🔒 Flag pour éviter la race condition
         this.gameState = {
             deadPlayers: [],
@@ -1089,6 +1031,7 @@ io.on('connection', (socket) => {
 
         // Marquer la partie comme terminée
         room.gameEnded = true;
+        room.endTime = Date.now(); // 🕐 Marquer l'heure de fin
 
         // Notifier tous les joueurs
         io.to(socket.roomCode).emit('gameForceEnded', {
@@ -1145,12 +1088,8 @@ io.on('connection', (socket) => {
                         });
                     }
 
-                    // ⚠️ NE PAS supprimer la room immédiatement, même si tous déconnectés
-                    const allDisconnected = Array.from(room.players.values()).every(p => p.socketId === null);
-                    if (allDisconnected) {
-                        room.lastActivity = Date.now();
-                        console.log(`⏰ Tous déconnectés de ${socket.roomCode}, timer inactivité démarré`);
-                    }
+                    // ✅ SIMPLIFICATION : Pas de suppression automatique pendant le jeu
+                    // Seul l'hôte peut arrêter via le bouton "Arrêter"
                 }
             }
         }
@@ -1633,6 +1572,7 @@ function checkWinCondition(room) {
 
         // 🎮 Marquer la partie comme terminée mais GARDER la room pour consulter les résultats
         room.gameEnded = true;
+        room.endTime = Date.now(); // 🕐 Marquer l'heure de fin
         console.log(`🏁 GAME OVER - Room ${room.code} maintenue pour consultation résultats`);
 
         return true;
@@ -1663,6 +1603,7 @@ function checkWinCondition(room) {
 
         // 🎮 Marquer la partie comme terminée mais GARDER la room pour consulter les résultats
         room.gameEnded = true;
+        room.endTime = Date.now(); // 🕐 Marquer l'heure de fin
         console.log(`🏁 GAME OVER - Room ${room.code} maintenue pour consultation résultats`);
 
         return true;
