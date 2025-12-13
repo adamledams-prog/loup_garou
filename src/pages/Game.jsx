@@ -4,6 +4,7 @@ import io from 'socket.io-client'
 import config from '../config'
 import { useParticleSystem } from '../utils/particles'
 import { audioManager } from '../utils/audioManager'
+import { ttsManager } from '../utils/ttsManager'
 import { vibrate, requestWakeLock, releaseWakeLock } from '../utils/mobile'
 
 function Game() {
@@ -373,6 +374,11 @@ function Game() {
 
             // 🔊 Son message
             audioManager.beep(660, 0.05, 0.3)
+
+            // 🎙️ Si c'est un bot IA, lire le message à voix haute
+            if (data.isBot && data.message) {
+                ttsManager.speak(data.message, data.playerName)
+            }
 
             // Si c'est un message loup et que je suis loup et que le chat n'est pas visible, incrémenter
             if (phase === 'night' && myRole === 'loup' && data.playerId !== localStorage.getItem('playerId') && !chatVisible) {

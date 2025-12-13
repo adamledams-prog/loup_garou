@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useRipple } from '../hooks/useRipple'
 import { audioManager } from '../utils/audioManager'
+import { ttsManager } from '../utils/ttsManager'
 import { useMultiTap, useKonamiCode } from '../hooks/useEasterEggs'
 import { getNetworkQuality, isPWAInstalled, setupPWAInstall, promptPWAInstall } from '../utils/mobile'
 
@@ -13,6 +14,7 @@ function Home() {
     const [stars, setStars] = useState([])
     const [particles, setParticles] = useState([])
     const [soundEnabled, setSoundEnabled] = useState(audioManager.enabled)
+    const [ttsEnabled, setTtsEnabled] = useState(ttsManager.enabled)
     const [networkInfo, setNetworkInfo] = useState(null)
     const [showInstallPrompt, setShowInstallPrompt] = useState(false)
     const [scrollY, setScrollY] = useState(0) // ✨ Pour effet parallaxe
@@ -411,6 +413,27 @@ function Home() {
                             title={soundEnabled ? 'Son activé' : 'Son désactivé'}
                         >
                             {soundEnabled ? '🔊' : '🔇'}
+                        </button>
+
+                        {/* Toggle TTS (Voix IA) */}
+                        <button
+                            onClick={() => {
+                                const enabled = ttsManager.toggle()
+                                setTtsEnabled(enabled)
+                                if (enabled) {
+                                    audioManager.beep(660, 0.1, 0.4)
+                                    // Tester la voix
+                                    ttsManager.speak('Voix IA activée')
+                                }
+                            }}
+                            className={`p-4 rounded-full text-2xl transform hover:scale-110 transition-all duration-300 ${
+                                ttsEnabled
+                                    ? 'bg-gradient-to-r from-purple-600 to-purple-700 border-2 border-purple-500'
+                                    : 'bg-gradient-to-r from-gray-600 to-gray-700 border-2 border-gray-500'
+                            }`}
+                            title={ttsEnabled ? 'Voix IA activée - Les bots parlent' : 'Voix IA désactivée'}
+                        >
+                            {ttsEnabled ? '🎙️' : '🔇'}
                         </button>
                     </div>
                     <p className="text-gray-400 text-base font-medium animate-pulse">🌙 Créé avec passion pour les nuits mystérieuses 🐺</p>
