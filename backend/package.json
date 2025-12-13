@@ -1,7 +1,7 @@
 {
     "name": "loup-garou-backend",
-    "version": "1.0.0",
-    "description": "Backend Socket.io pour Loup-Garou",
+    "version": "1.0.1",
+    "description": "Backend Socket.io pour Loup-Garou - CORS Fix + Timers 30s",
     "main": "server.js",
     "scripts": {
         "start": "node server.js"

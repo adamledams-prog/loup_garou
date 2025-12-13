@@ -1077,17 +1077,17 @@ io.on('connection', (socket) => {
 // ⚡ Obtenir la durée selon le mode rapide
 function getPhaseDuration(room, phase) {
     if (!room.rapidMode) {
-        // Mode normal
-        if (phase === 'night') return 60;
+        // Mode normal - ⚡ Timers optimisés pour gameplay fluide
+        if (phase === 'night') return 30; // ✅ Réduit de 60s à 30s
         if (phase === 'day') return 30;
-        if (phase === 'vote') return 30; // ✅ Réduit de 45s à 30s pour un vote plus dynamique
+        if (phase === 'vote') return 30;
     } else {
         // Mode rapide
-        if (phase === 'night') return 30;
+        if (phase === 'night') return 20; // ✅ Réduit de 30s à 20s
         if (phase === 'day') return 15;
-        if (phase === 'vote') return 20; // ✅ Réduit de 30s à 20s en mode rapide
+        if (phase === 'vote') return 15; // ✅ Réduit de 20s à 15s
     }
-    return 60; // Défaut
+    return 30; // Défaut réduit aussi
 }
 
 // Démarrer le timer pour une phase
