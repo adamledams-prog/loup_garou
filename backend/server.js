@@ -3,7 +3,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
-const { saveRoom, loadRoom, deleteRoom, roomExists } = require('./redis-client');
+// Redis retiré (causait des timeouts et crashes 502)
 
 // Charger les variables d'environnement (optionnel en production)
 try {
@@ -92,32 +92,19 @@ app.get('/api/rooms', (req, res) => {
 // Structure des salles de jeu
 const rooms = new Map();
 
-// 🔄 Fonction pour récupérer une room (charge depuis Redis si nécessaire)
-async function getRoom(roomCode) {
-    if (rooms.has(roomCode)) {
-        return rooms.get(roomCode);
-    }
-
-    // Charger depuis Redis
-    const roomData = await loadRoom(roomCode);
-    if (roomData) {
-        // Recréer les objets GameRoom avec leurs méthodes
-        const room = Object.assign(new GameRoom(roomData.code, roomData.hostId, '', '', roomData.rapidMode), roomData);
-        rooms.set(roomCode, room);
-        return room;
-    }
-
-    return null;
+// 🔄 Fonction pour récupérer une room (mémoire uniquement, Redis retiré)
+function getRoom(roomCode) {
+    return rooms.get(roomCode) || null;
 }
 
-// 💾 Sauvegarder toutes les rooms actives dans Redis toutes les 5 secondes
-setInterval(() => {
-    for (const [code, room] of rooms.entries()) {
-        saveRoom(code, room).catch(err =>
-            console.error(`❌ Erreur sauvegarde ${code}:`, err)
-        );
-    }
-}, 5000);
+// 💾 Sauvegarde Redis désactivée temporairement (peut causer des timeouts)
+// setInterval(() => {
+//     for (const [code, room] of rooms.entries()) {
+//         saveRoom(code, room).catch(err =>
+//             console.error(`❌ Erreur sauvegarde ${code}:`, err)
+//         );
+//     }
+// }, 5000);
 
 // 🤖 Classe Bot pour joueurs IA
 class BotPlayer {
@@ -477,7 +464,7 @@ io.on('connection', (socket) => {
     });
 
     // Créer une salle
-    socket.on('createRoom', async (data) => {
+    socket.on('createRoom', (data) => {
         const { playerName, avatar, rapidMode } = data;
         const playerId = uuidv4();
         const roomCode = generateRoomCode();
@@ -485,7 +472,6 @@ io.on('connection', (socket) => {
         const room = new GameRoom(roomCode, playerId, playerName, avatar || '😊', rapidMode || false);
         room.players.get(playerId).socketId = socket.id;
         rooms.set(roomCode, room);
-        await saveRoom(roomCode, room); // 💾 Sauvegarder dans Redis
 
         socket.join(roomCode);
         socket.playerId = playerId;
@@ -501,9 +487,9 @@ io.on('connection', (socket) => {
     });
 
     // Rejoindre une salle
-    socket.on('joinRoom', async (data) => {
+    socket.on('joinRoom', (data) => {
         const { roomCode, playerName, avatar } = data;
-        const room = await getRoom(roomCode); // 🔄 Charger depuis Redis si nécessaire
+        const room = getRoom(roomCode);
 
         if (!room) {
             socket.emit('error', { message: 'Salle introuvable' });
@@ -725,9 +711,9 @@ io.on('connection', (socket) => {
     });
 
     // Reconnexion unifiée à une partie (lobby ou game)
-    socket.on('reconnectToGame', async (data) => {
+    socket.on('reconnectToGame', (data) => {
         const { roomCode, playerId } = data;
-        const room = await getRoom(roomCode); // 🔄 Charger depuis Redis
+        const room = getRoom(roomCode);
 
         // CAS 1 : La room n'existe plus (redémarrage serveur, suppression auto, etc.)
         if (!room) {
