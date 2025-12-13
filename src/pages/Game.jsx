@@ -97,6 +97,24 @@ function Game() {
         }
     }, [players])
 
+    // 🔔 Afficher une notification stylée (défini AVANT useEffect pour éviter hoisting error)
+    const showNotification = (type, icon, title, message, duration = 5000) => {
+        setNotification({ type, icon, title, message })
+        setTimeout(() => setNotification(null), duration)
+    }
+
+    // 📜 Fonction pour ajouter un événement à l'historique (défini AVANT useEffect)
+    const addEvent = (type, message, icon = '📌') => {
+        const newEvent = {
+            id: Date.now(),
+            type, // 'night', 'day', 'vote', 'death', 'action'
+            message,
+            icon,
+            timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+        }
+        setEventHistory(prev => [newEvent, ...prev].slice(0, 50)) // Garder max 50 événements
+    }
+
     useEffect(() => {
         const newSocket = io(config.serverUrl)
         setSocket(newSocket)
@@ -206,7 +224,7 @@ function Game() {
 
         // Phase de nuit
         newSocket.on('nightPhase', (data) => {
-            console.log('Phase de nuit:', data)
+            if (import.meta.env.DEV) console.log('Phase de nuit:', data)
 
             // 🎬 Afficher la transition
             setPhaseTransition({ phase: 'night', nightNumber: data.nightNumber })
@@ -270,7 +288,7 @@ function Game() {
             setTotalNights(prev => prev + 1)
         })        // Phase de jour
         newSocket.on('dayPhase', (data) => {
-            console.log('Phase de jour:', data)
+            if (import.meta.env.DEV) console.log('Phase de jour:', data)
 
             // 🎬 Afficher la transition
             setPhaseTransition({ phase: 'day' })
@@ -728,27 +746,9 @@ function Game() {
         setShowEmojiPicker(false)
     }
 
-    // 🔔 Afficher une notification stylée
-    const showNotification = (type, icon, title, message, duration = 5000) => {
-        setNotification({ type, icon, title, message })
-        setTimeout(() => setNotification(null), duration)
-    }
-
     const handleReplay = () => {
         // Retourner au lobby pour créer une nouvelle partie
         navigate('/lobby')
-    }
-
-    // 📜 Fonction pour ajouter un événement à l'historique
-    const addEvent = (type, message, icon = '📌') => {
-        const newEvent = {
-            id: Date.now(),
-            type, // 'night', 'day', 'vote', 'death', 'action'
-            message,
-            icon,
-            timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-        }
-        setEventHistory(prev => [...prev, newEvent])
     }
 
     const getRoleEmoji = (role) => {

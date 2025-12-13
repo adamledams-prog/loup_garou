@@ -265,7 +265,7 @@ function Lobby() {
 
         // Écouter la création de salle
         newSocket.on('roomCreated', (data) => {
-            console.log('Salle créée:', data)
+            if (import.meta.env.DEV) console.log('Salle créée:', data)
             setRoomCode(data.roomCode)
             setPlayers(data.players)
             setView('waiting')
@@ -278,7 +278,7 @@ function Lobby() {
 
         // Écouter le join de salle
         newSocket.on('roomJoined', (data) => {
-            console.log('Salle rejointe:', data)
+            if (import.meta.env.DEV) console.log('Salle rejointe:', data)
             setRoomCode(data.roomCode)
             setPlayers(data.players)
             setView('waiting')
@@ -291,13 +291,13 @@ function Lobby() {
 
         // Écouter les nouveaux joueurs
         newSocket.on('playerJoined', (data) => {
-            console.log('Nouveau joueur:', data)
+            if (import.meta.env.DEV) console.log('Nouveau joueur:', data)
             setPlayers(data.players)
         })
 
         // Écouter les changements de statut prêt
         newSocket.on('playerReady', (data) => {
-            console.log('Statut prêt mis à jour:', data)
+            if (import.meta.env.DEV) console.log('Statut prêt mis à jour:', data)
             setPlayers(data.players)
 
             // 🎊 Trigger confetti si un joueur devient ready

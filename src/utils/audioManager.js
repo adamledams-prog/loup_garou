@@ -127,7 +127,7 @@ class AudioManager {
    * 🐺 Hurlement de loup
    */
   playWolfHowl() {
-    console.log('🐺 Lecture hurlement de loup')
+    if (import.meta.env.DEV) console.log('🐺 Lecture hurlement de loup')
     return this.play('hurlement-loup.wav', { volume: this.volume * 0.9 })
   }
 
@@ -137,7 +137,7 @@ class AudioManager {
   playForestAmbience() {
     if (this.sounds['forest_night.wav']) return // Déjà en cours
 
-    console.log('🌲 Lecture ambiance forêt nocturne')
+    if (import.meta.env.DEV) console.log('🌲 Lecture ambiance forêt nocturne')
     return this.play('forest_night.wav', {
       loop: true,
       volume: this.volume * 0.4 // Plus discret
@@ -152,7 +152,7 @@ class AudioManager {
    * 🦇 Son de chauve-souris aléatoire
    */
   playBatSound() {
-    console.log('🦇 Lecture son chauve-souris')
+    if (import.meta.env.DEV) console.log('🦇 Lecture son chauve-souris')
     return this.play('chauve_souris.wav', { volume: this.volume * 0.6 })
   }
 
@@ -189,7 +189,7 @@ class AudioManager {
   playRandomKidsName() {
     const names = ['fatima.mp3', 'naim.mp3', 'sarah.mp3']
     const randomName = names[Math.floor(Math.random() * names.length)]
-    console.log(`👶 Lecture prénom: ${randomName}`)
+    if (import.meta.env.DEV) console.log(`👶 Lecture prénom: ${randomName}`)
     return this.play(randomName, { volume: this.volume * 0.8 })
   }
 
@@ -224,7 +224,7 @@ class AudioManager {
    * 🎨 Son choix d'avatar
    */
   playAvatarChoice() {
-    console.log('🎨 Lecture son choix avatar')
+    if (import.meta.env.DEV) console.log('🎨 Lecture son choix avatar')
     return this.play('choix_avatars_ambiance.mp3', { volume: this.volume * 1.0 }) // Volume max pour bien entendre
   }
 

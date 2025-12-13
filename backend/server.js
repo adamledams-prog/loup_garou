@@ -37,12 +37,13 @@ const io = socketIo(server, {
         credentials: true,
         allowedHeaders: ['*']
     },
-    // 🎮 Timeouts mode famille (détente, tolérants pour jeu en famille)
-    pingTimeout: 60000,   // 60 secondes - Quelqu'un peut aller aux toilettes 🚽
-    pingInterval: 25000,  // 25 secondes - Ping espacé pour stabilité
-    connectTimeout: 45000, // 45 secondes - Connexion initiale confortable
-    transports: ['websocket', 'polling'], // ✅ AUTORISER POLLING + WEBSOCKET
+    // 🎮 Timeouts optimisés pour réduire latence et déconnexions
+    pingTimeout: 30000,   // 30 secondes - Réduit pour détecter plus vite les déconnexions
+    pingInterval: 15000,  // 15 secondes - Ping plus fréquent pour stabilité
+    connectTimeout: 20000, // 20 secondes - Connexion initiale plus rapide
+    transports: ['websocket', 'polling'], // WebSocket en priorité, polling en fallback
     allowUpgrades: true, // ✅ Permettre upgrade vers WebSocket
+    upgradeTimeout: 10000, // 10 secondes pour tenter l'upgrade WebSocket
     perMessageDeflate: false // Désactiver compression pour éviter timeouts
 });
 
@@ -1622,6 +1623,10 @@ function processNightActions(room) {
         // 🔓 TOUJOURS déverrouiller en cas d'erreur pour éviter deadlock
         room.processingPhase = false;
         room.phase = 'day'; // Forcer passage au jour
+
+        // ✅ Débloquer l'UI client immédiatement
+        io.to(room.code).emit('processingPhase', { processing: false });
+
         io.to(room.code).emit('error', { message: 'Erreur lors du traitement de la nuit' });
         io.to(room.code).emit('dayPhase', {
             deadPlayers: [],
