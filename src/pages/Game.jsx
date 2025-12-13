@@ -259,12 +259,20 @@ function Game() {
                 audioManager.startRandomBatSounds()
             }, 3000)
 
-            // � Prénoms des neveux SEULEMENT à partir de la nuit 2
+            // 👶 Prénoms GARANTIS à la nuit 2 (100% de chance)
+            if (data.nightNumber === 2) {
+                setTimeout(() => {
+                    if (import.meta.env.DEV) console.log('👶 NUIT 2 : Jouer un prénom garanti')
+                    audioManager.playRandomKidsName()
+                }, 5000)
+            }
+
+            // 👶 Prénoms aléatoires à partir de la nuit 2
             if (data.nightNumber >= 2) {
                 setTimeout(() => {
                     if (import.meta.env.DEV) console.log('👶 Activation prénoms aléatoires (nuit 2+)')
                     audioManager.startRandomKidsNames()
-                }, 5000)
+                }, 8000) // 8s pour ne pas chevaucher le prénom garanti
             }
 
             // �🐺 Hurlement immédiat au début de la nuit
