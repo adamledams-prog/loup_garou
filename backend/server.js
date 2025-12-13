@@ -215,19 +215,19 @@ class BotPlayer {
     }
 }
 
-// 🧹 NETTOYAGE AUTOMATIQUE DÉSACTIVÉ (pour éviter "partie introuvable")
-// ⚠️ EN PRODUCTION : Réactiver avec une base de données (Redis/PostgreSQL)
-// Pour l'instant, seul l'hôte peut arrêter une partie via le bouton "Arrêter"
-const AUTO_CLEANUP_ENABLED = false; // ⚠️ Mettre à true uniquement si base de données
+// 🧹 NETTOYAGE AUTOMATIQUE DES PARTIES TERMINÉES
+// ✅ Chaque partie est nouvelle et différente - on nettoie les anciennes
+const AUTO_CLEANUP_ENABLED = true; // ✅ Activé pour libérer la mémoire
 
 if (AUTO_CLEANUP_ENABLED) {
     setInterval(() => {
         let cleaned = 0;
 
         for (const [code, room] of rooms.entries()) {
-            // ✅ Nettoyer uniquement les parties TERMINÉES après 10 minutes
+            const now = Date.now();
+
+            // ✅ Nettoyer les parties TERMINÉES après 10 minutes
             if (room.gameEnded) {
-                const now = Date.now();
                 if (!room.endTime) {
                     room.endTime = now;
                 }
@@ -243,12 +243,22 @@ if (AUTO_CLEANUP_ENABLED) {
                     cleaned++;
                 }
             }
+            // ✅ Nettoyer les lobbies ABANDONNÉS (vides depuis > 30 minutes)
+            else if (!room.gameStarted && room.players.size === 0) {
+                const timeSinceCreation = now - (room.createdAt || now);
+                if (timeSinceCreation > 30 * 60 * 1000) { // 30 minutes d'abandon
+                    console.log(`🗑️ SUPPRESSION LOBBY ${code} (abandonné depuis 30min)`);
+                    rooms.delete(code);
+                    cleaned++;
+                }
+            }
         }
 
         if (cleaned > 0) {
-            console.log(`🧹 Nettoyage: ${cleaned} salle(s) supprimée(s). Total: ${rooms.size}`);
+            console.log(`🧹 Nettoyage: ${cleaned} salle(s) supprimée(s). Total: ${rooms.size} room(s) actives`);
         }
-    }, 5 * 60 * 1000); // Toutes les 5 minutes
+    }, 5 * 60 * 1000); // Vérification toutes les 5 minutes
+    console.log('✅ NETTOYAGE AUTOMATIQUE ACTIVÉ - Les anciennes parties sont supprimées');
 } else {
     console.log('⚠️ NETTOYAGE AUTOMATIQUE DÉSACTIVÉ - Les rooms restent en mémoire');
 }
@@ -259,6 +269,7 @@ class GameRoom {
         this.code = code;
         this.hostId = hostId;
         this.rapidMode = rapidMode; // ⚡ Mode Rapide
+        this.createdAt = Date.now(); // 🕐 Timestamp de création (pour nettoyage lobbies abandonnés)
         this.players = new Map();
         this.players.set(hostId, {
             id: hostId,
