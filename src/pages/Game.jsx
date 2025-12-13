@@ -259,10 +259,10 @@ function Game() {
                 audioManager.startRandomBatSounds()
             }, 3000)
 
-            // � Prénoms des neveux SEULEMENT à partir de la nuit 3
-            if (data.nightNumber >= 3) {
+            // � Prénoms des neveux SEULEMENT à partir de la nuit 2
+            if (data.nightNumber >= 2) {
                 setTimeout(() => {
-                    console.log('👶 Activation prénoms aléatoires (nuit 3+)')
+                    if (import.meta.env.DEV) console.log('👶 Activation prénoms aléatoires (nuit 2+)')
                     audioManager.startRandomKidsNames()
                 }, 5000)
             }
