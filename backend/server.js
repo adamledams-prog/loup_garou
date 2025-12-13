@@ -1178,7 +1178,7 @@ io.on('connection', (socket) => {
 
         // 🐺 Envoyer SEULEMENT aux loups vivants ou morts (pour suivre la partie)
         const wolves = Array.from(room.players.values()).filter(p => p.role === 'loup');
-        
+
         wolves.forEach(wolf => {
             if (wolf.socketId) {
                 io.to(wolf.socketId).emit('wolfChatMessage', {

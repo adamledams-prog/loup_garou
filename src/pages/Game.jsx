@@ -776,7 +776,7 @@ function Game() {
         } else {
             socket.emit('chatMessage', { message: messageInput })
         }
-        
+
         setMessageInput('')
     }
 
@@ -1630,31 +1630,58 @@ function Game() {
                                     <div className="flex justify-between items-center mb-3">
                                         <div className="flex items-center gap-2">
                                             <h3 className="text-lg font-bold">💬 Chat</h3>
-                                            {/* Badge de messages non lus */}
-                                            {unreadWolfMessages > 0 && phase === 'night' && myRole === 'loup' && (
-                                                <div className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
-                                                    {unreadWolfMessages} nouveau{unreadWolfMessages > 1 ? 'x' : ''}
-                                                </div>
-                                            )}
                                         </div>
-                                        {/* Badge chat loups */}
-                                        {phase === 'night' && myRole === 'loup' && (
-                                            <div className="bg-blood-900/30 border border-blood-600 rounded-lg px-2 py-1">
-                                                <span className="text-blood-400 text-xs font-bold">
-                                                    🐺 Loups uniquement
-                                                </span>
-                                            </div>
-                                        )}
                                     </div>
 
+                                    {/* 🐺 Onglets Village / Loups (si je suis loup) */}
+                                    {myRole === 'loup' && (
+                                        <div className="flex gap-2 mb-3">
+                                            <button
+                                                onClick={() => {
+                                                    setActiveChat('village')
+                                                    audioManager.beep(550, 0.05, 0.3)
+                                                }}
+                                                className={`flex-1 px-4 py-2 rounded-lg font-bold transition-all ${
+                                                    activeChat === 'village'
+                                                        ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg'
+                                                        : 'bg-night-800 text-gray-400 hover:bg-night-700'
+                                                }`}
+                                            >
+                                                💬 Village ({messages.length})
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setActiveChat('wolf')
+                                                    setUnreadWolfMessages(0) // Reset badge
+                                                    audioManager.beep(440, 0.05, 0.3)
+                                                }}
+                                                className={`flex-1 px-4 py-2 rounded-lg font-bold transition-all relative ${
+                                                    activeChat === 'wolf'
+                                                        ? 'bg-gradient-to-r from-blood-600 to-blood-700 text-white shadow-lg'
+                                                        : 'bg-night-800 text-gray-400 hover:bg-night-700'
+                                                }`}
+                                            >
+                                                🐺 Loups ({wolfMessages.length})
+                                                {unreadWolfMessages > 0 && activeChat !== 'wolf' && (
+                                                    <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
+                                                        {unreadWolfMessages}
+                                                    </span>
+                                                )}
+                                            </button>
+                                        </div>
+                                    )}
+
                                     <div className="flex-1 bg-gradient-to-b from-night-900/50 to-night-900/80 backdrop-blur-sm rounded-lg p-3 mb-3 overflow-y-auto chat-scroll-smooth">
-                                        {messages.length === 0 ? (
+                                        {/* Afficher les messages selon l'onglet actif */}
+                                        {(activeChat === 'village' ? messages : wolfMessages).length === 0 ? (
                                             <div className="flex items-center justify-center h-full">
-                                                <p className="text-gray-500 text-sm italic fade-in">💬 Aucun message</p>
+                                                <p className="text-gray-500 text-sm italic fade-in">
+                                                    {activeChat === 'wolf' ? '🐺 Aucun message loup' : '💬 Aucun message'}
+                                                </p>
                                             </div>
                                         ) : (
                                             <div className="space-y-3">
-                                                {messages.map((msg, index) => {
+                                                {(activeChat === 'village' ? messages : wolfMessages).map((msg, index) => {
                                                     const isMyMessage = msg.playerId === localStorage.getItem('playerId')
                                                     return (
                                                         <div
@@ -1681,11 +1708,19 @@ function Game() {
                                     <div className="flex gap-2 relative emoji-picker-container">
                                         <input
                                             type="text"
-                                            placeholder="Écrivez un message..."
+                                            placeholder={
+                                                myRole === 'loup' && activeChat === 'wolf'
+                                                    ? '🐺 Message aux loups...'
+                                                    : '💬 Message au village...'
+                                            }
                                             value={messageInput}
                                             onChange={(e) => setMessageInput(e.target.value)}
                                             onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                                            className="flex-1 bg-gradient-to-r from-night-800 to-night-900 border-2 border-night-600 focus:border-blood-600 focus:ring-2 focus:ring-blood-500/20 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 transition-all outline-none shadow-lg hover:shadow-xl transform focus:scale-102"
+                                            className={`flex-1 bg-gradient-to-r from-night-800 to-night-900 border-2 ${
+                                                myRole === 'loup' && activeChat === 'wolf'
+                                                    ? 'border-blood-600 focus:border-blood-500'
+                                                    : 'border-night-600 focus:border-blood-600'
+                                            } focus:ring-2 focus:ring-blood-500/20 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 transition-all outline-none shadow-lg hover:shadow-xl transform focus:scale-102`}
                                         />
 
                                         {/* Bouton Emoji Picker */}
