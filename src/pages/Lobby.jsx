@@ -478,7 +478,7 @@ function Lobby() {
 
                 {/* Menu principal */}
                 {view === 'menu' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 animate-slideUp">
+                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 animate-slideUp">
                         <div className="card-glow">
                             <h2 className="text-2xl font-bold mb-4 text-center text-blood">Rejoignez ou créez une partie</h2>
                             
@@ -495,7 +495,7 @@ function Lobby() {
                                 <label className="block text-sm font-bold text-gray-300 mb-2">
                                     🎨 Choisis ton avatar
                                 </label>
-                                <div className="grid grid-cols-8 md:grid-cols-10 gap-2">
+                                <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
                                     {avatarList.map((avatar, index) => (
                                         <button
                                             key={avatar}

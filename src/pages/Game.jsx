@@ -526,7 +526,7 @@ function Game() {
             
             // Son + vibration
             audioManager.beep(600, 0.3, 0.5)
-            vibrate([100, 50, 100])
+            vibrate.success()
             
             // Masquer après 5 secondes
             setTimeout(() => setRevealedRole(null), 5000)
@@ -905,7 +905,36 @@ function Game() {
     }
 
     return (
-        <div className="min-h-screen p-4">
+        <div className={`min-h-screen p-4 transition-all duration-1000 ${
+            phase === 'day' ? 'bg-gradient-to-br from-yellow-400 via-orange-300 to-yellow-500' :
+            phase === 'vote' ? 'bg-gradient-to-br from-blue-900 via-indigo-900 to-blue-800' :
+            'bg-gradient-to-br from-night-900 via-night-700 to-blood-900'
+        }`}>
+            {/* ☀️ Soleil animé pour le jour */}
+            {phase === 'day' && (
+                <div className="fixed top-8 right-8 z-10 animate-pulse">
+                    <div className="relative">
+                        {/* Rayons du soleil */}
+                        <div className="absolute inset-0 animate-spin" style={{animationDuration: '20s'}}>
+                            {[...Array(12)].map((_, i) => (
+                                <div
+                                    key={i}
+                                    className="absolute top-1/2 left-1/2 w-1 h-20 bg-yellow-300 opacity-40"
+                                    style={{
+                                        transform: `translate(-50%, -50%) rotate(${i * 30}deg) translateY(-60px)`,
+                                        transformOrigin: 'center'
+                                    }}
+                                />
+                            ))}
+                        </div>
+                        {/* Soleil */}
+                        <div className="relative w-24 h-24 bg-gradient-to-br from-yellow-300 to-orange-400 rounded-full shadow-2xl shadow-yellow-500/50 flex items-center justify-center">
+                            <span className="text-4xl">☀️</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* 🎊 Canvas pour particules */}
             <canvas
                 ref={canvasRef}
@@ -1431,10 +1460,20 @@ function Game() {
                                             // Empêcher la voyante de se voir elle-même
                                             const canSeeRole = myRole === 'voyante' && phase === 'night' && !isMe
 
+                                            // 🐺 Les loups ne peuvent pas cibler d'autres loups
+                                            const isWolf = player.role === 'loup'
+                                            const cannotTargetWolf = myRole === 'loup' && isWolf
+
+                                            // ⛔ Empêcher de se cibler soi-même (sauf pour certains rôles/actions)
+                                            const cannotTargetSelf = isMe && myRole !== 'livreur' // Le livreur ne peut de toute façon pas se protéger lui-même
+
                                             // Déterminer si ce joueur peut être cliqué
                                             const isNightActive = phase === 'night' && ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon'].includes(myRole) && amAlive
                                             const isHunterActive = phase === 'hunter' && myRole === 'chasseur'
-                                            const canClick = player.alive && (isNightActive || isHunterActive || (phase === 'vote' && amAlive)) && !(myRole === 'voyante' && isMe)
+                                            const canClick = player.alive && 
+                                                (isNightActive || isHunterActive || (phase === 'vote' && amAlive)) && 
+                                                !cannotTargetWolf && 
+                                                !cannotTargetSelf
 
                                             return (
                                                 <div
@@ -1453,8 +1492,9 @@ function Game() {
                                                         relative p-6 rounded-xl text-center transition-all duration-400
                                                         ${!player.alive ? 'dead' : ''}
                                                         ${dyingPlayers.includes(player.id) ? 'player-dying' : ''}
-                                                        ${canClick && !hasActed ? 'cursor-pointer hover:cursor-pointer' : 'cursor-default opacity-70'}
+                                                        ${canClick && !hasActed ? 'cursor-pointer hover:cursor-pointer' : 'cursor-not-allowed opacity-50'}
                                                         ${selectedPlayer === player.id ? 'selected' : ''}
+                                                        ${(cannotTargetWolf || cannotTargetSelf) && player.alive ? 'opacity-40 grayscale' : ''}
                                                     `}
                                                 >
                                                     {/* Effet holographique */}

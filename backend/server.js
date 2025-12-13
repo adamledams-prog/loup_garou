@@ -485,6 +485,10 @@ class GameRoom {
             ? Object.keys(this.gameState.nightActions)
             : [];
 
+        // Récupérer le rôle du joueur qui demande
+        const requester = this.players.get(requesterId);
+        const isWolf = requester && requester.role === 'loup';
+
         return Array.from(this.players.values()).map(p => ({
             id: p.id,
             name: p.name,
@@ -492,7 +496,8 @@ class GameRoom {
             ready: p.ready,
             alive: p.alive,
             avatar: p.avatar,
-            role: p.id === requesterId ? p.role : null, // Seulement son propre rôle
+            // Les loups peuvent voir les rôles des autres loups
+            role: p.id === requesterId ? p.role : (isWolf && p.role === 'loup' ? 'loup' : null),
             hasActed: hasActed.includes(p.id) // Indicateur d'action nocturne
         }));
     }
@@ -925,6 +930,18 @@ io.on('connection', (socket) => {
             // 🐺 Les loups ne peuvent pas se cibler entre eux
             if (action === 'kill' && player.role === 'loup' && target.role === 'loup') {
                 socket.emit('error', { message: 'Vous ne pouvez pas cibler un autre loup !' });
+                return;
+            }
+
+            // 🧙‍♀️ La sorcière ne peut pas se tuer elle-même avec le poison
+            if (action === 'poison' && targetId === socket.playerId) {
+                socket.emit('error', { message: 'Vous ne pouvez pas vous empoisonner vous-même !' });
+                return;
+            }
+
+            // ⛔ Aucun rôle ne peut se cibler soi-même (sauf heal pour sorcière)
+            if (action !== 'heal' && targetId === socket.playerId) {
+                socket.emit('error', { message: 'Vous ne pouvez pas vous cibler vous-même !' });
                 return;
             }
         }
