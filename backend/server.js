@@ -139,7 +139,13 @@ class BotPlayer {
             role: null,
             alive: true,
             socketId: 'bot', // Identifier comme bot
-            isBot: true
+            isBot: true,
+            stats: {
+                messagesCount: 0,
+                votesReceived: 0,
+                votesGiven: 0,
+                nightsAlive: 0
+            }
         });
 
         return { success: true, botId, botName };
@@ -279,7 +285,13 @@ class GameRoom {
             ready: false,
             role: null,
             alive: true,
-            socketId: null
+            socketId: null,
+            stats: {
+                messagesCount: 0,
+                votesReceived: 0,
+                votesGiven: 0,
+                nightsAlive: 0
+            }
         });
         this.gameStarted = false;
         this.gameEnded = false; // 🎮 Flag pour savoir si le game over a été atteint
@@ -992,9 +1004,13 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // 📊 Incrémenter les stats de votes
-        player.stats.votesGiven++;
-        target.stats.votesReceived++;
+        // 📊 Incrémenter les stats de votes (avec protection si stats n'existe pas)
+        if (player.stats) {
+            player.stats.votesGiven++;
+        }
+        if (target.stats) {
+            target.stats.votesReceived++;
+        }
 
         room.gameState.votes[socket.playerId] = targetId;
         socket.emit('voteConfirmed');
@@ -1089,8 +1105,10 @@ io.on('connection', (socket) => {
         const player = room.players.get(socket.playerId);
         if (!player) return;
 
-        // 📊 Incrémenter le compteur de messages
-        player.stats.messagesCount++;
+        // 📊 Incrémenter le compteur de messages (avec protection)
+        if (player.stats) {
+            player.stats.messagesCount++;
+        }
 
         // Broadcast le message à toute la salle
         io.to(socket.roomCode).emit('chatMessage', {
@@ -1649,9 +1667,9 @@ function continueAfterVote(room) {
             room.processingVotes = false; // ✅ Reset verrou votes pour nouvelle nuit
             // ⚠️ NE JAMAIS réinitialiser couple (les amoureux restent amoureux toute la partie)
 
-            // 📊 Incrémenter nightsAlive pour tous les joueurs vivants
+            // 📊 Incrémenter nightsAlive pour tous les joueurs vivants (avec protection)
             Array.from(room.players.values()).forEach(p => {
-                if (p.alive) {
+                if (p.alive && p.stats) {
                     p.stats.nightsAlive++;
                 }
             });
