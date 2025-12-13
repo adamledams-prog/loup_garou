@@ -280,6 +280,7 @@ class GameRoom {
         this.phaseTimeRemaining = 60; // Temps restant en secondes
         this.customRoles = []; // Rôles personnalisés choisis par l'hôte
         this.processingPhase = false; // 🔒 Flag pour éviter la race condition
+        this.processingVotes = false; // 🔒 Flag pour éviter double traitement des votes
         this.gameState = {
             deadPlayers: [],
             killedTonight: null,
@@ -995,8 +996,9 @@ io.on('connection', (socket) => {
             total: aliveCount
         });
 
-        // Si tous ont voté, traiter les votes
-        if (voteCount >= aliveCount) {
+        // Si tous ont voté, traiter les votes (avec verrou pour éviter double traitement)
+        if (voteCount >= aliveCount && !room.processingVotes) {
+            room.processingVotes = true; // 🔒 Verrouiller
             processVotes(room);
         }
     });
@@ -1268,7 +1270,8 @@ function startPhaseTimer(room, phaseDuration = 60) {
                     }))
                 });
                 startPhaseTimer(room, getPhaseDuration(room, 'vote'));
-            } else if (room.phase === 'vote') {
+            } else if (room.phase === 'vote' && !room.processingVotes) {
+                room.processingVotes = true; // 🔒 Verrouiller avant traitement
                 processVotes(room);
             }
         }
@@ -1452,21 +1455,24 @@ function processNightActions(room) {
     room.phase = 'day';
     room.processingPhase = false; // 🔓 Déverrouiller pour la prochaine phase
 
-    // Notifier tous les joueurs
-    io.to(room.code).emit('dayPhase', {
-        deadPlayers: killedPlayers.map(id => ({
-            id,
-            name: room.players.get(id).name
-        })),
-        players: Array.from(room.players.values()).map(p => ({
-            id: p.id,
-            name: p.name,
-            alive: p.alive
-        }))
-    });
+    // ⏳ Attendre 1 seconde avant d'émettre dayPhase (éviter saturation WebSocket)
+    setTimeout(() => {
+        // Notifier tous les joueurs
+        io.to(room.code).emit('dayPhase', {
+            deadPlayers: killedPlayers.map(id => ({
+                id,
+                name: room.players.get(id).name
+            })),
+            players: Array.from(room.players.values()).map(p => ({
+                id: p.id,
+                name: p.name,
+                alive: p.alive
+            }))
+        });
 
-    // Démarrer le timer du jour
-    startPhaseTimer(room, getPhaseDuration(room, 'day'));
+        // Démarrer le timer du jour
+        startPhaseTimer(room, getPhaseDuration(room, 'day'));
+    }, 1000);
 }
 
 // Traiter les votes
@@ -1567,6 +1573,9 @@ function processVotes(room) {
     // Réinitialiser les votes
     room.gameState.votes = {};
 
+    // 🔓 Déverrouiller le traitement des votes
+    room.processingVotes = false;
+
     // Vérifier les conditions de victoire
     continueAfterVote(room);
 }
@@ -1587,7 +1596,7 @@ function continueAfterVote(room) {
             room.nightNumber++;
             room.gameState.killedTonight = null; // Reset pour la nouvelle nuit
             room.gameState.nightActions = {}; // ✅ Reset actions de nuit
-            room.gameState.couple = []; // ✅ Reset couple si ce n'est pas nuit 1
+            // ⚠️ NE JAMAIS réinitialiser couple (les amoureux restent amoureux toute la partie)
 
             // 📊 Incrémenter nightsAlive pour tous les joueurs vivants
             Array.from(room.players.values()).forEach(p => {
