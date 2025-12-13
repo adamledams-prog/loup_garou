@@ -118,15 +118,31 @@ function Game() {
             return
         }
 
+        // 🎯 Flag pour savoir si c'est la première connexion
+        let isInitialConnection = true
+
         // Attendre que le socket soit connecté avant d'émettre
         newSocket.on('connect', () => {
             console.log('✅ Socket Game connecté')
-            // Reconnexion unifiée
-            console.log('🔄 Reconnexion à la partie...')
-            newSocket.emit('reconnectToGame', {
-                roomCode: storedRoomCode,
-                playerId: storedPlayerId
-            })
+
+            // Connexion initiale : toujours se connecter
+            if (isInitialConnection) {
+                console.log('� Connexion initiale à la partie...')
+                isInitialConnection = false
+                newSocket.emit('reconnectToGame', {
+                    roomCode: storedRoomCode,
+                    playerId: storedPlayerId
+                })
+            } else {
+                // Vraie reconnexion (après déconnexion)
+                console.log('🔄 Reconnexion après déconnexion...')
+                setIsConnected(true)
+                setReconnecting(false)
+                newSocket.emit('reconnectToGame', {
+                    roomCode: storedRoomCode,
+                    playerId: storedPlayerId
+                })
+            }
         })
 
         // Recevoir l'état du jeu (reconnexion OU démarrage)
@@ -167,6 +183,20 @@ function Game() {
 
             // 🔆 Activer Wake Lock pour garder l'écran allumé
             requestWakeLock()
+        })
+
+        // 🛑 Partie arrêtée par l'hôte
+        newSocket.on('gameForceEnded', (data) => {
+            console.log('🛑 Partie arrêtée par l\'hôte:', data)
+            showNotification('warning', '🛑', 'Partie Arrêtée',
+                `${data.hostName} a arrêté la partie`, 5000)
+
+            // Rediriger vers le lobby après 3 secondes
+            setTimeout(() => {
+                localStorage.removeItem('playerId')
+                localStorage.removeItem('roomCode')
+                navigate('/lobby')
+            }, 3000)
         })
 
         // Phase de nuit
@@ -453,21 +483,8 @@ function Game() {
             setReconnecting(true)
         })
 
-        newSocket.on('connect', () => {
-            console.log('✅ Reconnecté !')
-            setIsConnected(true)
-            setReconnecting(false)
-
-            // Si reconnexion, redemander l'état du jeu
-            const storedPlayerId = localStorage.getItem('playerId')
-            const storedRoomCode = localStorage.getItem('roomCode')
-            if (storedPlayerId && storedRoomCode) {
-                newSocket.emit('reconnectToGame', {
-                    roomCode: storedRoomCode,
-                    playerId: storedPlayerId
-                })
-            }
-        })
+        // Note: Le handler 'connect' est déjà défini au début (ligne 122)
+        // Il gère automatiquement la reconnexion
 
         newSocket.io.on('reconnect_attempt', () => {
             console.log('🔄 Tentative de reconnexion...')
@@ -902,12 +919,31 @@ function Game() {
                         </h1>
                         <p className="text-gray-500 text-xs md:text-sm truncate">Salle: {roomCode}</p>
                     </div>
-                    <button
-                        onClick={() => navigate('/')}
-                        className="btn-secondary text-xs md:text-sm px-3 md:px-4 flex-shrink-0"
-                    >
-                        ❌ Quitter
-                    </button>
+
+                    {/* Boutons selon si on est l'hôte ou non */}
+                    <div className="flex gap-2">
+                        {/* 🛑 Bouton Arrêter (uniquement pour l'hôte) */}
+                        {players.find(p => p.id === localStorage.getItem('playerId'))?.isHost && (
+                            <button
+                                onClick={() => {
+                                    if (window.confirm('⚠️ Voulez-vous vraiment arrêter la partie pour tous les joueurs ?')) {
+                                        socket?.emit('stopGame')
+                                    }
+                                }}
+                                className="btn-danger text-xs md:text-sm px-3 md:px-4 flex-shrink-0"
+                                title="Arrêter la partie (réservé à l'hôte)"
+                            >
+                                🛑 Arrêter
+                            </button>
+                        )}
+
+                        <button
+                            onClick={() => navigate('/')}
+                            className="btn-secondary text-xs md:text-sm px-3 md:px-4 flex-shrink-0"
+                        >
+                            ❌ Quitter
+                        </button>
+                    </div>
                 </div>
 
                 {/* Message d'erreur */}

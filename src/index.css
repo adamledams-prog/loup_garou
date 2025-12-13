@@ -61,6 +61,24 @@
     transform: scale(0.95) translateY(2px);
   }
 
+  .btn-danger {
+    @apply bg-gradient-to-r from-red-600 to-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-900/50 hover:shadow-xl hover:shadow-red-800/50 transform hover:-translate-y-1 hover:scale-105 transition-all duration-300 border border-red-800/30 active:scale-95;
+    position: relative;
+    overflow: hidden;
+    min-height: 48px;
+    padding: 0.75rem 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .btn-danger {
+      padding: 0.75rem 1.5rem;
+    }
+  }
+
+  .btn-danger:active {
+    transform: scale(0.95) translateY(2px);
+  }
+
   .card {
     @apply bg-gradient-to-br backdrop-blur-lg rounded-2xl shadow-2xl border transition-all duration-300 animate-fadeIn;
     /* 🎨 Amélioration du contraste pour lisibilité mobile */

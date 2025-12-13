@@ -229,21 +229,23 @@ setInterval(() => {
         });
 
         if (allDisconnected) {
-            // 🔐 PROTECTION CRITIQUE : Si partie EN COURS, NE JAMAIS initialiser lastActivity ici
+            // 🔐 PROTECTION CRITIQUE : Si partie EN COURS, ne JAMAIS supprimer automatiquement
+            // Seul l'hôte peut arrêter une partie active via le bouton "Arrêter"
             if (room.gameStarted && !room.gameEnded) {
                 if (!room.lastActivity) {
                     console.log(`⚠️ SKIP init lastActivity pour partie ACTIVE ${code} (protection anti-race-condition)`);
                     continue; // Ignorer complètement ce cycle
                 }
 
-                // Si lastActivity existe déjà, vérifier avec timeout TRÈS long (2 heures)
+                // Si lastActivity existe déjà, vérifier avec timeout ULTRA long (24 heures)
+                // Uniquement pour nettoyer les parties vraiment abandonnées
                 const inactiveTime = now - room.lastActivity;
-                if (inactiveTime > 2 * 60 * 60 * 1000) { // 2 HEURES pour partie active
+                if (inactiveTime > 24 * 60 * 60 * 1000) { // 24 HEURES pour partie active
                     if (room.phaseTimer) {
                         clearInterval(room.phaseTimer);
                         room.phaseTimer = null;
                     }
-                    console.log(`🗑️ SUPPRESSION ROOM ${code} (partie active inactive depuis 2h)`);
+                    console.log(`🗑️ SUPPRESSION ROOM ${code} (partie active abandonnée depuis 24h)`);
                     rooms.delete(code);
                     cleaned++;
                 }
@@ -1063,6 +1065,44 @@ io.on('connection', (socket) => {
             message: data.message,
             timestamp: Date.now()
         });
+    });
+
+    // 🛑 Arrêter la partie (réservé à l'hôte)
+    socket.on('stopGame', () => {
+        const room = rooms.get(socket.roomCode);
+        if (!room) {
+            socket.emit('error', { message: 'Partie introuvable' });
+            return;
+        }
+
+        const player = room.players.get(socket.playerId);
+        if (!player || !player.isHost) {
+            socket.emit('error', { message: 'Seul l\'hôte peut arrêter la partie' });
+            return;
+        }
+
+        // Nettoyer le timer
+        if (room.phaseTimer) {
+            clearInterval(room.phaseTimer);
+            room.phaseTimer = null;
+        }
+
+        // Marquer la partie comme terminée
+        room.gameEnded = true;
+
+        // Notifier tous les joueurs
+        io.to(socket.roomCode).emit('gameForceEnded', {
+            message: 'La partie a été arrêtée par l\'hôte',
+            hostName: player.name
+        });
+
+        console.log(`🛑 Partie ${socket.roomCode} arrêtée par l'hôte ${player.name}`);
+
+        // Supprimer la room après 5 secondes
+        setTimeout(() => {
+            console.log(`🗑️ SUPPRESSION ROOM ${socket.roomCode} (arrêt manuel par hôte)`);
+            rooms.delete(socket.roomCode);
+        }, 5000);
     });
 
     // Déconnexion
