@@ -22,7 +22,43 @@ function Lobby() {
 
     // 🎨 Avatars
     const [selectedAvatar, setSelectedAvatar] = useState('😊')
+    const [selectedAccessory, setSelectedAccessory] = useState(null)
     const avatarList = ['😊', '🦊', '🐱', '🐻', '🦁', '🐼', '🦝', '🦉', '🐸', '🐰', '🐯', '🐨', '🐵', '🐷', '🐮', '🐔', '🐺', '🦆', '🦄', '🐉']
+
+    // 👑 Positions de la couronne par avatar (ajustées manuellement)
+    const crownPositions = {
+        '😊': '-top-6 left-1/2 -translate-x-1/2',
+        '🦊': '-top-4 left-1/2 -translate-x-1/2',
+        '🐱': '-top-6 left-1/2 -translate-x-1/2',
+        '🐻': '-top-4 left-1/2 -translate-x-1/2',
+        '🦁': '-top-2 left-1/2 -translate-x-1/2',
+        '🐼': '-top-5 left-1/2 -translate-x-1/2',
+        '🦝': '-top-5 left-1/2 -translate-x-1/2',
+        '🦉': '-top-3 left-1/2 -translate-x-1/2',
+        '🐸': '-top-7 left-1/2 -translate-x-1/2',
+        '🐰': '-top-1 left-1/2 -translate-x-1/2',
+        '🐯': '-top-4 left-1/2 -translate-x-1/2',
+        '🐨': '-top-3 left-1/2 -translate-x-1/2',
+        '🐵': '-top-4 left-1/2 -translate-x-1/2',
+        '🐷': '-top-5 left-1/2 -translate-x-1/2',
+        '🐮': '-top-2 left-1/2 -translate-x-1/2',
+        '🐔': '-top-2 left-1/2 -translate-x-1/2',
+        '🐺': '-top-3 left-1/2 -translate-x-1/2',
+        '🦆': '-top-6 left-1/2 -translate-x-1/2',
+        '🦄': '-top-1 left-1/2 -translate-x-1/2',
+        '🐉': '-top-3 left-1/2 -translate-x-1/2'
+    }
+    const accessoryList = [
+        { id: 'crown', emoji: '👑', name: 'Couronne' },
+        { id: 'glasses', emoji: '👓', name: 'Lunettes' },
+        { id: 'hat', emoji: '🎩', name: 'Chapeau' },
+        { id: 'bow', emoji: '🎀', name: 'Nœud' },
+        { id: 'flower', emoji: '🌸', name: 'Fleur' },
+        { id: 'star', emoji: '⭐', name: 'Étoile' },
+        { id: 'heart', emoji: '💖', name: 'Cœur' },
+        { id: 'fire', emoji: '🔥', name: 'Flamme' },
+        { id: 'moon', emoji: '🌙', name: 'Lune' },
+    ]
 
     // 🎊 Système de particules
     const canvasRef = useRef(null)
@@ -370,6 +406,7 @@ function Lobby() {
         socket.emit('createRoom', {
             playerName,
             avatar: selectedAvatar,
+            accessory: selectedAccessory,
             rapidMode: rapidMode
         })
     }
@@ -390,7 +427,7 @@ function Lobby() {
         }
         setIsLoading(true)
         setError(null)
-        socket.emit('joinRoom', { roomCode, playerName, avatar: selectedAvatar })
+        socket.emit('joinRoom', { roomCode, playerName, avatar: selectedAvatar, accessory: selectedAccessory })
     }
 
     // 👢 Fonction pour expulser un joueur
@@ -481,7 +518,7 @@ function Lobby() {
                     <div className="space-y-4 animate-slideUp">
                         <div className="card-glow">
                             <h2 className="text-2xl font-bold mb-4 text-center text-blood">Rejoignez ou créez une partie</h2>
-                            
+
                             <input
                                 type="text"
                                 placeholder="Votre nom"
@@ -522,6 +559,83 @@ function Lobby() {
                                 </div>
                             </div>
 
+                            {/* Sélecteur d'accessoires */}
+                            <div className="mb-6">
+                                <label className="block text-sm font-bold text-gray-300 mb-2">
+                                    ✨ Accessoires (optionnel)
+                                </label>
+                                <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-9 gap-2">
+                                    {/* Option "Aucun" */}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedAccessory(null)
+                                            audioManager.playAvatarChoice()
+                                            vibrate.tap()
+                                        }}
+                                        className={`text-xl p-2 rounded-lg transition-all hover:scale-110 ${
+                                            selectedAccessory === null
+                                                ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
+                                                : 'bg-night-800 hover:bg-night-700'
+                                        }`}
+                                        style={{ minHeight: '48px', minWidth: '48px' }}
+                                    >
+                                        ✖️
+                                    </button>
+
+                                    {accessoryList.map((acc, index) => (
+                                        <button
+                                            key={acc.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedAccessory(acc.id)
+                                                audioManager.playAvatarChoice()
+                                                vibrate.tap()
+                                            }}
+                                            className={`text-xl p-2 rounded-lg transition-all hover:scale-110 ${
+                                                selectedAccessory === acc.id
+                                                    ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
+                                                    : 'bg-night-800 hover:bg-night-700'
+                                            }`}
+                                            style={{
+                                                animationDelay: `${index * 0.03}s`,
+                                                minHeight: '48px',
+                                                minWidth: '48px'
+                                            }}
+                                            title={acc.name}
+                                        >
+                                            {acc.emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Prévisualisation avatar + accessoire */}
+                            <div className="mb-6 text-center">
+                                <div className="relative inline-block text-9xl mb-2">
+                                    <div className="relative inline-block">
+                                        {selectedAvatar}
+                                        {/* Masquer les yeux si lunettes */}
+                                        {selectedAccessory === 'glasses' && (
+                                            <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-6 bg-gradient-to-r from-sky-400 to-blue-500 rounded-full opacity-90 blur-[1px]"></div>
+                                        )}
+                                    </div>
+                                    {/* Afficher l'accessoire */}
+                                    {selectedAccessory && (
+                                        <div className={`absolute text-6xl animate-bounce-in ${
+                                            selectedAccessory === 'glasses'
+                                                ? 'top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 text-5xl z-10' // Lunettes sur les yeux
+                                                : selectedAccessory === 'crown'
+                                                ? crownPositions[selectedAvatar] || '-top-4 left-1/2 -translate-x-1/2' // Couronne centrée en haut
+                                                : '-top-4 -right-4' // Autres accessoires en haut à droite
+                                        }`}>
+                                            {accessoryList.find(acc => acc.id === selectedAccessory)?.emoji}
+                                        </div>
+                                    )}
+                                </div>
+                                <p className="text-gray-400 text-sm">{playerName || 'Ton pseudo'}</p>
+                            </div>
+
                             {/* Deux boutons côte à côte */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <button
@@ -531,7 +645,7 @@ function Lobby() {
                                 >
                                     {isLoading ? '⏳ Création...' : '🎮 Créer une partie'}
                                 </button>
-                                
+
                                 <button
                                     className="btn-secondary ripple-container py-4"
                                     onClick={() => setView('join')}
@@ -549,7 +663,7 @@ function Lobby() {
                     <div className="space-y-4 animate-slideUp">
                         <div className="card-glow">
                             <h2 className="text-2xl font-bold mb-4 text-center text-gray-300">Rejoindre une partie</h2>
-                            
+
                             <input
                                 type="text"
                                 placeholder="Code de la partie (ABC123)"
@@ -662,9 +776,27 @@ function Lobby() {
                                                 style={getCarouselTransform(index)}
                                             >
                                                 <div className="carousel-card-content">
-                                                    {/* Avatar */}
-                                                    <div className="text-8xl mb-4 drop-shadow-2xl animate-bounce-in">
-                                                        {player.avatar || '😊'}
+                                                    {/* Avatar avec accessoire */}
+                                                    <div className="relative text-8xl mb-4 drop-shadow-2xl animate-bounce-in inline-block">
+                                                        <div className="relative inline-block">
+                                                            {player.avatar || '😊'}
+                                                            {/* Masquer les yeux si lunettes */}
+                                                            {player.accessory === 'glasses' && (
+                                                                <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-6 bg-gradient-to-r from-sky-400 to-blue-500 rounded-full opacity-90 blur-[1px]"></div>
+                                                            )}
+                                                        </div>
+                                                        {/* Afficher l'accessoire */}
+                                                        {player.accessory && (
+                                                            <div className={`absolute text-5xl ${
+                                                                player.accessory === 'glasses'
+                                                                    ? 'top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10'
+                                                                    : player.accessory === 'crown'
+                                                                    ? crownPositions[player.avatar] || '-top-4 left-1/2 -translate-x-1/2'
+                                                                    : '-top-3 -right-3'
+                                                            }`}>
+                                                                {accessoryList.find(acc => acc.id === player.accessory)?.emoji}
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     {/* Nom */}
