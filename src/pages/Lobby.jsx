@@ -559,145 +559,156 @@ function Lobby() {
 
                 {/* Menu principal */}
                 {view === 'menu' && (
-                    <div className="space-y-4 animate-slideUp">
+                    <div className="space-y-4 animate-slideUp w-full">
                         <div className="card-glow">
-                            <h2 className="text-2xl font-bold mb-4 text-center text-blood">Rejoignez ou créez une partie</h2>
+                            <h2 className="text-2xl font-bold mb-6 text-center text-blood">Rejoignez ou créez une partie</h2>
 
-                            {/* Input avec bouton micro */}
-                            <div className="relative mb-4">
-                                <input
-                                    type="text"
-                                    placeholder="Votre nom"
-                                    value={playerName}
-                                    onChange={(e) => setPlayerName(e.target.value)}
-                                    className="input-primary pr-16"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={startVoiceRecognition}
-                                    disabled={isListening}
-                                    className={`absolute right-2 top-1/2 -translate-y-1/2 p-3 rounded-xl transition-all ${
-                                        isListening
-                                            ? 'bg-red-600 animate-pulse scale-110'
-                                            : 'bg-gradient-to-br from-blood-600 to-blood-700 hover:from-blood-500 hover:to-blood-600 hover:scale-110'
-                                    } active:scale-95 shadow-lg`}
-                                    title={isListening ? 'Écoute en cours...' : 'Dicter le nom'}
-                                >
-                                    <span className="text-2xl">{isListening ? '🎤' : '🎙️'}</span>
-                                </button>
-                            </div>
+                            {/* Layout 2 colonnes : Personnalisation à gauche, Prévisualisation à droite */}
+                            <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
 
-                            {/* Sélecteur d'avatar */}
-                            <div className="mb-6">
-                                <label className="block text-sm font-bold text-gray-300 mb-2">
-                                    🎨 Choisis ton avatar
-                                </label>
-                                <div className="grid grid-cols-8 md:grid-cols-10 gap-2">
-                                    {avatarList.map((avatar, index) => (
+                                {/* COLONNE GAUCHE : Personnalisation */}
+                                <div className="flex-1 space-y-6">
+                                    {/* Input avec bouton micro */}
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            placeholder="Votre nom"
+                                            value={playerName}
+                                            onChange={(e) => setPlayerName(e.target.value)}
+                                            className="input-primary pr-16"
+                                        />
                                         <button
-                                            key={avatar}
                                             type="button"
-                                            onClick={() => {
-                                                setSelectedAvatar(avatar)
-                                                audioManager.playAvatarChoice()
-                                                vibrate.tap()
-                                            }}
-                                            className={`text-2xl md:text-3xl p-2 rounded-lg transition-all hover:scale-110 scale-hover bounce-in ${
-                                                selectedAvatar === avatar
-                                                    ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
-                                                    : 'bg-night-800 hover:bg-night-700'
-                                            }`}
-                                            style={{
-                                                animationDelay: `${index * 0.03}s`,
-                                                minHeight: '48px',
-                                                minWidth: '48px'
-                                            }}
+                                            onClick={startVoiceRecognition}
+                                            disabled={isListening}
+                                            className={`absolute right-2 top-1/2 -translate-y-1/2 p-3 rounded-xl transition-all ${
+                                                isListening
+                                                    ? 'bg-red-600 animate-pulse scale-110'
+                                                    : 'bg-gradient-to-br from-blood-600 to-blood-700 hover:from-blood-500 hover:to-blood-600 hover:scale-110'
+                                            } active:scale-95 shadow-lg`}
+                                            title={isListening ? 'Écoute en cours...' : 'Dicter le nom'}
                                         >
-                                            {avatar}
+                                            <span className="text-2xl">{isListening ? '🎤' : '🎙️'}</span>
                                         </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Sélecteur d'accessoires */}
-                            <div className="mb-6">
-                                <label className="block text-sm font-bold text-gray-300 mb-2">
-                                    ✨ Accessoires (optionnel)
-                                </label>
-                                <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-9 gap-2">
-                                    {/* Option "Aucun" */}
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setSelectedAccessory(null)
-                                            audioManager.playAvatarChoice()
-                                            vibrate.tap()
-                                        }}
-                                        className={`text-xl p-2 rounded-lg transition-all hover:scale-110 ${
-                                            selectedAccessory === null
-                                                ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
-                                                : 'bg-night-800 hover:bg-night-700'
-                                        }`}
-                                        style={{ minHeight: '48px', minWidth: '48px' }}
-                                    >
-                                        ✖️
-                                    </button>
-
-                                    {accessoryList.map((acc, index) => (
-                                        <button
-                                            key={acc.id}
-                                            type="button"
-                                            onClick={() => {
-                                                setSelectedAccessory(acc.id)
-                                                audioManager.playAvatarChoice()
-                                                vibrate.tap()
-                                            }}
-                                            className={`text-xl p-2 rounded-lg transition-all hover:scale-110 ${
-                                                selectedAccessory === acc.id
-                                                    ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
-                                                    : 'bg-night-800 hover:bg-night-700'
-                                            }`}
-                                            style={{
-                                                animationDelay: `${index * 0.03}s`,
-                                                minHeight: '48px',
-                                                minWidth: '48px'
-                                            }}
-                                            title={acc.name}
-                                        >
-                                            {acc.emoji}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Prévisualisation avatar + accessoire */}
-                            <div className="mb-6 text-center">
-                                <div className="relative inline-block text-9xl mb-2">
-                                    <div className="relative inline-block">
-                                        {selectedAvatar}
-                                        {/* Masquer les yeux si lunettes */}
-                                        {selectedAccessory === 'glasses' && (
-                                            <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-6 bg-gradient-to-r from-sky-400 to-blue-500 rounded-full opacity-90 blur-[1px]"></div>
-                                        )}
                                     </div>
-                                    {/* Afficher l'accessoire */}
-                                    {selectedAccessory && (
-                                        <div className={`absolute text-6xl animate-bounce-in ${
-                                            selectedAccessory === 'glasses'
-                                                ? 'top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 text-5xl z-10' // Lunettes sur les yeux
-                                                : selectedAccessory === 'crown'
-                                                ? crownPositions[selectedAvatar] || '-top-4 left-1/2 -translate-x-1/2' // Couronne centrée en haut
-                                                : '-top-4 -right-4' // Autres accessoires en haut à droite
-                                        }`}>
-                                            {accessoryList.find(acc => acc.id === selectedAccessory)?.emoji}
+
+                                    {/* Sélecteur d'avatar */}
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-300 mb-2">
+                                            🎨 Choisis ton avatar
+                                        </label>
+                                        <div className="grid grid-cols-6 md:grid-cols-8 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+                                            {avatarList.map((avatar, index) => (
+                                                <button
+                                                    key={avatar}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedAvatar(avatar)
+                                                        audioManager.playAvatarChoice()
+                                                        vibrate.tap()
+                                                    }}
+                                                    className={`text-2xl md:text-3xl p-2 rounded-lg transition-all hover:scale-110 scale-hover bounce-in ${
+                                                        selectedAvatar === avatar
+                                                            ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
+                                                            : 'bg-night-800 hover:bg-night-700'
+                                                    }`}
+                                                    style={{
+                                                        animationDelay: `${index * 0.03}s`,
+                                                        minHeight: '48px',
+                                                        minWidth: '48px'
+                                                    }}
+                                                >
+                                                    {avatar}
+                                                </button>
+                                            ))}
                                         </div>
-                                    )}
+                                    </div>
+
+                                    {/* Sélecteur d'accessoires */}
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-300 mb-2">
+                                            ✨ Accessoires (optionnel)
+                                        </label>
+                                        <div className="grid grid-cols-5 md:grid-cols-6 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+                                            {/* Option "Aucun" */}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedAccessory(null)
+                                                    audioManager.playAvatarChoice()
+                                                    vibrate.tap()
+                                                }}
+                                                className={`text-xl p-2 rounded-lg transition-all hover:scale-110 ${
+                                                    selectedAccessory === null
+                                                        ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
+                                                        : 'bg-night-800 hover:bg-night-700'
+                                                }`}
+                                                style={{ minHeight: '48px', minWidth: '48px' }}
+                                            >
+                                                ✖️
+                                            </button>
+
+                                            {accessoryList.map((acc, index) => (
+                                                <button
+                                                    key={acc.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedAccessory(acc.id)
+                                                        audioManager.playAvatarChoice()
+                                                        vibrate.tap()
+                                                    }}
+                                                    className={`text-xl p-2 rounded-lg transition-all hover:scale-110 ${
+                                                        selectedAccessory === acc.id
+                                                            ? 'bg-blood-600 ring-4 ring-blood-400 scale-110'
+                                                            : 'bg-night-800 hover:bg-night-700'
+                                                    }`}
+                                                    style={{
+                                                        animationDelay: `${index * 0.03}s`,
+                                                        minHeight: '48px',
+                                                        minWidth: '48px'
+                                                    }}
+                                                    title={acc.name}
+                                                >
+                                                    {acc.emoji}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
-                                <p className="text-gray-400 text-sm">{playerName || 'Ton pseudo'}</p>
+
+                                {/* COLONNE DROITE : Prévisualisation */}
+                                <div className="flex-1 flex flex-col items-center justify-center bg-night-800/50 rounded-2xl p-8 border-2 border-night-700">
+                                    <div className="text-center">
+                                        <p className="text-sm font-bold text-gray-400 mb-4">PRÉVISUALISATION</p>
+                                        <div className="relative inline-block text-9xl mb-4">
+                                            <div className="relative inline-block">
+                                                {selectedAvatar}
+                                                {/* Masquer les yeux si lunettes */}
+                                                {selectedAccessory === 'glasses' && (
+                                                    <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-6 bg-gradient-to-r from-sky-400 to-blue-500 rounded-full opacity-90 blur-[1px]"></div>
+                                                )}
+                                            </div>
+                                            {/* Afficher l'accessoire */}
+                                            {selectedAccessory && (
+                                                <div className={`absolute text-6xl animate-bounce-in ${
+                                                    selectedAccessory === 'glasses'
+                                                        ? 'top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 text-5xl z-10' // Lunettes sur les yeux
+                                                        : selectedAccessory === 'crown'
+                                                        ? crownPositions[selectedAvatar] || '-top-4 left-1/2 -translate-x-1/2' // Couronne centrée en haut
+                                                        : '-top-4 -right-4' // Autres accessoires en haut à droite
+                                                }`}>
+                                                    {accessoryList.find(acc => acc.id === selectedAccessory)?.emoji}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p className="text-2xl font-bold text-gray-200">{playerName || 'Ton pseudo'}</p>
+                                    </div>
+                                </div>
+
                             </div>
 
-                            {/* Deux boutons côte à côte */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Deux boutons en bas */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                                 <button
                                     className="btn-primary ripple-container py-4"
                                     onClick={handleCreateRoom}
