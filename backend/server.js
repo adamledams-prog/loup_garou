@@ -500,7 +500,8 @@ class GameRoom {
 
 // Générer un code de salle unique
 function generateRoomCode() {
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    // Générer un code à 3 chiffres (100-999)
+    const code = Math.floor(Math.random() * 900 + 100).toString();
     return rooms.has(code) ? generateRoomCode() : code;
 }
 

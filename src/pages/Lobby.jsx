@@ -19,6 +19,7 @@ function Lobby() {
     const [isReady, setIsReady] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState(null)
+    const [isListening, setIsListening] = useState(false) // 🎤 État micro
 
     // 🎨 Avatars
     const [selectedAvatar, setSelectedAvatar] = useState('😊')
@@ -391,6 +392,49 @@ function Lobby() {
         return () => newSocket.close()
     }, [navigate])
 
+    // 🎤 Fonction de reconnaissance vocale
+    const startVoiceRecognition = () => {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            setError('❌ La reconnaissance vocale n\'est pas supportée par votre navigateur')
+            setTimeout(() => setError(null), 3000)
+            return
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+        const recognition = new SpeechRecognition()
+
+        recognition.lang = 'fr-FR'
+        recognition.continuous = false
+        recognition.interimResults = false
+
+        recognition.onstart = () => {
+            setIsListening(true)
+            audioManager.beep(660, 0.1, 0.3)
+        }
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript
+            setPlayerName(transcript)
+            audioManager.beep(880, 0.1, 0.4)
+            vibrate.success()
+        }
+
+        recognition.onerror = (event) => {
+            console.error('Erreur reconnaissance vocale:', event.error)
+            setIsListening(false)
+            if (event.error !== 'no-speech' && event.error !== 'aborted') {
+                setError('❌ Erreur lors de la reconnaissance vocale')
+                setTimeout(() => setError(null), 3000)
+            }
+        }
+
+        recognition.onend = () => {
+            setIsListening(false)
+        }
+
+        recognition.start()
+    }
+
     // Fonction pour créer une salle
     const handleCreateRoom = () => {
         if (!playerName.trim()) {
@@ -519,13 +563,29 @@ function Lobby() {
                         <div className="card-glow">
                             <h2 className="text-2xl font-bold mb-4 text-center text-blood">Rejoignez ou créez une partie</h2>
 
-                            <input
-                                type="text"
-                                placeholder="Votre nom"
-                                value={playerName}
-                                onChange={(e) => setPlayerName(e.target.value)}
-                                className="input-primary mb-4"
-                            />
+                            {/* Input avec bouton micro */}
+                            <div className="relative mb-4">
+                                <input
+                                    type="text"
+                                    placeholder="Votre nom"
+                                    value={playerName}
+                                    onChange={(e) => setPlayerName(e.target.value)}
+                                    className="input-primary pr-16"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={startVoiceRecognition}
+                                    disabled={isListening}
+                                    className={`absolute right-2 top-1/2 -translate-y-1/2 p-3 rounded-xl transition-all ${
+                                        isListening
+                                            ? 'bg-red-600 animate-pulse scale-110'
+                                            : 'bg-gradient-to-br from-blood-600 to-blood-700 hover:from-blood-500 hover:to-blood-600 hover:scale-110'
+                                    } active:scale-95 shadow-lg`}
+                                    title={isListening ? 'Écoute en cours...' : 'Dicter le nom'}
+                                >
+                                    <span className="text-2xl">{isListening ? '🎤' : '🎙️'}</span>
+                                </button>
+                            </div>
 
                             {/* Sélecteur d'avatar */}
                             <div className="mb-6">
