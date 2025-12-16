@@ -647,9 +647,9 @@ function Game() {
         // 🔒 Empêcher les actions multiples
         if (hasActed) return
 
-        // Si sorcière, ouvrir la modal de choix (pas besoin de sélection pour soigner)
+        // ⚠️ La sorcière ne doit JAMAIS utiliser ce bouton, elle agit via sa modal automatique
+        // qui s'ouvre après que les loups ont choisi leur victime
         if (myRole === 'sorciere') {
-            setShowWitchModal(true)
             return
         }
 
@@ -1374,7 +1374,7 @@ function Game() {
                                     <div className="flex justify-between items-center mb-4">
                                         <h3 className="text-xl font-bold text-blue-300">
                                             👥 Joueurs {
-                                                phase === 'night' && ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon'].includes(myRole)
+                                                phase === 'night' && ['loup', 'voyante', 'livreur', 'cupidon'].includes(myRole)
                                                     ? '(Cliquez pour agir)'
                                                     : phase === 'vote'
                                                         ? '(Cliquez pour voter)'
@@ -1398,7 +1398,8 @@ function Game() {
                                             const amAlive = currentPlayer?.alive !== false
 
                                             // Déterminer si ce joueur peut être cliqué
-                                            const isNightActive = phase === 'night' && ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon'].includes(myRole) && amAlive
+                                            // ⚠️ La sorcière ne clique PAS pendant la nuit, elle utilise sa modal
+                                            const isNightActive = phase === 'night' && ['loup', 'voyante', 'livreur', 'cupidon'].includes(myRole) && amAlive
                                             const isHunterActive = phase === 'hunter' && myRole === 'chasseur'
                                             const canClick = player.alive && (isNightActive || isHunterActive || (phase === 'vote' && amAlive))
 
@@ -1503,15 +1504,7 @@ function Game() {
                                     </div>
 
                                     {/* Bouton d'action */}
-                                    {/* Sorcière : toujours afficher le bouton */}
-                                    {myRole === 'sorciere' && phase === 'night' && !hasActed && (
-                                        <button
-                                            onClick={handleAction}
-                                            className="btn-primary w-full mt-4"
-                                        >
-                                            🧙‍♀️ Ouvrir les potions
-                                        </button>
-                                    )}
+                                    {/* ⚠️ La sorcière n'a PAS de bouton, sa modal s'ouvre automatiquement après le choix des loups */}
 
                                     {/* Chasseur : tirer en vengeance */}
                                     {myRole === 'chasseur' && phase === 'hunter' && selectedPlayer && !hasActed && (

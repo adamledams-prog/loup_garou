@@ -1013,7 +1013,8 @@ io.on('connection', (socket) => {
 
         // ✅ Vérifier si tous les joueurs avec des actions nocturnes ont agi
         // ⚠️ La sorcière n'est PAS dans cette liste car elle agit APRÈS avoir vu la victime
-        const rolesWithNightActions = ['loup', 'voyante', 'livreur', 'cupidon', 'chasseur'];
+        // ⚠️ Le chasseur n'agit que pendant la phase 'hunter', pas pendant 'night'
+        const rolesWithNightActions = ['loup', 'voyante', 'livreur', 'cupidon'];
         const playersWithActions = Array.from(room.players.values()).filter(p =>
             p.alive && rolesWithNightActions.includes(p.role)
         );
