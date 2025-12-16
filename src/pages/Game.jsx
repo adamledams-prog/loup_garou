@@ -6,6 +6,7 @@ import { useParticleSystem } from '../utils/particles'
 import { audioManager } from '../utils/audioManager'
 import { ttsManager } from '../utils/ttsManager'
 import { vibrate, requestWakeLock, releaseWakeLock } from '../utils/mobile'
+import DeathAnimation from '../components/DeathAnimation'
 
 function Game() {
     const { roomCode } = useParams()
@@ -61,6 +62,7 @@ function Game() {
 
     // 💀 Animation de mort
     const [dyingPlayers, setDyingPlayers] = useState([]) // IDs des joueurs en train de mourir
+    const [deathToShow, setDeathToShow] = useState(null) // { player, cause } pour l'animation spectaculaire
 
     // 🔔 Système de notifications stylées
     const [notification, setNotification] = useState(null) // { type, icon, title, message }
@@ -331,8 +333,15 @@ function Game() {
                 clearInterval(window.nightHowlInterval)
                 window.nightHowlInterval = null
             }            if (data.killedPlayer) {
+                // Trouver le joueur mort avec toutes ses infos
+                const deadPlayer = data.players.find(p => p.name === data.killedPlayer)
+
+                if (deadPlayer) {
+                    // 💀 Déclencher l'animation de mort spectaculaire
+                    setDeathToShow({ player: deadPlayer, cause: 'wolf' })
+                }
+
                 addEvent('death', `💀 ${data.killedPlayer} est mort cette nuit`, '💀')
-                showNotification('death', '💀', 'Victime de la nuit', `${data.killedPlayer} est mort cette nuit...`)
                 // 📊 Incrémenter le compteur de morts
                 setTotalDeaths(prev => prev + 1)
 
@@ -342,10 +351,6 @@ function Game() {
                     const y = Math.random() * (window.innerHeight / 2) + 100
                     triggerDeath(x, y, 40)
                 }
-
-                // 🔊 Son mort + 📳 Vibration
-                audioManager.beep(110, 0.8, 0.6) // Low long beep for death
-                vibrate.death()
             }
         })
 
@@ -364,6 +369,23 @@ function Game() {
 
             // 📜 Log événement
             addEvent('vote', 'Phase de vote commence', '⚖️')
+        })
+
+        // Résultat du vote (joueur éliminé)
+        newSocket.on('voteResult', (data) => {
+            if (data.eliminated) {
+                // 💀 Déclencher l'animation de mort spectaculaire
+                const deadPlayer = players.find(p => p.id === data.eliminated.id)
+                if (deadPlayer) {
+                    setDeathToShow({
+                        player: { ...deadPlayer, role: data.eliminated.role },
+                        cause: 'vote'
+                    })
+                }
+
+                addEvent('death', `⚖️ ${data.eliminated.name} a été éliminé par le village`, '⚖️')
+                setTotalDeaths(prev => prev + 1)
+            }
         })
 
         // Progression des votes
@@ -901,7 +923,16 @@ function Game() {
                 height={window.innerHeight}
             />
 
-            {/* 🔔 Notification Popup Stylée */}
+            {/* � Animation de mort spectaculaire */}
+            {deathToShow && (
+                <DeathAnimation
+                    player={deathToShow.player}
+                    cause={deathToShow.cause}
+                    onComplete={() => setDeathToShow(null)}
+                />
+            )}
+
+            {/* �🔔 Notification Popup Stylée */}
             {notification && (
                 <div className="fixed top-4 right-4 z-[100] animate-fadeIn">
                     <div className={`max-w-md bg-gradient-to-br rounded-xl shadow-2xl border-2 p-6 ${
