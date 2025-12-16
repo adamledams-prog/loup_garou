@@ -68,6 +68,33 @@ export default function RoleCard({ role, description }) {
             watermark: '🍕',
             icon: '🍕'
         },
+        corbeau: {
+            gradient: 'from-gray-900 via-slate-800 to-gray-950',
+            border: 'border-gray-300',
+            shadow: 'shadow-gray-400/50',
+            glow: 'shadow-gray-400/30',
+            rarity: 'epic',
+            watermark: '🦅',
+            icon: '🦅'
+        },
+        ivrogne: {
+            gradient: 'from-amber-900 via-orange-800 to-yellow-950',
+            border: 'border-amber-400',
+            shadow: 'shadow-amber-400/50',
+            glow: 'shadow-amber-400/30',
+            rarity: 'rare',
+            watermark: '🍺',
+            icon: '🍺'
+        },
+        parrain: {
+            gradient: 'from-black via-gray-900 to-slate-950',
+            border: 'border-yellow-400',
+            shadow: 'shadow-yellow-300/50',
+            glow: 'shadow-yellow-300/30',
+            rarity: 'legendary',
+            watermark: '🕴️',
+            icon: '🕴️'
+        },
         villageois: {
             gradient: 'from-gray-800 via-gray-700 to-gray-900',
             border: 'border-gray-400',

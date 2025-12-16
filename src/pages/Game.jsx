@@ -678,6 +678,17 @@ function Game() {
             case 'chasseur':
                 action = 'shoot'
                 break
+            case 'corbeau':
+                action = 'accuse'
+                break
+            case 'parrain':
+                // Le parrain doit choisir entre recruter ou éliminer via une modal
+                // Pour l'instant, on recrute par défaut
+                action = 'recruit'
+                break
+            case 'ivrogne':
+                // Rôle passif, pas d'action
+                return
             case 'riche':
             case 'villageois':
                 // Ces rôles n'ont pas d'action de nuit
@@ -830,6 +841,9 @@ function Game() {
             'cupidon': '💘',
             'riche': '💰',
             'livreur': '🍕',
+            'corbeau': '🦅',
+            'ivrogne': '🍺',
+            'parrain': '🕴️',
             'villageois': '👤'
         }
         return emojis[role] || '👤'
@@ -844,6 +858,9 @@ function Game() {
             'cupidon': 'Créez un couple au début de la partie',
             'riche': 'Votre vote compte double',
             'livreur': 'Protégez un joueur chaque nuit',
+            'corbeau': 'Accusez secrètement un joueur chaque nuit (2 votes contre lui)',
+            'ivrogne': 'Échangez aléatoirement de rôle la 1ère nuit (découverte au 2ème jour)',
+            'parrain': 'Recrutez des complices ou éliminez. Gagnez si majorité ou avec les loups',
             'villageois': 'Trouvez les loups-garous et votez le jour'
         }
         return descriptions[role] || 'Participez au vote pour éliminer les loups'
@@ -1374,7 +1391,7 @@ function Game() {
                                     <div className="flex justify-between items-center mb-4">
                                         <h3 className="text-xl font-bold text-blue-300">
                                             👥 Joueurs {
-                                                phase === 'night' && ['loup', 'voyante', 'livreur', 'cupidon'].includes(myRole)
+                                                phase === 'night' && ['loup', 'voyante', 'livreur', 'cupidon', 'corbeau', 'parrain'].includes(myRole)
                                                     ? '(Cliquez pour agir)'
                                                     : phase === 'vote'
                                                         ? '(Cliquez pour voter)'
@@ -1399,7 +1416,8 @@ function Game() {
 
                                             // Déterminer si ce joueur peut être cliqué
                                             // ⚠️ La sorcière ne clique PAS pendant la nuit, elle utilise sa modal
-                                            const isNightActive = phase === 'night' && ['loup', 'voyante', 'livreur', 'cupidon'].includes(myRole) && amAlive
+                                            // ⚠️ L'ivrogne est passif, pas d'action
+                                            const isNightActive = phase === 'night' && ['loup', 'voyante', 'livreur', 'cupidon', 'corbeau', 'parrain'].includes(myRole) && amAlive
                                             const isHunterActive = phase === 'hunter' && myRole === 'chasseur'
                                             const canClick = player.alive && (isNightActive || isHunterActive || (phase === 'vote' && amAlive))
 

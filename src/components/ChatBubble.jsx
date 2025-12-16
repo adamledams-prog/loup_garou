@@ -19,6 +19,9 @@ export default function ChatBubble({ message, isMyMessage, playerAvatar, playerN
         cupidon: 'bg-pink-900/20 border-pink-700/30',
         riche: 'bg-amber-900/20 border-amber-700/30',
         livreur: 'bg-blue-900/20 border-blue-700/30',
+        corbeau: 'bg-gray-900/20 border-gray-700/30',
+        ivrogne: 'bg-orange-900/20 border-orange-700/30',
+        parrain: 'bg-black/20 border-slate-700/30',
         villageois: 'bg-gray-800/20 border-gray-600/30'
     }
 

@@ -348,7 +348,12 @@ class GameRoom {
             livreurProtection: null, // Qui est protégé par le livreur cette nuit
             couple: [], // Les deux amoureux [id1, id2]
             votes: {},
-            nightActions: {}
+            nightActions: {},
+            corbeauAccused: null, // Joueur accusé par le corbeau (2 votes contre lui)
+            parrainComplices: [], // Liste des complices du parrain
+            ivrogneSwapped: false, // L'ivrogne a-t-il échangé son rôle ? (1ère nuit)
+            ivrogneOriginalRole: null, // Rôle original avant échange
+            ivrogneSwappedWith: null // Avec qui l'ivrogne a échangé
         };
     }
 
@@ -935,7 +940,10 @@ io.on('connection', (socket) => {
             'sorciere': ['heal', 'poison'],
             'livreur': ['protect'],
             'cupidon': ['couple'],
-            'chasseur': ['shoot']
+            'chasseur': ['shoot'],
+            'corbeau': ['accuse'],
+            'ivrogne': [], // Rôle passif, pas d'action
+            'parrain': ['recruit', 'eliminate']
         };
 
         if (!validActions[player.role] || !validActions[player.role].includes(action)) {
@@ -1014,7 +1022,8 @@ io.on('connection', (socket) => {
         // ✅ Vérifier si tous les joueurs avec des actions nocturnes ont agi
         // ⚠️ La sorcière n'est PAS dans cette liste car elle agit APRÈS avoir vu la victime
         // ⚠️ Le chasseur n'agit que pendant la phase 'hunter', pas pendant 'night'
-        const rolesWithNightActions = ['loup', 'voyante', 'livreur', 'cupidon'];
+        // ⚠️ L'ivrogne est passif (pas d'action)
+        const rolesWithNightActions = ['loup', 'voyante', 'livreur', 'cupidon', 'corbeau', 'parrain'];
         const playersWithActions = Array.from(room.players.values()).filter(p =>
             p.alive && rolesWithNightActions.includes(p.role)
         );
@@ -1487,6 +1496,37 @@ async function processNightActions(room) {
         const actions = room.gameState.nightActions;
         let killedPlayers = [];
 
+        // 🍺 Ivrogne - Première nuit : échange de rôle aléatoire (passif)
+        if (room.nightNumber === 1 && !room.gameState.ivrogneSwapped) {
+            const ivrogne = Array.from(room.players.values()).find(p => p.role === 'ivrogne');
+            if (ivrogne) {
+                // Trouver un joueur aléatoire (sauf loups et parrain)
+                const eligiblePlayers = Array.from(room.players.values()).filter(p =>
+                    p.id !== ivrogne.id &&
+                    p.role !== 'loup' &&
+                    p.role !== 'parrain'
+                );
+
+                if (eligiblePlayers.length > 0) {
+                    const randomPlayer = eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
+
+                    // Sauvegarder pour révélation plus tard
+                    room.gameState.ivrogneOriginalRole = ivrogne.role;
+                    room.gameState.ivrogneSwappedWith = randomPlayer.id;
+
+                    // Échanger les rôles
+                    const tempRole = ivrogne.role;
+                    ivrogne.role = randomPlayer.role;
+                    randomPlayer.role = tempRole;
+
+                    room.gameState.ivrogneSwapped = true;
+                    console.log(`🍺 Ivrogne ${ivrogne.name} a échangé son rôle avec ${randomPlayer.name}`);
+
+                    // NE PAS notifier maintenant, ils découvriront au 2ème jour
+                }
+            }
+        }
+
         // ✅ Réinitialiser la protection du livreur (nouvelle nuit = nouvelle protection)
         room.gameState.livreurProtection = null;
 
@@ -1639,6 +1679,57 @@ async function processNightActions(room) {
         }
     }
 
+    // 🦅 Corbeau - Accuser secrètement un joueur (2 votes contre lui au vote)
+    for (const [playerId, actionOrActions] of Object.entries(actions)) {
+        const player = room.players.get(playerId);
+        const actionsArray = Array.isArray(actionOrActions) ? actionOrActions : [actionOrActions];
+
+        for (const action of actionsArray) {
+            if (player.role === 'corbeau' && action.action === 'accuse') {
+                room.gameState.corbeauAccused = action.targetId;
+                const target = room.players.get(action.targetId);
+                console.log(`🦅 Corbeau a accusé ${target.name}`);
+                // Ne pas révéler maintenant, sera annoncé au début du jour
+            }
+        }
+    }
+
+    // 🕴️ Parrain - Recruter un complice ou éliminer quelqu'un
+    for (const [playerId, actionOrActions] of Object.entries(actions)) {
+        const player = room.players.get(playerId);
+        const actionsArray = Array.isArray(actionOrActions) ? actionOrActions : [actionOrActions];
+
+        for (const action of actionsArray) {
+            if (player.role === 'parrain') {
+                if (action.action === 'recruit') {
+                    const target = room.players.get(action.targetId);
+                    if (target && target.alive && target.role !== 'loup' && target.role !== 'parrain') {
+                        // Initialiser complices si nécessaire
+                        if (!room.gameState.parrainComplices) {
+                            room.gameState.parrainComplices = [];
+                        }
+                        if (!room.gameState.parrainComplices.includes(action.targetId)) {
+                            room.gameState.parrainComplices.push(action.targetId);
+                            // Notifier le complice
+                            if (target.socketId) {
+                                io.to(target.socketId).emit('recruitedByParrain', {
+                                    parrainId: player.id,
+                                    parrainName: player.name
+                                });
+                            }
+                            console.log(`🕴️ Parrain a recruté ${target.name} comme complice`);
+                            emitNarration(io, room.code, `🕴️ Une alliance secrète s'est formée...`, 'neutral', 4000);
+                        }
+                    }
+                } else if (action.action === 'eliminate') {
+                    killedPlayers.push(action.targetId);
+                    console.log(`🕴️ Parrain a éliminé ${room.players.get(action.targetId).name}`);
+                    emitNarration(io, room.code, `🕴️ La mafia a frappé cette nuit...`, 'danger', 4000);
+                }
+            }
+        }
+    }
+
     // Appliquer les morts
     killedPlayers.forEach(id => {
         const player = room.players.get(id);
@@ -1686,6 +1777,16 @@ async function processNightActions(room) {
 
         // ✅ Débloquer immédiatement l'UI client
         io.to(room.code).emit('processingPhase', { processing: false });
+
+        // 🦅 Annoncer l'accusation du corbeau (si il y en a une)
+        if (room.gameState.corbeauAccused) {
+            const accused = room.players.get(room.gameState.corbeauAccused);
+            if (accused) {
+                setTimeout(() => {
+                    emitNarration(io, room.code, `🦅 Un corbeau a croassé le nom de ${accused.name} cette nuit... Suspect !`, 'warning', 6000);
+                }, 2000);
+            }
+        }
 
         // ⏳ Attendre 1 seconde avant d'émettre dayPhase (éviter saturation WebSocket)
         setTimeout(() => {
@@ -1763,13 +1864,21 @@ function processVotes(room) {
         for (const [voterId, targetId] of Object.entries(votes)) {
             const voter = room.players.get(voterId);
 
-        // Le Riche vote compte double
-        if (voter && voter.role === 'riche') {
-            voteCounts[targetId] = (voteCounts[targetId] || 0) + 2;
-        } else {
-            voteCounts[targetId] = (voteCounts[targetId] || 0) + 1;
+            // Le Riche vote compte double
+            if (voter && voter.role === 'riche') {
+                voteCounts[targetId] = (voteCounts[targetId] || 0) + 2;
+            } else {
+                voteCounts[targetId] = (voteCounts[targetId] || 0) + 1;
+            }
         }
-    }
+
+        // 🦅 Corbeau - Ajouter 2 votes automatiques contre le joueur accusé
+        if (room.gameState.corbeauAccused) {
+            voteCounts[room.gameState.corbeauAccused] = (voteCounts[room.gameState.corbeauAccused] || 0) + 2;
+            console.log(`🦅 Corbeau : +2 votes contre ${room.players.get(room.gameState.corbeauAccused).name}`);
+            // Réinitialiser l'accusation après utilisation
+            room.gameState.corbeauAccused = null;
+        }
 
     // Trouver le joueur avec le plus de votes
     let maxVotes = 0;
@@ -1976,6 +2085,77 @@ function checkWinCondition(room) {
     const alivePlayers = Array.from(room.players.values()).filter(p => p.alive);
     const aliveWolves = alivePlayers.filter(p => p.role === 'loup');
     const aliveVillagers = alivePlayers.filter(p => p.role !== 'loup');
+
+    // 🕴️ Vérifier victoire du Parrain (lui + complices = majorité OU loups gagnent avec lui vivant)
+    const parrain = alivePlayers.find(p => p.role === 'parrain');
+    if (parrain && room.gameState.parrainComplices) {
+        const aliveComplices = room.gameState.parrainComplices.filter(id => {
+            const player = room.players.get(id);
+            return player && player.alive;
+        });
+
+        const mafiaPower = 1 + aliveComplices.length; // Parrain + complices
+
+        // Victoire si mafia = majorité
+        if (mafiaPower >= Math.ceil(alivePlayers.length / 2)) {
+            if (room.phaseTimer) {
+                clearInterval(room.phaseTimer);
+                room.phaseTimer = null;
+            }
+            room.processingPhase = false;
+            room.processingVotes = false;
+
+            const stats = calculateGameStats(room);
+
+            io.to(room.code).emit('gameOver', {
+                winner: 'parrain',
+                message: 'Le Parrain a pris le contrôle du village ! 🕴️',
+                players: Array.from(room.players.values()).map(p => ({
+                    name: p.name,
+                    role: p.role,
+                    alive: p.alive,
+                    avatar: p.avatar,
+                    stats: p.stats
+                })),
+                gameStats: stats
+            });
+
+            room.gameEnded = true;
+            room.endTime = Date.now();
+            console.log(`🕴️ Victoire du Parrain - Room ${room.code}`);
+            return true;
+        }
+
+        // Victoire si loups gagnent avec parrain vivant
+        if (aliveWolves.length >= aliveVillagers.length) {
+            if (room.phaseTimer) {
+                clearInterval(room.phaseTimer);
+                room.phaseTimer = null;
+            }
+            room.processingPhase = false;
+            room.processingVotes = false;
+
+            const stats = calculateGameStats(room);
+
+            io.to(room.code).emit('gameOver', {
+                winner: 'parrain',
+                message: 'Le Parrain et les Loups ont gagné ensemble ! 🕴️🐺',
+                players: Array.from(room.players.values()).map(p => ({
+                    name: p.name,
+                    role: p.role,
+                    alive: p.alive,
+                    avatar: p.avatar,
+                    stats: p.stats
+                })),
+                gameStats: stats
+            });
+
+            room.gameEnded = true;
+            room.endTime = Date.now();
+            console.log(`🕴️🐺 Victoire Parrain + Loups - Room ${room.code}`);
+            return true;
+        }
+    }
 
     if (aliveWolves.length === 0) {
         // ✅ Nettoyer le timer avant de terminer la partie
