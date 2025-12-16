@@ -7,6 +7,7 @@ import { audioManager } from '../utils/audioManager'
 import { ttsManager } from '../utils/ttsManager'
 import { vibrate, requestWakeLock, releaseWakeLock } from '../utils/mobile'
 import DeathAnimation from '../components/DeathAnimation'
+import CircularTimer from '../components/CircularTimer'
 
 function Game() {
     const { roomCode } = useParams()
@@ -238,7 +239,7 @@ function Game() {
 
             // 🎬 Afficher la transition
             setPhaseTransition({ phase: 'night', nightNumber: data.nightNumber })
-            setTimeout(() => setPhaseTransition(null), 2500) // Masquer après 2.5s
+            setTimeout(() => setPhaseTransition(null), 3500) // 3.5s pour plus d'immersion
 
             setPhase('night')
             setNightNumber(data.nightNumber)
@@ -310,7 +311,7 @@ function Game() {
 
             // 🎬 Afficher la transition
             setPhaseTransition({ phase: 'day' })
-            setTimeout(() => setPhaseTransition(null), 2500)
+            setTimeout(() => setPhaseTransition(null), 3500) // 3.5s pour plus d'immersion
 
             setPhase('day')
             setPlayers(data.players)
@@ -358,7 +359,7 @@ function Game() {
         newSocket.on('votePhase', (data) => {
             // 🎬 Afficher la transition
             setPhaseTransition({ phase: 'vote' })
-            setTimeout(() => setPhaseTransition(null), 2500)
+            setTimeout(() => setPhaseTransition(null), 3500) // 3.5s pour plus d'immersion
 
             setPhase('vote')
             setPlayers(data.players)
@@ -959,34 +960,100 @@ function Game() {
                 </div>
             )}
 
-            {/* 🎬 Overlay de transition de phase avec Narrateur */}
+            {/* 🎬 Overlay de transition de phase CINÉMATIQUE */}
             {phaseTransition && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 animate-fadeIn">
-                    <div className="text-center animate-slideUp max-w-3xl px-8">
-                        {/* Icône animée */}
-                        <div className="text-9xl mb-6 animate-bounce">
+                <div className={`fixed inset-0 z-50 flex items-center justify-center animate-fadeIn ${
+                    phaseTransition.phase === 'night'
+                        ? 'bg-gradient-to-br from-blue-950 via-indigo-950 to-black'
+                        : phaseTransition.phase === 'day'
+                        ? 'bg-gradient-to-br from-yellow-300 via-orange-400 to-red-500'
+                        : 'bg-gradient-to-br from-gray-900 via-gray-800 to-black'
+                }`}>
+                    {/* Effets de particules selon la phase */}
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                        {phaseTransition.phase === 'night' && (
+                            // Étoiles tombantes
+                            <>
+                                {[...Array(20)].map((_, i) => (
+                                    <div
+                                        key={i}
+                                        className="absolute w-1 h-1 bg-white rounded-full animate-float"
+                                        style={{
+                                            left: `${Math.random() * 100}%`,
+                                            top: `${Math.random() * 100}%`,
+                                            animationDelay: `${Math.random() * 2}s`,
+                                            animationDuration: `${2 + Math.random() * 2}s`,
+                                            opacity: Math.random()
+                                        }}
+                                    />
+                                ))}
+                            </>
+                        )}
+                        {phaseTransition.phase === 'day' && (
+                            // Rayons du soleil
+                            <>
+                                {[...Array(8)].map((_, i) => (
+                                    <div
+                                        key={i}
+                                        className="absolute h-full w-32 bg-gradient-to-b from-yellow-200/30 to-transparent blur-xl"
+                                        style={{
+                                            left: '50%',
+                                            top: 0,
+                                            transform: `rotate(${i * 45}deg)`,
+                                            transformOrigin: 'top center',
+                                            animation: 'pulse 2s infinite'
+                                        }}
+                                    />
+                                ))}
+                            </>
+                        )}
+                    </div>
+
+                    <div className="text-center animate-slideUp max-w-3xl px-8 relative z-10">
+                        {/* Icône animée + effet phase */}
+                        <div className={`text-9xl mb-6 ${
+                            phaseTransition.phase === 'vote' ? 'animate-bounce' : ''
+                        }`} style={{
+                            animation: phaseTransition.phase === 'day' ? 'pulse 1s infinite' : undefined
+                        }}>
                             {phaseTransition.phase === 'night' ? '🌙' :
                              phaseTransition.phase === 'day' ? '☀️' : '⚖️'}
                         </div>
 
                         {/* Titre de phase */}
-                        <h2 className="text-6xl font-black text-blood mb-6 drop-shadow-2xl">
+                        <h2 className={`text-6xl font-black mb-6 drop-shadow-2xl ${
+                            phaseTransition.phase === 'night' ? 'text-blue-300' :
+                            phaseTransition.phase === 'day' ? 'text-white' :
+                            'text-blood'
+                        }`}>
                             {phaseTransition.phase === 'night' ? `Nuit ${phaseTransition.nightNumber}` :
                              phaseTransition.phase === 'day' ? 'Lever du Jour' : 'Jugement du Village'}
                         </h2>
 
                         {/* 🎭 Narration */}
-                        <div className="bg-night-800/50 backdrop-blur-sm rounded-xl p-6 border-2 border-blood-600/30 mb-4">
-                            <p className="text-2xl text-gray-300 italic leading-relaxed">
+                        <div className={`backdrop-blur-sm rounded-xl p-6 border-2 mb-4 ${
+                            phaseTransition.phase === 'night' ? 'bg-blue-900/30 border-blue-500/30' :
+                            phaseTransition.phase === 'day' ? 'bg-white/20 border-yellow-400/30' :
+                            'bg-night-800/50 border-blood-600/30'
+                        }`}>
+                            <p className={`text-2xl italic leading-relaxed ${
+                                phaseTransition.phase === 'day' ? 'text-white font-bold' : 'text-gray-300'
+                            }`}>
                                 "{getNarration(phaseTransition.phase, phaseTransition.nightNumber)}"
                             </p>
                         </div>
 
                         {/* Points de chargement animés */}
                         <div className="flex justify-center gap-2 mt-6">
-                            <div className="w-3 h-3 bg-blood-600 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
-                            <div className="w-3 h-3 bg-blood-600 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
-                            <div className="w-3 h-3 bg-blood-600 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                            {[0, 150, 300].map((delay) => (
+                                <div
+                                    key={delay}
+                                    className={`w-3 h-3 rounded-full animate-bounce ${
+                                        phaseTransition.phase === 'day' ? 'bg-white' : 'bg-blood-600'
+                                    }`}
+                                    style={{animationDelay: `${delay}ms`}}
+                                />
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -1305,101 +1372,16 @@ function Game() {
                                                     'Votez pour éliminer un joueur'}
                                     </p>
 
-                                    {/* Timer circulaire PREMIUM */}
+                                    {/* Timer circulaire avec composant */}
                                     <div className="mt-6 flex justify-center">
-                                        <div className={`timer-container relative inline-block ${timeRemaining <= 5 ? 'critical' : timeRemaining <= 10 ? 'warning' : ''}`}>
-
-                                            {/* Glow effect rotatif */}
-                                            {timeRemaining <= 10 && (
-                                                <div className="timer-glow"></div>
-                                            )}
-
-                                            {/* SVG Cercle PREMIUM */}
-                                            <svg className="transform -rotate-90 relative z-10" width="140" height="140">
-                                                {/* Cercle de fond avec effet glassmorphism */}
-                                                <circle
-                                                    cx="70"
-                                                    cy="70"
-                                                    r="60"
-                                                    fill="rgba(30, 30, 30, 0.6)"
-                                                    stroke="rgba(255, 255, 255, 0.1)"
-                                                    strokeWidth="2"
-                                                />
-                                                {/* Cercle de fond track */}
-                                                <circle
-                                                    cx="70"
-                                                    cy="70"
-                                                    r="55"
-                                                    fill="none"
-                                                    stroke="rgba(100, 100, 100, 0.2)"
-                                                    strokeWidth="10"
-                                                />
-                                                {/* Cercle de progression avec gradient */}
-                                                <defs>
-                                                    <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                                        <stop offset="0%" stopColor={timeRemaining > 30 ? '#10b981' : timeRemaining > 10 ? '#f59e0b' : '#ef4444'} />
-                                                        <stop offset="100%" stopColor={timeRemaining > 30 ? '#059669' : timeRemaining > 10 ? '#d97706' : '#dc2626'} />
-                                                    </linearGradient>
-                                                </defs>
-                                                <circle
-                                                    cx="70"
-                                                    cy="70"
-                                                    r="55"
-                                                    fill="none"
-                                                    stroke="url(#timerGradient)"
-                                                    strokeWidth="10"
-                                                    strokeLinecap="round"
-                                                    strokeDasharray={`${2 * Math.PI * 55}`}
-                                                    strokeDashoffset={`${2 * Math.PI * 55 * (1 - timeRemaining / 60)}`}
-                                                    className="transition-all duration-1000 ease-linear"
-                                                    style={{
-                                                        filter: timeRemaining <= 10 ? 'drop-shadow(0 0 8px currentColor)' : 'none'
-                                                    }}
-                                                />
-                                            </svg>
-
-                                            {/* Temps restant au centre avec style premium */}
-                                            <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
-                                                <span className={`
-                                                    text-5xl font-black mb-1
-                                                    ${timeRemaining <= 5 ? 'text-red-500 animate-pulse' : timeRemaining <= 10 ? 'text-orange-400' : 'text-white'}
-                                                    ${timeRemaining === 0 ? 'timer-flash' : ''}
-                                                    bg-gradient-to-br ${timeRemaining > 30 ? 'from-green-400 to-green-600' : timeRemaining > 10 ? 'from-orange-400 to-orange-600' : 'from-red-400 to-red-600'}
-                                                    bg-clip-text text-transparent
-                                                    drop-shadow-lg
-                                                `}>
-                                                    {timeRemaining}
-                                                </span>
-                                                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                                                    {timeRemaining <= 5 ? '⚠️ Urgent' : timeRemaining <= 10 ? '⏰ Dépêchez-vous' : 'secondes'}
-                                                </span>
-                                            </div>
-
-                                            {/* Particules d'alerte pour temps critique */}
-                                            {timeRemaining <= 5 && (
-                                                <div className="absolute inset-0 pointer-events-none">
-                                                    {[...Array(4)].map((_, i) => (
-                                                        <div
-                                                            key={i}
-                                                            className="absolute w-2 h-2 bg-red-500 rounded-full animate-ping"
-                                                            style={{
-                                                                top: '50%',
-                                                                left: '50%',
-                                                                animationDelay: `${i * 0.2}s`,
-                                                                transform: `translate(-50%, -50%) translate(${Math.cos(i * Math.PI / 2) * 40}px, ${Math.sin(i * Math.PI / 2) * 40}px)`
-                                                            }}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
+                                        <CircularTimer timeRemaining={timeRemaining} maxTime={60} />
                                     </div>
                                 </div>
 
-                                {/* Grille de joueurs */}
-                                <div className="card">
+                                {/* Grille de joueurs - Zone bleue calme */}
+                                <div className="card border-l-4 border-blue-500/50 bg-gradient-to-br from-blue-900/10 to-transparent">
                                     <div className="flex justify-between items-center mb-4">
-                                        <h3 className="text-xl font-bold">
+                                        <h3 className="text-xl font-bold text-blue-300">
                                             👥 Joueurs {
                                                 phase === 'night' && ['loup', 'voyante', 'sorciere', 'livreur', 'cupidon'].includes(myRole)
                                                     ? '(Cliquez pour agir)'
@@ -1487,19 +1469,36 @@ function Game() {
                                                             </div>
                                                         )}
 
-                                                        {/* Avatar avec effet premium */}
-                                                        <div className="text-5xl mb-3 transform transition-transform duration-300 hover:scale-110">
-                                                            {player.alive ? (player.avatar || '😊') : '💀'}
+                                                        {/* Avatar avec effet premium + style mort amélioré */}
+                                                        <div className={`relative text-5xl mb-3 transform transition-all duration-300 hover:scale-110 ${
+                                                            !player.alive ? 'grayscale opacity-60 -rotate-6' : ''
+                                                        }`}>
+                                                            {player.alive ? (player.avatar || '😊') : (
+                                                                <>
+                                                                    <span className="relative z-10">{player.avatar || '�'}</span>
+                                                                    <div className="absolute inset-0 flex items-center justify-center z-20">
+                                                                        <span className="text-6xl text-red-600 font-black drop-shadow-lg">❌</span>
+                                                                    </div>
+                                                                </>
+                                                            )}
                                                         </div>
 
                                                         {/* Nom du joueur */}
-                                                        <p className="font-black text-lg mb-1 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                                                        <p className={`font-black text-lg mb-1 ${
+                                                            player.alive
+                                                                ? 'bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent'
+                                                                : 'text-gray-600 line-through'
+                                                        }`}>
                                                             {player.name}
                                                         </p>
 
                                                         {/* Statut */}
-                                                        <div className={`text-xs font-bold px-3 py-1 rounded-full inline-block ${player.alive ? 'bg-green-900/50 text-green-400 border border-green-700/50' : 'bg-gray-900/50 text-gray-500 border border-gray-700/50'}`}>
-                                                            {player.alive ? '💚 En vie' : '💀 Mort'}
+                                                        <div className={`text-xs font-bold px-3 py-1 rounded-full inline-block ${
+                                                            player.alive
+                                                                ? 'bg-green-900/50 text-green-400 border border-green-700/50'
+                                                                : 'bg-red-900/50 text-red-400 border border-red-700/50 animate-pulse'
+                                                        }`}>
+                                                            {player.alive ? '💚 En vie' : '🪦 Mort'}
                                                         </div>
                                                     </div>
 
@@ -1662,11 +1661,11 @@ function Game() {
                                     </div>
                                 </div>
 
-                                {/* Chat */}
-                                <div className="card h-96 flex flex-col" onFocus={() => setUnreadWolfMessages(0)} onClick={() => setUnreadWolfMessages(0)}>
+                                {/* Chat - Zone violette mystérieuse */}
+                                <div className="card h-96 flex flex-col border-l-4 border-purple-500/50 bg-gradient-to-br from-purple-900/10 to-transparent" onFocus={() => setUnreadWolfMessages(0)} onClick={() => setUnreadWolfMessages(0)}>
                                     <div className="flex justify-between items-center mb-3">
                                         <div className="flex items-center gap-2">
-                                            <h3 className="text-lg font-bold">💬 Chat</h3>
+                                            <h3 className="text-lg font-bold text-purple-300">💬 Chat</h3>
                                         </div>
                                     </div>
 
