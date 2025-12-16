@@ -8,6 +8,8 @@ import { ttsManager } from '../utils/ttsManager'
 import { vibrate, requestWakeLock, releaseWakeLock } from '../utils/mobile'
 import DeathAnimation from '../components/DeathAnimation'
 import CircularTimer from '../components/CircularTimer'
+import RoleCard from '../components/RoleCard'
+import ChatBubble from '../components/ChatBubble'
 
 function Game() {
     const { roomCode } = useParams()
@@ -1335,24 +1337,13 @@ function Game() {
                             {/* Jeu principal */}
                             <div className="lg:col-span-2 space-y-6">
 
-                                {/* Rôle du joueur */}
-                                <div className="card-glow text-center">
-                                    <div className="text-6xl mb-3 relative group">
-                                        {getRoleEmoji(myRole)}
-                                        {/* Tooltip */}
-                                        {myRole && (
-                                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-night-900 border border-blood-600 rounded-lg text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                                                💡 {getRoleDescription(myRole)}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <h2 className="text-3xl font-black text-blood mb-2">
-                                        {myRole ? myRole.charAt(0).toUpperCase() + myRole.slice(1) : 'Chargement...'}
-                                    </h2>
-                                    <p className="text-gray-400">
-                                        {myRole ? getRoleDescription(myRole) : 'En attente...'}
-                                    </p>
-                                </div>
+                                {/* Rôle du joueur - Carte à collectionner */}
+                                {myRole && (
+                                    <RoleCard
+                                        role={myRole}
+                                        description={getRoleDescription(myRole)}
+                                    />
+                                )}
 
                                 {/* Phase actuelle */}
                                 <div className={`card text-center ${phase === 'night' ? 'bg-gradient-to-r from-night-800 to-blood-900/50' :
@@ -1716,26 +1707,23 @@ function Game() {
                                                 </p>
                                             </div>
                                         ) : (
-                                            <div className="space-y-3">
+                                            <div className="space-y-4">
                                                 {(activeChat === 'village' ? messages : wolfMessages).map((msg, index) => {
                                                     const isMyMessage = msg.playerId === localStorage.getItem('playerId')
+                                                    const player = players.find(p => p.id === msg.playerId)
+                                                    const playerAvatar = player?.avatar || msg.playerAvatar || '😊'
+                                                    const playerRole = player?.role || 'villageois'
+
                                                     return (
-                                                        <div
+                                                        <ChatBubble
                                                             key={index}
-                                                            className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
-                                                            style={{ animationDelay: `${index * 0.05}s` }}
-                                                        >
-                                                            <div className={`chat-bubble ${isMyMessage ? 'chat-bubble-right' : 'chat-bubble-left'}`}>
-                                                                {!isMyMessage && (
-                                                                    <div className="text-xs font-bold text-blood-400 mb-1">
-                                                                        {msg.playerName}
-                                                                    </div>
-                                                                )}
-                                                                <div className={`text-sm ${isMyMessage ? 'text-gray-200' : 'text-gray-300'}`}>
-                                                                    {msg.message}
-                                                                </div>
-                                                            </div>
-                                                        </div>
+                                                            message={msg.message}
+                                                            isMyMessage={isMyMessage}
+                                                            playerAvatar={playerAvatar}
+                                                            playerName={msg.playerName}
+                                                            playerRole={playerRole}
+                                                            timestamp={msg.timestamp || Date.now()}
+                                                        />
                                                     )
                                                 })}
                                             </div>

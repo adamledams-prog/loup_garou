@@ -1105,3 +1105,44 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* ✨ Animation fade-in pour les messages */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+/* 💬 Smooth scroll pour le chat */
+.chat-scroll-smooth {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(220, 38, 38, 0.5) rgba(0, 0, 0, 0.2);
+}
+
+.chat-scroll-smooth::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-scroll-smooth::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+}
+
+.chat-scroll-smooth::-webkit-scrollbar-thumb {
+  background: rgba(220, 38, 38, 0.5);
+  border-radius: 10px;
+}
+
+.chat-scroll-smooth::-webkit-scrollbar-thumb:hover {
+  background: rgba(220, 38, 38, 0.7);
+}
