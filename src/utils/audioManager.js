@@ -184,33 +184,19 @@ class AudioManager {
   }
 
   /**
-   * 👶 Prénoms des neveux (joués aléatoirement pendant la partie)
+   * 👶 Prénoms des neveux (DÉSACTIVÉ - fichiers audio supprimés)
    */
   playRandomKidsName() {
-    const names = ['fatima.mp3', 'naim.mp3', 'sarah.mp3']
-    const randomName = names[Math.floor(Math.random() * names.length)]
-    if (import.meta.env.DEV) console.log(`👶 Lecture prénom: ${randomName}`)
-    return this.play(randomName, { volume: this.volume * 0.8 })
+    // Désactivé : les fichiers mp3 de prénoms ont été supprimés
+    return null
   }
 
   /**
-   * 👶 Démarrer les prénoms aléatoires pendant la partie
+   * 👶 Démarrer les prénoms aléatoires (DÉSACTIVÉ)
    */
   startRandomKidsNames() {
-    if (this.kidsNamesInterval) return // Déjà démarré
-
-    const playRandomName = () => {
-      if (this.enabled) {
-        this.playRandomKidsName()
-      }
-      // Rejouer entre 15 et 25 secondes (plus fréquent pour entendre les prénoms)
-      const nextDelay = 15000 + Math.random() * 10000
-      this.kidsNamesInterval = setTimeout(playRandomName, nextDelay)
-    }
-
-    // Premier nom après 5-10 secondes
-    const initialDelay = 5000 + Math.random() * 5000
-    this.kidsNamesInterval = setTimeout(playRandomName, initialDelay)
+    // Désactivé : les fichiers mp3 de prénoms ont été supprimés
+    return
   }
 
   stopRandomKidsNames() {
@@ -221,11 +207,11 @@ class AudioManager {
   }
 
   /**
-   * 🎨 Son choix d'avatar
+   * 🎨 Son choix d'avatar (DÉSACTIVÉ - fichier audio supprimé)
    */
   playAvatarChoice() {
-    if (import.meta.env.DEV) console.log('🎨 Lecture son choix avatar')
-    return this.play('choix_avatars_ambiance.mp3', { volume: this.volume * 1.0 }) // Volume max pour bien entendre
+    // Désactivé : le fichier mp3 a été supprimé
+    return null
   }
 
   /**
