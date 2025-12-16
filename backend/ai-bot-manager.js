@@ -54,7 +54,14 @@ class AIBotManager {
 
         try {
             const context = generateContext(room, bot, phase, this.recentEvents);
-            const systemPrompt = systemPrompts[bot.role] || systemPrompts.villageois;
+            let systemPrompt = systemPrompts[bot.role] || systemPrompts.villageois;
+
+            // 🎭 Ajouter la personnalité au prompt si le bot en a une
+            if (bot.personality) {
+                const personalities = require('./bot-personalities');
+                systemPrompt = personalities.getPersonalizedPrompt(systemPrompt, bot.personality);
+            }
+
             const prompt = systemPrompt.replace('{{context}}', context);
 
             // Récupérer l'historique du bot (garder 5 derniers messages max)

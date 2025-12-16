@@ -116,6 +116,7 @@ class BotPlayer {
     constructor(room) {
         this.room = room;
         this.botNames = ['🤖 Robo', '🤖 Beep', '🤖 Chip', '🤖 Data', '🤖 Wall-E', '🤖 R2D2'];
+        this.personalities = require('./bot-personalities'); // 🎭 Importer les personnalités
     }
 
     // Obtenir un nom aléatoire non utilisé
@@ -134,7 +135,10 @@ class BotPlayer {
         }
 
         const botId = `bot_${uuidv4()}`;
-        const botName = this.getRandomName();
+
+        // 🎭 Assigner une personnalité unique
+        const personality = this.personalities.getRandomPersonality();
+        const botName = `${personality.emoji} ${personality.name}`;
 
         this.room.players.set(botId, {
             id: botId,
@@ -145,12 +149,14 @@ class BotPlayer {
             alive: true,
             socketId: 'bot', // Identifier comme bot
             isBot: true,
+            personality: personality, // 🎭 Stocker la personnalité
             stats: {
                 messagesCount: 0,
                 votesReceived: 0,
                 votesGiven: 0,
                 nightsAlive: 0
-            }
+            },
+            suspicionScore: 0 // 📊 Score de suspicion
         });
 
         return { success: true, botId, botName };
