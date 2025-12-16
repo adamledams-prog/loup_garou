@@ -314,12 +314,14 @@ class GameRoom {
             role: null,
             alive: true,
             socketId: null,
+            isBot: false, // 🤖 Marqueur pour distinguer humains/bots
             stats: {
                 messagesCount: 0,
                 votesReceived: 0,
                 votesGiven: 0,
                 nightsAlive: 0
-            }
+            },
+            suspicionScore: 0 // 📊 Score de suspicion (0-100)
         });
         this.gameStarted = false;
         this.gameEnded = false; // 🎮 Flag pour savoir si le game over a été atteint
@@ -362,12 +364,14 @@ class GameRoom {
             role: null,
             alive: true,
             socketId: socketId,
+            isBot: false, // 🤖 Marqueur pour distinguer humains/bots
             stats: {
                 messagesCount: 0,
                 votesReceived: 0,
                 votesGiven: 0,
                 nightsAlive: 0
-            }
+            },
+            suspicionScore: 0 // 📊 Score de suspicion (0-100)
         });
 
         return { success: true };
@@ -465,6 +469,43 @@ class GameRoom {
             player.role = roles[index];
             player.alive = true;
             index++;
+        }
+    }
+
+    // 📊 Calculer les scores de suspicion automatiquement
+    updateSuspicionScores() {
+        for (const player of this.players.values()) {
+            if (!player.alive) continue;
+
+            let score = 0;
+
+            // 📈 +20 si silencieux (peu de messages)
+            if (player.stats.messagesCount < 2) {
+                score += 20;
+            }
+
+            // 📈 +15 si a reçu beaucoup de votes
+            if (player.stats.votesReceived >= 2) {
+                score += 15;
+            }
+
+            // 📉 -10 si très actif (beaucoup de messages)
+            if (player.stats.messagesCount >= 5) {
+                score -= 10;
+            }
+
+            // 📉 -15 si survit depuis longtemps (pourrait être innocent)
+            if (player.stats.nightsAlive >= 3) {
+                score -= 15;
+            }
+
+            // 🛡️ Protection joueur humain : divisé par 2
+            if (!player.isBot) {
+                score = Math.floor(score / 2);
+            }
+
+            // Limiter entre 0 et 100
+            player.suspicionScore = Math.max(0, Math.min(100, score));
         }
     }
 
@@ -1385,11 +1426,16 @@ function startPhaseTimer(room, phaseDuration = 60) {
                 // Passer au vote après discussion
                 room.phase = 'vote';
                 room.gameState.votes = {}; // ✅ Réinitialiser les votes au début de la phase
+
+                // 📊 Calculer les scores de suspicion avant le vote
+                room.updateSuspicionScores();
+
                 io.to(room.code).emit('votePhase', {
                     players: Array.from(room.players.values()).map(p => ({
                         id: p.id,
                         name: p.name,
-                        alive: p.alive
+                        alive: p.alive,
+                        suspicionScore: p.suspicionScore || 0 // 📊 Envoyer le score
                     }))
                 });
 

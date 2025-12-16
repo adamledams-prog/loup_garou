@@ -202,13 +202,42 @@ Réponds UNIQUEMENT avec le NOM EXACT du joueur à éliminer (rien d'autre, just
         }
     }
 
-    // Vote aléatoire de secours
+    // Vote intelligent basé sur le score de suspicion
     getFallbackVote(room, bot) {
         const alivePlayers = Array.from(room.players.values())
             .filter(p => p.alive && p.id !== bot.id);
 
         if (alivePlayers.length === 0) return null;
 
+        // 📊 Voter selon le score de suspicion (avec un peu d'aléatoire)
+        // 80% chance de voter pour le plus suspect, 20% chance aléatoire
+        if (Math.random() < 0.8) {
+            // Trier par score de suspicion décroissant
+            const sortedBySuspicion = [...alivePlayers].sort((a, b) => {
+                const scoreA = a.suspicionScore || 0;
+                const scoreB = b.suspicionScore || 0;
+                return scoreB - scoreA;
+            });
+
+            // 🛡️ Si bot est loup, éviter de voter pour l'humain sauf si très suspect
+            if (bot.role === 'loup') {
+                const humanTarget = sortedBySuspicion.find(p => !p.isBot);
+                if (humanTarget && humanTarget.suspicionScore < 60) {
+                    // Humain pas assez suspect, chercher un bot suspect
+                    const botTarget = sortedBySuspicion.find(p => p.isBot);
+                    if (botTarget) {
+                        console.log(`🐺 ${bot.name} (loup) évite l'humain ${humanTarget.name} (score: ${humanTarget.suspicionScore}) et vote ${botTarget.name}`);
+                        return botTarget.id;
+                    }
+                }
+            }
+
+            const target = sortedBySuspicion[0];
+            console.log(`🤖📊 ${bot.name} vote pour ${target.name} (suspicion: ${target.suspicionScore || 0})`);
+            return target.id;
+        }
+
+        // 20% vote aléatoire (pour l'imprévisibilité)
         const target = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
         console.log(`🤖🎲 ${bot.name} vote aléatoirement pour ${target.name}`);
         return target.id;
