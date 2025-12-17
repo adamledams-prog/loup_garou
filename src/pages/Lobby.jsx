@@ -163,6 +163,9 @@ function Lobby() {
             'cupidon': '💘',
             'riche': '💰',
             'livreur': '📦',
+            'corbeau': '🦅',
+            'ivrogne': '🍺',
+            'parrain': '🕴️',
             'villageois': '👤'
         }
         return emojiMap[role] || '❓'
@@ -261,6 +264,49 @@ function Lobby() {
             ],
             tips: 'Protégez les rôles importants révélés !',
             difficulty: 'Moyen'
+        },
+        'corbeau': {
+            name: 'Corbeau',
+            emoji: '🦅',
+            team: 'Village',
+            description: 'Accusez secrètement un joueur chaque nuit pour semer le doute.',
+            powers: [
+                'Désigne un joueur suspect chaque nuit',
+                'Le joueur accusé aura +2 votes contre lui au vote',
+                'Annoncé publiquement au lever du jour',
+                'Crée de la paranoïa et des fausses pistes'
+            ],
+            tips: 'Utilisez vos accusations pour manipuler les votes !',
+            difficulty: 'Difficile'
+        },
+        'ivrogne': {
+            name: 'Ivrogne',
+            emoji: '🍺',
+            team: 'Village',
+            description: 'Tellement bourré que vous échangez de rôle la première nuit !',
+            powers: [
+                'Échange SECRÈTEMENT de rôle avec un joueur random (1ère nuit)',
+                'Personne ne sait l\'échange (même pas l\'autre joueur)',
+                'Découvre son VRAI rôle au 2ème jour',
+                'Confusion totale garantie'
+            ],
+            tips: 'Préparez-vous à la surprise... 🍺',
+            difficulty: 'Moyen'
+        },
+        'parrain': {
+            name: 'Parrain',
+            emoji: '🕴️',
+            team: 'Neutre',
+            description: 'Chef de la mafia ! Recrutez des complices ou éliminez vos ennemis.',
+            powers: [
+                'Camp NEUTRE : gagne seul ou avec les loups',
+                'Recrute un complice chaque nuit (ils le connaissent)',
+                'OU élimine quelqu\'un comme les loups',
+                'Victoire si Parrain + Complices = majorité',
+                'OU si les loups gagnent avec lui vivant'
+            ],
+            tips: 'Mafia vs Loups vs Village - 3 camps ! 🕴️',
+            difficulty: 'Expert'
         },
         'villageois': {
             name: 'Villageois',
@@ -1051,6 +1097,9 @@ function Lobby() {
                                                 { id: 'cupidon', emoji: '💘', label: 'Cupidon', minPlayers: 4 },
                                                 { id: 'riche', emoji: '💰', label: 'Riche', minPlayers: 0 },
                                                 { id: 'livreur', emoji: '🍕', label: 'Livreur', minPlayers: 0 },
+                                                { id: 'corbeau', emoji: '🦅', label: 'Corbeau', minPlayers: 0 },
+                                                { id: 'ivrogne', emoji: '🍺', label: 'Ivrogne', minPlayers: 4 },
+                                                { id: 'parrain', emoji: '🕴️', label: 'Parrain', minPlayers: 5 },
                                             ].map(role => {
                                                 const isSelected = selectedRoles.includes(role.id)
                                                 const isDisabled = role.minPlayers > 0 && players.length < role.minPlayers
