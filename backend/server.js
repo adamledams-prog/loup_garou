@@ -1912,6 +1912,25 @@ function processVotes(room) {
         eliminatedId = null;
     }
 
+    // Si personne n'a la majorité (pas assez de votes)
+    if (!eliminatedId && maxVotes > 0 && maxVotes < Math.ceil(Array.from(room.players.values()).filter(p => p.alive).length / 2)) {
+        const topVoted = room.players.get(tiedPlayers[0]);
+        emitNarration(io, room.code, `⚖️ Pas assez de votes ! ${topVoted.name} n'a que ${maxVotes} vote(s), il en faut ${Math.ceil(Array.from(room.players.values()).filter(p => p.alive).length / 2)} pour éliminer.`, 'info', 5000);
+
+        io.to(room.code).emit('voteResult', {
+            noMajority: true,
+            topVoted: {
+                id: topVoted.id,
+                name: topVoted.name,
+                votes: maxVotes
+            },
+            votesNeeded: Math.ceil(Array.from(room.players.values()).filter(p => p.alive).length / 2),
+            votes: voteCounts,
+            message: `Pas de majorité ! ${topVoted.name} n'a que ${maxVotes} vote(s).`
+        });
+        eliminatedId = null;
+    }
+
     if (eliminatedId) {
         const player = room.players.get(eliminatedId);
 
@@ -2084,7 +2103,8 @@ function calculateGameStats(room) {
 function checkWinCondition(room) {
     const alivePlayers = Array.from(room.players.values()).filter(p => p.alive);
     const aliveWolves = alivePlayers.filter(p => p.role === 'loup');
-    const aliveVillagers = alivePlayers.filter(p => p.role !== 'loup');
+    // ⚠️ Le Parrain est un rôle NEUTRE, pas un villageois !
+    const aliveVillagers = alivePlayers.filter(p => p.role !== 'loup' && p.role !== 'parrain');
 
     // 🕴️ Vérifier victoire du Parrain (lui + complices = majorité OU loups gagnent avec lui vivant)
     const parrain = alivePlayers.find(p => p.role === 'parrain');
